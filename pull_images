@@ -1,0 +1,4 @@
+docker pull intermine/solr
+docker pull intermine/postgres
+docker pull intermine/tomcat
+docker pull agrdocker/agr_java_software:intermine

@@ -1,0 +1,1 @@
+docker build -t intermine_builder -f intermine_builder/intermine_builder.Dockerfile ./intermine_builder 

@@ -1,0 +1,3 @@
+docker rm intermine_tomcat
+docker rm intermine_solr
+docker rm intermine_postgres
