@@ -2,7 +2,7 @@ docker run -it -e MINE_NAME=alliancemine \
 	--net build \
 	-v intermine_data:/home/intermine/intermine/data \
 	-e MINE_NAME=alliancemine \
-	-e MINE_REPO_URL=https://github.com/yeastgenome/alliancemine.git \
+	-e MINE_REPO_URL=https://github.com/alliance-genome/alliancemine.git \
 	-e PGHOST=intermine_postgres \
 	-e SOLR_HOST=intermine_solr \
 	-e TOMCAT_HOST=intermine_tomcat intermine_builder
