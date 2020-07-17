@@ -3,6 +3,7 @@
 set -e
 
 mkdir /home/intermine/.intermine
+mkdir /home/intermine/.m2
 
 cd /home/intermine/intermine
 
@@ -57,16 +58,17 @@ if [ ! -z ${BIO_VERSION} ]; then
     sed -i "s/\(systemProp\.bioVersion=\).*\$/\1${BIO_VERSION}/" /home/intermine/intermine/${MINE_NAME:-biotestmine}/gradle.properties
 fi
 
-## clone bio sources repo if url is given
-#if [ ! -z "$BIOSOURCES_REPO_URL" ]; then
-#    echo "$(date +%Y/%m/%d-%H:%M) Clone ${BIOSOURCES_REPO_URL}"
-#    git clone ${BIOSOURCES_REPO_URL} $MINE_NAME-bio-sources
-#    # build and install bio sources
-#    cd /home/intermine/intermine/$MINE_NAME-bio-sources
-#    echo "$(date +%Y/%m/%d-%H:%M) Building and Installing bio sources"
-#    ./gradlew clean -Dorg.gradle.project.release=dev --stacktrace
-#    ./gradlew install --stacktrace
-#fi
+# clone bio sources repo if url is given
+if [ ! -z "$BIOSOURCES_REPO_URL" ]; then
+    echo "$(date +%Y/%m/%d-%H:%M) Clone ${BIOSOURCES_REPO_URL}"
+    git clone ${BIOSOURCES_REPO_URL} $MINE_NAME-bio-sources
+    # build and install bio sources
+    cd /home/intermine/intermine/$MINE_NAME-bio-sources
+    echo "$(date +%Y/%m/%d-%H:%M) Building and Installing bio sources"
+    ./gradlew clean --stacktrace
+    ./gradlew install --stacktrace
+    cd /home/intermine/intermine
+fi
 
 # Copy project_build from intermine_scripts repo
 if [ ! -f /home/intermine/intermine/${MINE_NAME:-biotestmine}/project_build ]; then

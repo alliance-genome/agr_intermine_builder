@@ -63,7 +63,7 @@ RUN mkdir /home/intermine && mkdir /home/intermine/intermine
 RUN chmod -R 777 /home/intermine
 
 ENV MEM_OPTS="-Xmx24g -Xms12g"
-ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/home/intermine"
+ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/home/intermine"
 ENV HOME="/home/intermine"
 ENV USER_HOME="/home/intermine"
 ENV GRADLE_USER_HOME="/home/intermine/.gradle"
