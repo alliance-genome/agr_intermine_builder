@@ -79,4 +79,5 @@ RUN chmod a+rx /home/intermine/build.sh
 WORKDIR /home/intermine/intermine
 CMD ["cd WORKDIR"]
 CMD ["ln -s alliancemine/data"]
+CMD ["ln -s /home/intermine/.m2 /root/.m2"]
 CMD ["/bin/sh","/home/intermine/build.sh"]
