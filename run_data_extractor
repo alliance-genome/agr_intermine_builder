@@ -1,4 +1,4 @@
 docker run -it -v intermine_data:/data \
 	-e EXTRACTOR_OUTPUTDIR=/data \
 	-e NEO4J_HOST=stage.alliancegenome.org \
-	agrdocker/agr_java_software:intermine java -jar agr_intermine_data_extractor/target/agr_intermine_data_extractor-jar-with-dependencies.jar FMSExtractor GeneExtractor
+	agrdocker/agr_java_software:intermine java -jar agr_intermine_data_extractor/target/agr_intermine_data_extractor-jar-with-dependencies.jar  GeneExtractor

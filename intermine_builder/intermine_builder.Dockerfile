@@ -59,14 +59,14 @@ RUN cpanm --force Ouch \
                 #  Digest::MD5 \
                 #  Log::Handler
 
-RUN mkdir /home/intermine && mkdir /home/intermine/intermine
-RUN chmod -R 777 /home/intermine
+# RUN mkdir /home/intermine && mkdir /home/intermine/intermine
+# RUN chmod -R 777 /home/intermine
 
-ENV MEM_OPTS="-Xmx24g -Xms12g"
-ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/home/intermine"
-ENV HOME="/home/intermine"
-ENV USER_HOME="/home/intermine"
-ENV GRADLE_USER_HOME="/home/intermine/.gradle"
+ENV MEM_OPTS="-Xmx12g -Xms2g"
+ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/root"
+ENV HOME="/root"
+ENV USER_HOME="/root"
+ENV GRADLE_USER_HOME="/root/.gradle"
 ENV PSQL_USER="postgres"
 ENV PSQL_PWD="postgres"
 ENV TOMCAT_USER="tomcat"
@@ -74,10 +74,7 @@ ENV TOMCAT_PWD="tomcat"
 ENV TOMCAT_PORT=8080
 ENV PGPORT=5432
 
-COPY ./build.sh /home/intermine
-RUN chmod a+rx /home/intermine/build.sh
-WORKDIR /home/intermine/intermine
-CMD ["cd WORKDIR"]
-CMD ["ln -s alliancemine/data"]
-CMD ["ln -s /home/intermine/.m2 /root/.m2"]
-CMD ["/bin/sh","/home/intermine/build.sh"]
+COPY ./build.sh /root
+RUN chmod a+rx /root/build.sh
+WORKDIR /root
+CMD ["/bin/sh","/root/build.sh"]
