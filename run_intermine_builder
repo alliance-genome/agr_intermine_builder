@@ -1,7 +1,6 @@
 docker run -it -e MINE_NAME=alliancemine \
 	--net build \
-	-v intermine_data:/home/intermine/intermine/data \
-        -v intermine_packages:/root/.m2 \
+	-v intermine_data:/root/data \
 	-e MINE_NAME=alliancemine \
 	-e MINE_REPO_URL=https://github.com/alliance-genome/alliancemine.git \
 	-e BIOSOURCES_REPO_URL=https://github.com/alliance-genome/alliancemine-bio-sources.git \

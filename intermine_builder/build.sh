@@ -2,13 +2,11 @@
 
 set -e
 
-mkdir /home/intermine/.intermine
-mkdir /home/intermine/.m2
-
-cd /home/intermine/intermine
+mkdir /root/.intermine
+cd /root/
 
 # Empty log
-echo "" > /home/intermine/intermine/build.progress
+echo "" > /root/build.progress
 
 # Build InterMine if any of the envvars are specified.
 if [ ! -z ${IM_REPO_URL} ] || [ ! -z ${IM_REPO_BRANCH} ]; then
@@ -29,7 +27,7 @@ if [ ! -z ${IM_REPO_URL} ] || [ ! -z ${IM_REPO_BRANCH} ]; then
     IM_VERSION=$(sed -n "s/^\s*version.*\+'\(.*\)'\s*$/\1/p" intermine/build.gradle)
     BIO_VERSION=$(sed -n "s/^\s*version.*\+'\(.*\)'\s*$/\1/p" bio/build.gradle)
 
-    cd /home/intermine/intermine
+    cd /root/
 fi
 
 
@@ -40,7 +38,7 @@ if [ -d ${MINE_NAME:-biotestmine} ] && [ ! -z "$(ls -A ${MINE_NAME:-biotestmine}
     echo "$(date +%Y/%m/%d-%H:%M) Update ${MINE_NAME:-biotestmine} to newest version" #>> /home/intermine/intermine/build.progress
     cd ${MINE_NAME:-biotestmine}
     # git pull
-    cd /home/intermine/intermine
+    cd /root/
 else
     # echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}" #>> /home/intermine/intermine/build.progress
     echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}"
@@ -52,10 +50,10 @@ fi
 # If InterMine or Bio versions have been set (likely because of a custom
 # InterMine build), update gradle.properties in the mine.
 if [ ! -z ${IM_VERSION} ]; then
-    sed -i "s/\(systemProp\.imVersion=\).*\$/\1${IM_VERSION}/" /home/intermine/intermine/${MINE_NAME:-biotestmine}/gradle.properties
+    sed -i "s/\(systemProp\.imVersion=\).*\$/\1${IM_VERSION}/" /root/${MINE_NAME:-biotestmine}/gradle.properties
 fi
 if [ ! -z ${BIO_VERSION} ]; then
-    sed -i "s/\(systemProp\.bioVersion=\).*\$/\1${BIO_VERSION}/" /home/intermine/intermine/${MINE_NAME:-biotestmine}/gradle.properties
+    sed -i "s/\(systemProp\.bioVersion=\).*\$/\1${BIO_VERSION}/" /root/${MINE_NAME:-biotestmine}/gradle.properties
 fi
 
 # clone bio sources repo if url is given
@@ -63,66 +61,45 @@ if [ ! -z "$BIOSOURCES_REPO_URL" ]; then
     echo "$(date +%Y/%m/%d-%H:%M) Clone ${BIOSOURCES_REPO_URL}"
     git clone ${BIOSOURCES_REPO_URL} $MINE_NAME-bio-sources
     # build and install bio sources
-    cd /home/intermine/intermine/$MINE_NAME-bio-sources
+    cd /root/$MINE_NAME-bio-sources
     echo "$(date +%Y/%m/%d-%H:%M) Building and Installing bio sources"
     ./gradlew clean --stacktrace
     ./gradlew install --stacktrace
-    cd /home/intermine/intermine
+    cd /root
 fi
 
 # Copy project_build from intermine_scripts repo
-if [ ! -f /home/intermine/intermine/${MINE_NAME:-biotestmine}/project_build ]; then
+if [ ! -f /root/${MINE_NAME:-biotestmine}/project_build ]; then
     echo "$(date +%Y/%m/%d-%H:%M) Cloning intermine scripts repo to /home/intermine/intermine/intermine-scripts"
     git clone https://github.com/intermine/intermine-scripts
     echo "$(date +%Y/%m/%d-%H:%M) Copy project_build to /home/intermine/intermine/${MINE_NAME:-biotestmine}"
-    cp /home/intermine/intermine/intermine-scripts/project_build /home/intermine/intermine/${MINE_NAME:-biotestmine}/project_build
-    chmod +x /home/intermine/intermine/${MINE_NAME:-biotestmine}/project_build
+    cp /root/intermine-scripts/project_build /root/${MINE_NAME:-biotestmine}/project_build
+    chmod +x /root/${MINE_NAME:-biotestmine}/project_build
 fi
 
 # Copy mine properties
-if [ ! -f /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
+if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
         echo "$(date +%Y/%m/%d-%H:%M) Copy ${MINE_NAME:-biotestmine}.properties to ~/.intermine/${MINE_NAME:-biotestmine}.properties"
-        cp /home/intermine/intermine/alliancemine/${MINE_NAME:-biotestmine}.properties /home/intermine/.intermine/
+        cp /root/alliancemine/${MINE_NAME:-biotestmine}.properties /root/.intermine/
     echo -e "$(date +%Y/%m/%d-%H:%M) Set properties in .intermine/${MINE_NAME:-biotestmine}.properties to\nPSQL_DB_NAME\tbiotestmine\nPSQL_USER\t$PSQL_USER\nPSQL_PWD\t$PSQL_PWD\nTOMCAT_USER\t$TOMCAT_USER\nTOMCAT_PWD\t$TOMCAT_PWD\nGRADLE_OPTS\t$GRADLE_OPTS" #>> /home/intermine/intermine/build.progress
 
     #sed -i "s/PSQL_PORT/$PGPORT/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/PSQL_DB_NAME/${MINE_NAME:-biotestmine}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/PSQL_USER/${PSQL_USER:-postgres}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/PSQL_PWD/${PSQL_PWD:-postgres}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/TOMCAT_USER/${TOMCAT_USER:-tomcat}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/TOMCAT_PWD/${TOMCAT_PWD:-tomcat}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/serverName=localhost/serverName=${PGHOST:-postgres}:${PGPORT:-5432}/g" /home/intermine/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/PSQL_DB_NAME/${MINE_NAME:-biotestmine}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/PSQL_USER/${PSQL_USER:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/PSQL_PWD/${PSQL_PWD:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/TOMCAT_USER/${TOMCAT_USER:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/TOMCAT_PWD/${TOMCAT_PWD:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/serverName=localhost/serverName=${PGHOST:-postgres}:${PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
 fi
 
 # Copy mine configs
-if [ ! -f /home/intermine/intermine/${MINE_NAME:-biotestmine}/project.xml ]; then
+if [ ! -f /root/${MINE_NAME:-biotestmine}/project.xml ]; then
     echo "$(date +%Y/%m/%d-%H:%M) Set correct source path in alliance else ***** project.xml"
     #cp /home/intermine/intermine/alliancemine/data/project.xml /home/intermine/intermine/alliancemine/
     #sed -i "s~${IM_DATA_DIR:-DATA_DIR}~/home/intermine/intermine/data~g" /home/intermine/intermine/${MINE_NAME:-biotestmine}/project.xml
-    sed -i 's/dump="true"/dump="false"/g' /home/intermine/intermine/${MINE_NAME:-biotestmine}/project.xml
+    sed -i 's/dump="true"/dump="false"/g' /root/${MINE_NAME:-biotestmine}/project.xml
 fi
-
-## Copy data
-#if [ -d /home/intermine/intermine/alliancemine/data ]; then
-#    echo "$(date +%Y/%m/%d-%H:%M) found user data directory"
-#        cd /home/intermine/intermine/alliancemine/data/
-#        tar -xf alliancemine-data.tar.gz
-#        rm alliancemine-data.tar.gz
-#        cd /home/intermine/intermine
-#else
-#    echo "$(date +%Y/%m/%d-%H:%M) No user data directory found"
-#    if [ ! -d /home/intermine/intermine/data/malaria ]; then
-#        echo "$(date +%Y/%m/%d-%H:%M) Copy malria-data to ~/data" #>> /home/intermine/intermine/build.progress
-#        mkdir -p /home/intermine/intermine/data/
-#        cp /home/intermine/intermine/biotestmine/data/malaria-data.tar.gz /home/intermine/intermine/data/
-#        cd /home/intermine/intermine/data/
-#        tar -xf malaria-data.tar.gz
-#        rm malaria-data.tar.gz
-#        cd /home/intermine/intermine
-#    fi
-#fi
-
 
 echo "$(date +%Y/%m/%d-%H:%M) Connect and create Postgres databases" #>> /home/intermine/intermine/build.progress
 
@@ -162,7 +139,7 @@ psql -U postgres -h ${PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"u
 cd ${MINE_NAME:-biotestmine}
 
 echo "$(date +%Y/%m/%d-%H:%M) Running project_build script"
-./project_build -b -T localhost /home/intermine/intermine/dump/dump
+./project_build -b -T localhost /root/dump/dump
 
 echo "$(date +%Y/%m/%d-%H:%M) Gradle: build userDB" #>> /home/intermine/intermine/build.progress
 ./gradlew buildUserDB --stacktrace #>> /home/intermine/intermine/build.progress
