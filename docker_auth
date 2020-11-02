@@ -1,0 +1,1 @@
+docker run --rm -it amazon/aws-cli ecr get-login-password | docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
