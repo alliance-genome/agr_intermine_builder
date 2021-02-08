@@ -62,7 +62,7 @@ RUN cpanm --force Ouch \
 # RUN mkdir /home/intermine && mkdir /home/intermine/intermine
 # RUN chmod -R 777 /home/intermine
 
-ENV MEM_OPTS="-Xmx48g -Xms2g"
+ENV MEM_OPTS="-Xmx12g -Xms2g"
 ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/root"
 ENV HOME="/root"
 ENV USER_HOME="/root"
