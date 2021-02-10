@@ -148,5 +148,5 @@ echo "$(date +%Y/%m/%d-%H:%M) Gradle: build webapp" #>> /home/intermine/intermin
 # ./gradlew clean
 #both needed for now..
 #./gradlew cargoDeployRemote
-sleep 60
+#sleep 60
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
