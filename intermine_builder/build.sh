@@ -150,3 +150,5 @@ echo "$(date +%Y/%m/%d-%H:%M) Gradle: build webapp" #>> /home/intermine/intermin
 #./gradlew cargoDeployRemote
 #sleep 60
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
+sleep 60
+./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
