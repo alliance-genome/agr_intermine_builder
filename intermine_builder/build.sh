@@ -135,7 +135,6 @@ psql -U postgres -h ${PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE ${M
 psql -U postgres -h ${PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"items-${MINE_NAME:-biotestmine}\" to ${PSQL_USER:-postgres};"
 psql -U postgres -h ${PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"userprofile-${MINE_NAME:-biotestmine}\" to ${PSQL_USER:-postgres};"
 
-
 cd ${MINE_NAME:-biotestmine}
 
 echo "$(date +%Y/%m/%d-%H:%M) Running project_build script"
@@ -146,9 +145,7 @@ echo "$(date +%Y/%m/%d-%H:%M) Gradle: build userDB" #>> /home/intermine/intermin
 
 echo "$(date +%Y/%m/%d-%H:%M) Gradle: build webapp" #>> /home/intermine/intermine/build.progress
 # ./gradlew clean
-#both needed for now..
 #./gradlew cargoDeployRemote
-#sleep 60
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
 sleep 60
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
