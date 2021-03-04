@@ -11,3 +11,4 @@ FROM nginx
 WORKDIR /usr/share/nginx/html
 
 COPY --from=buildstage /workdir/cdn/CDN /usr/share/nginx/html
+
