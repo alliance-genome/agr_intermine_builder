@@ -1,3 +1,3 @@
-docker run -d --net build -p 8080:8080 -e JAVA_OPTS="-Dorg.apache.el.parser.SKIP_IDENTIFIER_CHECK=true -Xmx2g -Xms1g -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1 -XX:MaxHeapFreeRatio=99" -e MEM_OPTS="-Xmx1g -Xms500m" --name intermine_tomcat intermine/tomcat
-docker run -d --net build -p 8983:8983 -e MEM_OPTS="-Xmx2g -Xms1g" --name intermine_solr -e MINE_NAME="alliancemine" intermine/solr
+docker run -d --net build -p 8080:8080 --name intermine_tomcat 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:latest 
+docker run -d --net build -p 8983:8983 --name intermine_solr -e MINE_NAME="alliancemine" 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:latest 
 docker run -d --net build -p 5432:5432 --name intermine_postgres intermine/postgres
