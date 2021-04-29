@@ -90,7 +90,7 @@ if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
     sed -i "s/TOMCAT_USER/${TOMCAT_USER:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/TOMCAT_PWD/${TOMCAT_PWD:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/serverName=localhost/serverName=${INTERMINE_PGHOST:-postgres}:${PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/serverName=INTERMINE_PGHOST/serverName=${INTERMINE_PGHOST:-postgres}:${PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
 fi
 
 # Copy mine configs
@@ -112,7 +112,7 @@ done
 echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is up - executing command"
 
 # Close all open connections to database
-psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid();"
+#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid();"
 
 echo "$(date +%Y/%m/%d-%H:%M) Database is now available ..." #>> /home/intermine/intermine/build.progress
 echo "$(date +%Y/%m/%d-%H:%M) Reset databases and roles" #>> /home/intermine/intermine/build.progress
@@ -124,13 +124,13 @@ psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "DROP DATABASE IF EXISTS \"
 
 # Create Databases
 echo "$(date +%Y/%m/%d-%H:%M) Creating postgres database tables and roles.." #>> /home/intermine/intermine/build.progress
-psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "ALTER USER ${INTERMINE_PSQL_USER:-postgres} WITH SUPERUSER;"
+#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "ALTER USER ${INTERMINE_PSQL_USER:-postgres} WITH SUPERUSER;"
 psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"${MINE_NAME:-biotestmine}\";"
 psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"items-${MINE_NAME:-biotestmine}\";"
 psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"userprofile-${MINE_NAME:-biotestmine}\";"
-psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE ${MINE_NAME:-biotestmine} to ${INTERMINE_PSQL_USER:-postgres};"
-psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"items-${MINE_NAME:-biotestmine}\" to ${INTERMINE_PSQL_USER:-postgres};"
-psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"userprofile-${MINE_NAME:-biotestmine}\" to ${INTERMINE_PSQL_USER:-postgres};"
+#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE ${MINE_NAME:-biotestmine} to ${INTERMINE_PSQL_USER:-postgres};"
+#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"items-${MINE_NAME:-biotestmine}\" to ${INTERMINE_PSQL_USER:-postgres};"
+#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"userprofile-${MINE_NAME:-biotestmine}\" to ${INTERMINE_PSQL_USER:-postgres};"
 
 cd ${MINE_NAME:-biotestmine}
 
