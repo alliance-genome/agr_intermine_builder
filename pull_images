@@ -1,4 +1,4 @@
 docker pull intermine/solr
-docker pull intermine/postgres
+#docker pull intermine/postgres
 docker pull intermine/tomcat
 docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_java_software:latest
