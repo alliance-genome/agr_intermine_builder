@@ -96,20 +96,18 @@ fi
 # Copy mine configs
 if [ ! -f /root/${MINE_NAME:-biotestmine}/project.xml ]; then
     echo "$(date +%Y/%m/%d-%H:%M) Set correct source path in alliance else ***** project.xml"
-    #cp /home/intermine/intermine/alliancemine/data/project.xml /home/intermine/intermine/alliancemine/
-    #sed -i "s~${IM_DATA_DIR:-DATA_DIR}~/home/intermine/intermine/data~g" /home/intermine/intermine/${MINE_NAME:-biotestmine}/project.xml
     sed -i 's/dump="true"/dump="false"/g' /root/${MINE_NAME:-biotestmine}/project.xml
 fi
 
-echo "$(date +%Y/%m/%d-%H:%M) Connect and create Postgres databases" #>> /home/intermine/intermine/build.progress
+#echo "$(date +%Y/%m/%d-%H:%M) Connect and create Postgres databases" #>> /home/intermine/intermine/build.progress
 
 # # Wait for database
 # dockerize -wait tcp://postgres:$PGPORT -timeout 60s
-until psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c '\l'; do
-  echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is unavailable - sleeping"
-  sleep 1
-done
-echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is up - executing command"
+#until PGPASSWORD=${INTERMINE_PSQL_PWD:-postgres}; psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c '\l'; do
+#  echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is unavailable - sleeping"
+# sleep 1
+#done
+#echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is up - executing command"
 
 # Close all open connections to database
 #psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid();"
@@ -123,7 +121,7 @@ echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is up - executing command"
 #psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "DROP DATABASE IF EXISTS \"userprofile-${MINE_NAME:-biotestmine}\";"
 
 # Create Databases
-echo "$(date +%Y/%m/%d-%H:%M) Creating postgres database tables and roles.." #>> /home/intermine/intermine/build.progress
+#echo "$(date +%Y/%m/%d-%H:%M) Creating postgres database tables and roles.." #>> /home/intermine/intermine/build.progress
 #psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "ALTER USER ${INTERMINE_PSQL_USER:-postgres} WITH SUPERUSER;"
 #psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"${MINE_NAME:-biotestmine}\";"
 #psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"items-${MINE_NAME:-biotestmine}\";"
