@@ -82,7 +82,7 @@ fi
 if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
         echo "$(date +%Y/%m/%d-%H:%M) Copy ${MINE_NAME:-biotestmine}.properties to ~/.intermine/${MINE_NAME:-biotestmine}.properties"
         cp /root/alliancemine/${MINE_NAME:-biotestmine}.properties /root/.intermine/
-    echo -e "$(date +%Y/%m/%d-%H:%M) Set properties in .intermine/${MINE_NAME:-biotestmine}.properties to\nPSQL_DB_NAME\tbiotestmine\nINTERMINE_PGUSER\t$INTERMINE_PGUSER\nINTERMINE_PSQL_PWD\t$INTERMINE_PGPASSWORD\nTOMCAT_USER\t$TOMCAT_USER\nTOMCAT_PWD\t$TOMCAT_PWD\nGRADLE_OPTS\t$GRADLE_OPTS" #>> /home/intermine/intermine/build.progress
+    echo -e "$(date +%Y/%m/%d-%H:%M) Set properties in .intermine/${MINE_NAME:-biotestmine}.properties to\nPSQL_DB_NAME\tbiotestmine\nINTERMINE_PGUSER\t$INTERMINE_PGUSER\nINTERMINE_PGPASSWORD\t$INTERMINE_PGPASSWORD\nTOMCAT_USER\t$TOMCAT_USER\nTOMCAT_PWD\t$TOMCAT_PWD\nGRADLE_OPTS\t$GRADLE_OPTS" #>> /home/intermine/intermine/build.progress
 
     sed -i "s/PSQL_DB_NAME/${MINE_NAME:-biotestmine}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/INTERMINE_PSQL_USER/${INTERMINE_PGUSER:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
