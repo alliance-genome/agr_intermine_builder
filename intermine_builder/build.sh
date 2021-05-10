@@ -82,15 +82,15 @@ fi
 if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
         echo "$(date +%Y/%m/%d-%H:%M) Copy ${MINE_NAME:-biotestmine}.properties to ~/.intermine/${MINE_NAME:-biotestmine}.properties"
         cp /root/alliancemine/${MINE_NAME:-biotestmine}.properties /root/.intermine/
-    echo -e "$(date +%Y/%m/%d-%H:%M) Set properties in .intermine/${MINE_NAME:-biotestmine}.properties to\nPSQL_DB_NAME\tbiotestmine\nINTERMINE_PSQL_USER\t$INTERMINE_PSQL_USER\nINTERMINE_PSQL_PWD\t$INTERMINE_PSQL_PWD\nTOMCAT_USER\t$TOMCAT_USER\nTOMCAT_PWD\t$TOMCAT_PWD\nGRADLE_OPTS\t$GRADLE_OPTS" #>> /home/intermine/intermine/build.progress
+    echo -e "$(date +%Y/%m/%d-%H:%M) Set properties in .intermine/${MINE_NAME:-biotestmine}.properties to\nPSQL_DB_NAME\tbiotestmine\nINTERMINE_PGUSER\t$INTERMINE_PGUSER\nINTERMINE_PSQL_PWD\t$INTERMINE_PGPASSWORD\nTOMCAT_USER\t$TOMCAT_USER\nTOMCAT_PWD\t$TOMCAT_PWD\nGRADLE_OPTS\t$GRADLE_OPTS" #>> /home/intermine/intermine/build.progress
 
     sed -i "s/PSQL_DB_NAME/${MINE_NAME:-biotestmine}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/INTERMINE_PSQL_USER/${INTERMINE_PSQL_USER:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/INTERMINE_PSQL_PWD/${INTERMINE_PSQL_PWD:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/INTERMINE_PSQL_USER/${INTERMINE_PGUSER:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/INTERMINE_PSQL_PWD/${INTERMINE_PGPASSWORD:-postgres}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/TOMCAT_USER/${TOMCAT_USER:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/TOMCAT_PWD/${TOMCAT_PWD:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/serverName=INTERMINE_PGHOST/serverName=${INTERMINE_PGHOST:-postgres}:${PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/serverName=INTERMINE_PGHOST/serverName=${INTERMINE_PGHOST:-postgres}:${INTERMINE_PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
 fi
 
 # Copy mine configs
@@ -139,7 +139,6 @@ echo "$(date +%Y/%m/%d-%H:%M) Gradle: build userDB" #>> /home/intermine/intermin
 ./gradlew buildUserDB --stacktrace #>> /home/intermine/intermine/build.progress
 
 echo "$(date +%Y/%m/%d-%H:%M) Gradle: build webapp" #>> /home/intermine/intermine/build.progress
-# ./gradlew clean
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
 sleep 60
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress
