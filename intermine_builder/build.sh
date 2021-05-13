@@ -90,6 +90,9 @@ if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
     sed -i "s/TOMCAT_USER/${TOMCAT_USER:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/TOMCAT_PWD/${TOMCAT_PWD:-tomcat}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/webapp.baseurl=http:\/\/localhost:8080/webapp.baseurl=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/project.sitePrefix=http:\/\/localhost:8080/project.sitePrefix=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}\/alliancemine/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/project.releaseVersion=Beta_in_Release 4.0.0/project.releaseVersion=$(date +%Y/%m/%d-%H:%M)/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/serverName=INTERMINE_PGHOST/serverName=${INTERMINE_PGHOST:-postgres}:${INTERMINE_PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
 fi
 
