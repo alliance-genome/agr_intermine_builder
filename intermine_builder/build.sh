@@ -30,7 +30,6 @@ if [ ! -z ${IM_REPO_URL} ] || [ ! -z ${IM_REPO_BRANCH} ]; then
     cd /root/
 fi
 
-
 echo "Starting mine build"
 echo $MINE_REPO_URL
 # Check if mine exists and is not empty
@@ -40,7 +39,6 @@ if [ -d ${MINE_NAME:-biotestmine} ] && [ ! -z "$(ls -A ${MINE_NAME:-biotestmine}
     # git pull
     cd /root/
 else
-    # echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}" #>> /home/intermine/intermine/build.progress
     echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}  \nSOLR_HOST\t$SOLR_HOST\nTOMCAT_HOST\t$TOMCAT_HOST\n"
     git clone ${MINE_REPO_URL:-https://github.com/intermine/biotestmine} ${MINE_NAME:-biotestmine}
     echo "$(date +%Y/%m/%d-%H:%M) Update keyword_search.properties to use http://solr" #>> /home/intermine/intermine/build.progress
@@ -92,7 +90,7 @@ if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
     sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/webapp.baseurl=http:\/\/localhost:8080/webapp.baseurl=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/project.sitePrefix=http:\/\/localhost:8080/project.sitePrefix=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
-    #sed -i "s/project.releaseVersion=Beta/project.releaseVersion=Data Updated on: $(date '+%Y/%m/%d')/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/project.releaseVersion=Beta/project.releaseVersion=1.0.0/" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/serverName=INTERMINE_PGHOST/serverName=${INTERMINE_PGHOST:-postgres}:${INTERMINE_PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
 fi
 
@@ -102,44 +100,13 @@ if [ ! -f /root/${MINE_NAME:-biotestmine}/project.xml ]; then
     sed -i 's/dump="true"/dump="false"/g' /root/${MINE_NAME:-biotestmine}/project.xml
 fi
 
-#echo "$(date +%Y/%m/%d-%H:%M) Connect and create Postgres databases" #>> /home/intermine/intermine/build.progress
-
-# # Wait for database
-# dockerize -wait tcp://postgres:$PGPORT -timeout 60s
-#until PGPASSWORD=${INTERMINE_PSQL_PWD:-postgres}; psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c '\l'; do
-#  echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is unavailable - sleeping"
-# sleep 1
-#done
-#echo >&2 "$(date +%Y%m%dt%H%M%S) Postgres is up - executing command"
-
-# Close all open connections to database
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid();"
-
-#echo "$(date +%Y/%m/%d-%H:%M) Database is now available ..." #>> /home/intermine/intermine/build.progress
-#echo "$(date +%Y/%m/%d-%H:%M) Reset databases and roles" #>> /home/intermine/intermine/build.progress
-
-# Delete Databases if exist
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "DROP DATABASE IF EXISTS \"${MINE_NAME:-biotestmine}\";"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "DROP DATABASE IF EXISTS \"items-${MINE_NAME:-biotestmine}\";"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "DROP DATABASE IF EXISTS \"userprofile-${MINE_NAME:-biotestmine}\";"
-
-# Create Databases
-#echo "$(date +%Y/%m/%d-%H:%M) Creating postgres database tables and roles.." #>> /home/intermine/intermine/build.progress
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "ALTER USER ${INTERMINE_PSQL_USER:-postgres} WITH SUPERUSER;"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"${MINE_NAME:-biotestmine}\";"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"items-${MINE_NAME:-biotestmine}\";"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "CREATE DATABASE \"userprofile-${MINE_NAME:-biotestmine}\";"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE ${MINE_NAME:-biotestmine} to ${INTERMINE_PSQL_USER:-postgres};"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"items-${MINE_NAME:-biotestmine}\" to ${INTERMINE_PSQL_USER:-postgres};"
-#psql -U postgres -h ${INTERMINE_PGHOST:-postgres} -c "GRANT ALL PRIVILEGES ON DATABASE \"userprofile-${MINE_NAME:-biotestmine}\" to ${INTERMINE_PSQL_USER:-postgres};"
-
 cd ${MINE_NAME:-biotestmine}
 
 echo "$(date +%Y/%m/%d-%H:%M) Running project_build script"
 ./project_build -b -T localhost /root/dump/dump
 
-echo "$(date +%Y/%m/%d-%H:%M) Gradle: build userDB" #>> /home/intermine/intermine/build.progress
-./gradlew buildUserDB --stacktrace #>> /home/intermine/intermine/build.progress
+#echo "$(date +%Y/%m/%d-%H:%M) Gradle: build userDB" #>> /home/intermine/intermine/build.progress
+#./gradlew buildUserDB --stacktrace #>> /home/intermine/intermine/build.progress
 
 echo "$(date +%Y/%m/%d-%H:%M) Gradle: build webapp" #>> /home/intermine/intermine/build.progress
 ./gradlew cargoRedeployRemote  --stacktrace #>> /home/intermine/intermine/build.progress

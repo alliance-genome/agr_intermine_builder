@@ -1,4 +1,3 @@
 docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:latest
-docker pull intermine/postgres
 docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:latest
 docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_java_software:latest
