@@ -7,16 +7,12 @@ services:
       dockerfile: ./intermine_builder.Dockerfile
     user: ${UID:-1000}:${GID:-1000}
     volumes:
-      #- ./data/mine/data:/home/intermine/intermine/data
-      #-  ./data/mine/data:/Users/kkarra/Dev/docker-intermine-gradle/data/mine/data
       - ./data/mine/dump:/home/intermine/intermine/dump
       - ./data/mine/configs:/home/intermine/intermine/configs
       - ./data/mine/alliance:/home/intermine/intermine/alliancemine
-      #- ./data/mine/biotestmine:/home/intermine/intermine/biotestmine
     environment:
       - MINE_NAME=${MINE_NAME:-biotestmine}
       - MINE_REPO_URL=${MINE_REPO_URL:-}
-      #- BIOSOURCES_REPO_URL=${BIOSOURCE_REPO_URL:-}
       - IM_DATA_DIR=${IM_DATA_DIR:-DATA_DIR}
       - MEM_OPTS=${MEM_OPTS:-"-Xmx4g -Xms1g"}
       - IM_REPO_URL=${IM_REPO_URL:-}
@@ -34,8 +30,6 @@ services:
     user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-#    networks:
-#      - intermine
 
   solr:
     container_name: intermine_solr
@@ -48,8 +42,6 @@ services:
     user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./data/solr:/var/solr
-#    networks:
-#      - intermine
 
   tomcat:
     container_name: intermine_tomcat
@@ -60,11 +52,3 @@ services:
       - MEM_OPTS=${MEM_OPTS:-"-Xmx1g -Xms500m"}
     ports:
       - ${TOMCAT_HOST_PORT:-9999}:${TOMCAT_PORT:-8080}
-#    networks:
-#      - intermine
-
-# volumes:
-#   PostgresDBData:
-#   SolrDBData:
-#   MineData:
-#   MineConfigs:
