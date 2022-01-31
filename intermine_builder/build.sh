@@ -90,7 +90,7 @@ if [ ! -f /root/.intermine/${MINE_NAME:-biotestmine}.properties ]; then
     sed -i "s/webapp.deploy.url=http:\/\/localhost:8080/webapp.deploy.url=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/webapp.baseurl=http:\/\/localhost:8080/webapp.baseurl=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/project.sitePrefix=http:\/\/localhost:8080/project.sitePrefix=http:\/\/${TOMCAT_HOST:-tomcat}:${TOMCAT_PORT:-8080}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
-    sed -i "s/project.releaseVersion=Beta/project.releaseVersion=1.0.0/" /root/.intermine/${MINE_NAME:-biotestmine}.properties
+    sed -i "s/project.releaseVersion=Beta/project.releaseVersion=5.1.0/" /root/.intermine/${MINE_NAME:-biotestmine}.properties
     sed -i "s/serverName=INTERMINE_PGHOST/serverName=${INTERMINE_PGHOST:-postgres}:${INTERMINE_PGPORT:-5432}/g" /root/.intermine/${MINE_NAME:-biotestmine}.properties
 fi
 
