@@ -1,4 +1,5 @@
-FROM alpine:latest
+FROM alpine:3.13 
+# Needs to be 3.13 because latest causes an error. Once docker is upgrade we should switch back to latest: https://gitlab-test.alpinelinux.org/alpine/aports/-/issues/12396
 LABEL maintainer="Ank"
 
 ENV JAVA_HOME="/usr/lib/jvm/default-jvm"
