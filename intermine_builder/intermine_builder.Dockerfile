@@ -1,5 +1,6 @@
 FROM alpine:3.13 
-# Needs to be 3.13 because latest causes an error. Once docker is upgrade we should switch back to latest: https://gitlab-test.alpinelinux.org/alpine/aports/-/issues/12396
+# Needs to be 3.13 because latest causes an error. Once docker is upgraded
+# we should switch back to latest: https://gitlab-test.alpinelinux.org/alpine/aports/-/issues/12396
 LABEL maintainer="Ank"
 
 ENV JAVA_HOME="/usr/lib/jvm/default-jvm"
@@ -42,23 +43,15 @@ RUN cpanm --force Ouch \
                   Module::Find \
                   Web::Scraper \
                   Number::Format \
-                #   PerlIO::gzip \
                   Perl6::Junction \
-                #   List::MoreUtils \
                   Module::Find \
-                #   Moose \
-                #   MooseX::Role::WithOverloading \
                   MooseX::Types \
                   MooseX::FollowPBP \
                   MooseX::ABC \
                   MooseX::FileAttribute \
-                #   Text::CSV_XS \
                   Text::Glob \
                   XML::Parser::PerlSAX \
                   XML::DOM
-                #  Getopt::Std \
-                #  Digest::MD5 \
-                #  Log::Handler
 
 # RUN mkdir /home/intermine && mkdir /home/intermine/intermine
 # RUN chmod -R 777 /home/intermine
