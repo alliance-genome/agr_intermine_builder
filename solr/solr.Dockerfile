@@ -126,4 +126,4 @@ ENV JAVA_OPTS="$JAVA_OPTS -Dorg.apache.el.parser.SKIP_IDENTIFIER_CHECK=true ${ME
 EXPOSE 8983
 USER $SOLR_USER
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD /opt/scripts/intermine.sh ${MINE_NAME:-biotestmine}
+CMD /opt/scripts/intermine.sh alliancemine
