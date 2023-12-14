@@ -5,6 +5,8 @@ LABEL maintainer="Ank"
 
 ENV JAVA_HOME="/usr/lib/jvm/default-jvm"
 
+ARG ENVIRONMENT="stage"
+
 RUN apk add --no-cache openjdk8 openjdk8-jre && \
     ln -sf "${JAVA_HOME}/bin/"* "/usr/bin/"
 
@@ -57,18 +59,33 @@ RUN cpanm --force Ouch \
 # RUN chmod -R 777 /home/intermine
 
 ENV MEM_OPTS="-Xmx48g -Xms2g"
-ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/root"
 ENV HOME="/root"
 ENV USER_HOME="/root"
+ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/root"
 ENV GRADLE_USER_HOME="/root/.gradle"
-ENV INTERMINE_PGUSER="postgres"
-ENV INTERMINE_PGPASSWORD="postgres"
-ENV TOMCAT_USER="tomcat"
-ENV TOMCAT_PWD="tomcat"
-ENV TOMCAT_PORT=8080
-ENV INTERMINE_PGPORT=5432
 
-COPY ./build.sh /root
-RUN chmod a+rx /root/build.sh
 WORKDIR /root
-CMD ["/bin/sh","/root/build.sh"]
+
+RUN git clone https://github.com/intermine/intermine-scripts
+RUN git clone https://github.com/intermine/intermine intermine --single-branch --branch master --depth=1
+RUN git clone https://github.com/alliance-genome/alliancemine
+RUN git clone https://github.com/alliance-genome/alliancemine-bio-sources
+
+RUN mkdir .intermine
+
+RUN echo "index.solrurl = http://${SOLR_HOST}:8983/solr/alliancemine-search" >> alliancemine/dbmodel/resources/keyword_search.properties
+RUN echo "autocomplete.solrurl = http://${SOLR_HOST}:8983/solr/alliancemine-autocomplete" >> alliancemine/dbmodel/resources/objectstoresummary.config.properties
+
+RUN (cd intermine/intermine && ./gradlew clean && ./gradlew install) && \
+	(cd intermine/bio && ./gradlew clean && ./gradlew install) && \
+	(cd intermine/bio/sources && ./gradlew clean && ./gradlew install) && \
+	(cd intermine/bio/postprocess/ && ./gradlew clean && ./gradlew install) && \
+	(cd alliancemine-bio-sources/ && ./gradlew clean --stacktrace && ./gradlew install --stacktrace)
+
+RUN cp /root/intermine-scripts/project_build /root/alliancemine/project_build
+RUN chmod +x /root/alliancemine/project_build
+
+COPY ./alliancemine.${ENVIRONMENT}.properties /root/alliancemine/alliancemine.properties
+COPY ./alliancemine.${ENVIRONMENT}.properties /root/.intermine/alliancemine.properties
+
+WORKDIR /root/alliancemine
