@@ -58,7 +58,7 @@ RUN cpanm --force Ouch \
 # RUN mkdir /home/intermine && mkdir /home/intermine/intermine
 # RUN chmod -R 777 /home/intermine
 
-ENV MEM_OPTS="-Xmx48g -Xms2g"
+ENV MEM_OPTS="-Xmx32g -Xms2g"
 ENV HOME="/root"
 ENV USER_HOME="/root"
 ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1  -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/root"
@@ -73,14 +73,14 @@ RUN git clone https://github.com/alliance-genome/alliancemine-bio-sources
 
 RUN mkdir .intermine
 
-RUN echo "index.solrurl = http://${SOLR_HOST}:8983/solr/alliancemine-search" >> alliancemine/dbmodel/resources/keyword_search.properties
-RUN echo "autocomplete.solrurl = http://${SOLR_HOST}:8983/solr/alliancemine-autocomplete" >> alliancemine/dbmodel/resources/objectstoresummary.config.properties
+RUN echo "index.solrurl = https://${ENVIRONMENT}-intermine-solr.alliancegenome.org/solr/alliancemine-search" >> alliancemine/dbmodel/resources/keyword_search.properties
+RUN echo "autocomplete.solrurl = https://${ENVIRONMENT}-intermine-solr.alliancegenome.org/solr/alliancemine-autocomplete" >> alliancemine/dbmodel/resources/objectstoresummary.config.properties
 
-RUN (cd intermine/intermine && ./gradlew clean && ./gradlew install) && \
-	(cd intermine/bio && ./gradlew clean && ./gradlew install) && \
-	(cd intermine/bio/sources && ./gradlew clean && ./gradlew install) && \
-	(cd intermine/bio/postprocess/ && ./gradlew clean && ./gradlew install) && \
-	(cd alliancemine-bio-sources/ && ./gradlew clean --stacktrace && ./gradlew install --stacktrace)
+RUN (cd intermine/intermine && ./gradlew clean && ./gradlew install)
+RUN (cd intermine/bio && ./gradlew clean && ./gradlew install --parallel)
+RUN (cd intermine/bio/sources && ./gradlew clean && ./gradlew install --parallel)
+RUN (cd intermine/bio/postprocess/ && ./gradlew clean && ./gradlew install --parallel)
+RUN (cd alliancemine-bio-sources/ && ./gradlew clean --stacktrace && ./gradlew install --parallel --stacktrace)
 
 RUN cp /root/intermine-scripts/project_build /root/alliancemine/project_build
 RUN chmod +x /root/alliancemine/project_build
