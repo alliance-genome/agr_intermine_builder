@@ -21,6 +21,8 @@ RUN git clone https://github.com/alliance-genome/alliancemine-bio-sources
 
 RUN (cd alliancemine-bio-sources/ && ./gradlew clean --stacktrace && ./gradlew install --parallel --stacktrace)
 
+RUN echo "postgres:5432:*:postgres:postgres" >> /root/.pgpass
+
 WORKDIR /root/alliancemine
 
 #COPY ./alliancemine.${ENVIRONMENT}.properties /root/alliancemine/alliancemine.properties
