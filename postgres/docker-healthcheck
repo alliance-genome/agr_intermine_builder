@@ -4,7 +4,7 @@ set -eo pipefail
 host="${PGHOST:-localhost}"
 port="${PGPORT:-5432}"
 user="${PSQL_USER:-postgres}"
-db="${MINE_NAME:-biotestmine}"
+db="postgres"
 export PGPASSWORD="${PSQL_PWD:-postgres}"
 
 args=(
