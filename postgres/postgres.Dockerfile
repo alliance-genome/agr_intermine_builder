@@ -10,6 +10,5 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 EXPOSE 5432
 
 RUN chmod 777 /opt
-RUN echo "127.0.0.1			postgres" >> /etc/hosts
 
 CMD ["postgres", "-c", "config_file=/opt/postgresql.conf", "-p", "5432"]
