@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Define the local directory for PostgreSQL data
+PG_DATA_DIR="/home/core/pg_data"
+
+# Check if the directory exists, if not, create it
+if [ ! -d "$PG_DATA_DIR" ]; then
+    echo "Creating directory $PG_DATA_DIR"
+    mkdir -p "$PG_DATA_DIR"
+fi
+
 # Function to stop and remove a container if it exists
 stop_and_remove() {
     if [ $(docker ps -aq -f name=^/$1$) ]; then
@@ -58,7 +67,8 @@ docker run -d --name agr.local.alliancemine.postgres.server \
 docker run -d --name agr.local.alliancemine.loaddata \
     --net intermine \
     -v db_backup_volume:/root/data \
+    -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
     --env-file .env \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
-    --command ./load_db_build_solr \
+    --command ./local_load_db_build_solr \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage

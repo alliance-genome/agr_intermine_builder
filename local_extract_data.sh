@@ -1,8 +1,9 @@
-docker network create local
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
 
 docker run \
   --name "agr.local.data_extractor" \
-  --net local \
+  --net intermine \
   -v "/data:/data" \
   -e ALLIANCE_RELEASE="7.0.0" \
   -e EXTRACTOR_OUTPUTDIR="/data" \

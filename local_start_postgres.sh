@@ -3,6 +3,9 @@
 # Define the local directory for PostgreSQL data
 PG_DATA_DIR="/home/core/pg_data"
 
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
 # Check if the directory exists, if not, create it
 if [ ! -d "$PG_DATA_DIR" ]; then
     echo "Creating directory $PG_DATA_DIR"
@@ -22,7 +25,7 @@ fi
 docker run \
   -d \
   --name postgres \
-  --net local \
+  --net intermine \
   -e PGDATA=/var/lib/postgresql/data \
   -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
   100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage

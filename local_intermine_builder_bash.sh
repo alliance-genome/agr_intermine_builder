@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
 # Check if a container named "agr.local.intermine_builder" already exists
 if [ $(docker ps -aq -f name=^/agr.local.intermine_builder$) ]; then
     # Stop the container if it is running
@@ -13,7 +16,7 @@ fi
 docker run \
   -it \
   --name "agr.local.intermine_builder" \
-  --net local \
+  --net intermine \
   --rm \
   -v "/data:/root/data" \
   "100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage" \
