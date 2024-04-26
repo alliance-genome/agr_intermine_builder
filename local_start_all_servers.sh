@@ -13,8 +13,13 @@ fi
 stop_and_remove() {
     if [ $(docker ps -aq -f name=^/$1$) ]; then
         echo "Stopping and removing existing container $1..."
-        docker stop $1
-        docker rm $1
+        # Stop the container with a timeout of 30 seconds
+        docker stop -t 30 $1 || {
+            echo "Container $1 did not stop gracefully after 30 seconds, forcing removal..."
+            docker rm -f $1
+        }
+        # Ensure container is removed
+        docker rm -f $1
     fi
 }
 
@@ -36,7 +41,6 @@ done
 docker run -d --name agr.local.alliancemine.bluegenes.server \
     --net intermine \
     -p 5000:5000 \
-    --env-file .env \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     intermine/bluegenes:latest
 
@@ -44,7 +48,6 @@ docker run -d --name agr.local.alliancemine.bluegenes.server \
 docker run -d --name agr.local.alliancemine.solr.server \
     --net intermine \
     -p 8983:8983 \
-    --env-file .env \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:stage
 
@@ -52,7 +55,6 @@ docker run -d --name agr.local.alliancemine.solr.server \
 docker run -d --name agr.local.alliancemine.tomcat.server \
     --net intermine \
     -p 8080:8080 \
-    --env-file .env \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:stage
 
@@ -64,11 +66,17 @@ docker run -d --name agr.local.alliancemine.postgres.server \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
 
 # Launch Loaddata container
-docker run -d --name agr.local.alliancemine.loaddata \
+docker run --name agr.local.alliancemine.loaddata \
     --net intermine \
     -v db_backup_volume:/root/data \
     -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
-    --env-file .env \
-    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
-    --command ./local_load_db_build_solr \
-    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage
+    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
+    ./local_load_db_build_solr
+
+# docker run -d --name agr.local.alliancemine.loaddata \
+#     --net intermine \
+#     -v db_backup_volume:/root/data \
+#     -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
+#     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+#     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
+#     ./local_load_db_build_solr
