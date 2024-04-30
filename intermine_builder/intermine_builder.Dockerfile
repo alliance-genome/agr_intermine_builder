@@ -20,8 +20,8 @@ RUN mkdir .intermine
 RUN git clone https://github.com/alliance-genome/alliancemine
 
 # Remove the following two lines once merged with master
-WORKDIR alliancemine
-RUN git checkout local-instance && git config pull.rebase false && git pull
+# WORKDIR alliancemine
+# RUN git checkout local-instance && git config pull.rebase false && git pull
 
 WORKDIR /root
 RUN git clone https://github.com/alliance-genome/alliancemine-bio-sources
