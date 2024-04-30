@@ -10,7 +10,6 @@ This README provides instructions on how to run various shell scripts included i
     - `agr_intermine_solr_env:stage`
     - `agr_intermine_tomcat_env:stage`
     - `agr_intermine_postgres_env:stage`
-  - **Not** required to be run as images will be pulled down automatically at runtime.
 
 - `local_extract_data.sh`
   - Downloads data from the FMS.
