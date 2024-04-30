@@ -1,4 +1,5 @@
 #!/bin/bash
+./docker_auth
 
 # Define the local directory for PostgreSQL data
 PG_DATA_DIR="/home/core/pg_data"
@@ -30,7 +31,7 @@ docker network ls | grep -w intermine || docker network create intermine
 docker volume ls | grep -w db_backup_volume || docker volume create db_backup_volume
 
 # Container names
-containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server" "agr.local.alliancemine.loaddata")
+containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server" "agr.local.alliancemine.loaddata")
 
 # Stop and remove containers if they are already running
 for container in "${containers[@]}"; do
@@ -64,19 +65,3 @@ docker run -d --name agr.local.alliancemine.postgres.server \
     -p 5432:5432 \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
-
-# Launch Loaddata container
-docker run --name agr.local.alliancemine.loaddata \
-    --net intermine \
-    -v db_backup_volume:/root/data \
-    -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
-    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
-    ./local_load_db_build_solr
-
-# docker run -d --name agr.local.alliancemine.loaddata \
-#     --net intermine \
-#     -v db_backup_volume:/root/data \
-#     -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
-#     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
-#     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
-#     ./local_load_db_build_solr

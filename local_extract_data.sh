@@ -1,3 +1,6 @@
+#!/bin/bash
+./docker_auth
+
 # Create the network if it doesn't exist
 docker network ls | grep -w intermine || docker network create intermine
 

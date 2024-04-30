@@ -1,0 +1,308 @@
+
+File Name: /home/core/git/new/agr_intermine_builder/local_extract_data.sh
+----------------------------
+#!/bin/bash
+./docker_auth
+
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
+docker run \
+  --name "agr.local.data_extractor" \
+  --net intermine \
+  -v "/data:/data" \
+  -e ALLIANCE_RELEASE="7.0.0" \
+  -e EXTRACTOR_OUTPUTDIR="/data" \
+  -e NEO4J_HOST="stage-neo4j.alliancegenome.org" \
+  --rm \
+  "100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_java_software:stage" \
+  java -Xms"31g" -Xmx"31g" -DDEFAULT_LOG_LEVEL=DEBUG -jar agr_intermine_data_extractor/target/agr_intermine_data_extractor-jar-with-dependencies.jar
+
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_intermine_builder_bash.sh
+----------------------------
+#!/bin/bash
+./docker_auth
+
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
+# Check if a container named "agr.local.intermine_builder" already exists
+if [ $(docker ps -aq -f name=^/agr.local.intermine_builder$) ]; then
+    # Stop the container if it is running
+    docker stop agr.local.intermine_builder
+    # Remove the container after stopping
+    docker rm agr.local.intermine_builder
+    echo "Removed existing container named 'agr.local.intermine_builder'"
+fi
+
+# Run the Docker container with the volume mounted for persistence and drop into a bash shell
+docker run \
+  -it \
+  --name "agr.local.intermine_builder" \
+  --net intermine \
+  --rm \
+  -v "/data:/root/data" \
+  "100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage" \
+  bash
+
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_download_containers.sh
+----------------------------
+./docker_auth
+
+docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_java_software:stage
+docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage
+docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:stage
+docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:stage
+docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
+
+
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/dump_shell_script_contents.sh
+----------------------------
+#!/bin/bash
+
+# Use the current directory as the search directory
+SEARCH_DIR=$(pwd)
+
+# Specify the output file where the contents will be dumped
+OUTPUT_FILE="output.txt"
+
+echo "Searching in $SEARCH_DIR for .sh files..."
+
+# Initialize or clear the output file before starting the loop
+echo "" > "$OUTPUT_FILE"
+
+# Find all .sh files in the current directory only and process them
+find "$SEARCH_DIR" -maxdepth 1 -type f -name "*.sh" | while read filename; do
+    # Write the file name to the output file
+    echo "File Name: $filename" >> "$OUTPUT_FILE"
+    # Append the content of the .sh file to the output file
+    echo "----------------------------" >> "$OUTPUT_FILE"
+    cat "$filename" >> "$OUTPUT_FILE"
+    echo "" >> "$OUTPUT_FILE"
+    echo "----------------------------" >> "$OUTPUT_FILE"
+    echo "" >> "$OUTPUT_FILE"
+done
+
+echo "All .sh files have been processed and their contents saved to $OUTPUT_FILE."
+
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_build_solr.sh
+----------------------------
+#!/bin/bash
+./docker_auth
+
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
+# Check if a container named "agr.local.intermine_builder" already exists
+if [ $(docker ps -aq -f name=^/agr.local.alliancemine.loaddata$) ]; then
+    # Stop the container if it is running
+    docker stop agr.local.alliancemine.loaddata
+    # Remove the container after stopping
+    docker rm agr.local.alliancemine.loaddata
+    echo "Removed existing container named 'agr.local.alliancemine.loaddata'"
+fi
+
+# Launch Loaddata container
+docker run --name agr.local.alliancemine.loaddata \
+    --net intermine \
+    -v db_backup_volume:/root/data \
+    -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
+    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
+    ./local_load_db_build_solr
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_build_all.sh
+----------------------------
+#!/bin/bash
+./docker_auth
+
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
+# Check if a container named "agr.local.intermine_builder" already exists
+if [ $(docker ps -aq -f name=^/agr.local.intermine_builder$) ]; then
+    # Stop the container if it is running
+    docker stop agr.local.intermine_builder
+    # Remove the container after stopping
+    docker rm agr.local.intermine_builder
+    echo "Removed existing container named 'agr.local.intermine_builder'"
+fi
+
+docker run \
+  --name "agr.local.intermine_builder" \
+  --net intermine \
+  --rm \
+  -v "/data:/root/data" \
+  "100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage" \
+  ./local_build_db_all postgres postgres
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_stop_postgres.sh
+----------------------------
+#!/bin/bash
+
+# Check if a container named "postgres" is running
+if [ $(docker ps -aq -f name=^/postgres$) ]; then
+    echo "Stopping and removing the 'postgres' container..."
+    # Stop the container if it is running
+    docker stop postgres
+    # Remove the container after stopping
+    docker rm postgres
+    echo "Container 'postgres' has been removed."
+else
+    echo "No 'postgres' container is currently running."
+fi
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_stop_postgres_remove_all_data.sh
+----------------------------
+#!/bin/bash
+
+# Define the local directory for PostgreSQL data
+PG_DATA_DIR="/home/core/pg_data"
+
+# Check if a container named "postgres" is running
+if [ $(docker ps -aq -f name=^/postgres$) ]; then
+    echo "Stopping and removing the 'postgres' container..."
+    # Stop the container if it is running
+    docker stop postgres
+    # Remove the container after stopping
+    docker rm postgres
+    echo "Container 'postgres' has been removed."
+else
+    echo "No 'postgres' container is currently running."
+fi
+
+# Check if the data directory exists and remove it
+if [ -d "$PG_DATA_DIR" ]; then
+    echo "Removing the PostgreSQL data directory at $PG_DATA_DIR..."
+    rm -rf "$PG_DATA_DIR"
+    echo "Data directory has been removed."
+else
+    echo "No data directory at $PG_DATA_DIR to remove."
+fi
+
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_build_docker_intermine_builder.sh
+----------------------------
+docker build \
+-t 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage --no-cache -f intermine_builder/intermine_builder.Dockerfile intermine_builder
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_start_all_services.sh
+----------------------------
+#!/bin/bash
+./docker_auth
+
+# Define the local directory for PostgreSQL data
+PG_DATA_DIR="/home/core/pg_data"
+
+# Check if the directory exists, if not, create it
+if [ ! -d "$PG_DATA_DIR" ]; then
+    echo "Creating directory $PG_DATA_DIR"
+    mkdir -p "$PG_DATA_DIR"
+fi
+
+# Function to stop and remove a container if it exists
+stop_and_remove() {
+    if [ $(docker ps -aq -f name=^/$1$) ]; then
+        echo "Stopping and removing existing container $1..."
+        # Stop the container with a timeout of 30 seconds
+        docker stop -t 30 $1 || {
+            echo "Container $1 did not stop gracefully after 30 seconds, forcing removal..."
+            docker rm -f $1
+        }
+        # Ensure container is removed
+        docker rm -f $1
+    fi
+}
+
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
+# Create the volume if it doesn't exist
+docker volume ls | grep -w db_backup_volume || docker volume create db_backup_volume
+
+# Container names
+containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server" "agr.local.alliancemine.loaddata")
+
+# Stop and remove containers if they are already running
+for container in "${containers[@]}"; do
+    stop_and_remove $container
+done
+
+# Launch Bluegenes container
+docker run -d --name agr.local.alliancemine.bluegenes.server \
+    --net intermine \
+    -p 5000:5000 \
+    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+    intermine/bluegenes:latest
+
+# Launch Solr container
+docker run -d --name agr.local.alliancemine.solr.server \
+    --net intermine \
+    -p 8983:8983 \
+    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:stage
+
+# Launch Tomcat container
+docker run -d --name agr.local.alliancemine.tomcat.server \
+    --net intermine \
+    -p 8080:8080 \
+    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:stage
+
+# Launch Postgres container
+docker run -d --name agr.local.alliancemine.postgres.server \
+    --net intermine \
+    -p 5432:5432 \
+    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
+----------------------------
+
+File Name: /home/core/git/new/agr_intermine_builder/local_start_postgres.sh
+----------------------------
+#!/bin/bash
+./docker_auth
+
+# Define the local directory for PostgreSQL data
+PG_DATA_DIR="/home/core/pg_data"
+
+# Create the network if it doesn't exist
+docker network ls | grep -w intermine || docker network create intermine
+
+# Check if the directory exists, if not, create it
+if [ ! -d "$PG_DATA_DIR" ]; then
+    echo "Creating directory $PG_DATA_DIR"
+    mkdir -p "$PG_DATA_DIR"
+fi
+
+# Check if a container named "postgres" already exists
+if [ $(docker ps -aq -f name=^/postgres$) ]; then
+    # Stop the container if it is running
+    docker stop postgres
+    # Remove the container after stopping
+    docker rm postgres
+    echo "Removed existing container named 'postgres'"
+fi
+
+# Run the Docker container with the volume mounted for persistence in detached mode
+docker run \
+  -d \
+  --name postgres \
+  --net intermine \
+  -e PGDATA=/var/lib/postgresql/data \
+  -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
+  100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
+
+----------------------------
+

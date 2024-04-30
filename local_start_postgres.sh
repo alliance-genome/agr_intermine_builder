@@ -1,4 +1,5 @@
 #!/bin/bash
+./docker_auth
 
 # Define the local directory for PostgreSQL data
 PG_DATA_DIR="/home/core/pg_data"

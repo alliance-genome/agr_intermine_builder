@@ -1,2 +1,0 @@
-docker rm intermine_tomcat
-docker rm intermine_solr
