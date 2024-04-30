@@ -16,7 +16,14 @@ ENV GRADLE_USER_HOME="/root/.gradle"
 WORKDIR /root
 
 RUN mkdir .intermine
+
 RUN git clone https://github.com/alliance-genome/alliancemine
+
+# Remove the following two lines once merged with master
+# WORKDIR alliancemine
+# RUN git checkout local-instance && git config pull.rebase false && git pull
+
+WORKDIR /root
 RUN git clone https://github.com/alliance-genome/alliancemine-bio-sources
 
 RUN (cd alliancemine-bio-sources/ && ./gradlew clean --stacktrace && ./gradlew install --parallel --stacktrace)

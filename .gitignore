@@ -2,3 +2,4 @@
 .idea/
 /data
 intermine_builder/alliancemine.*.properties
+.password

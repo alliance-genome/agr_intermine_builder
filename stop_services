@@ -1,3 +1,0 @@
-docker stop intermine_solr
-docker stop intermine_tomcat
-docker stop intermine_bluegenes
