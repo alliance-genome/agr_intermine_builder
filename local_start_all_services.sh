@@ -31,7 +31,7 @@ docker network ls | grep -w intermine || docker network create intermine
 docker volume ls | grep -w db_backup_volume || docker volume create db_backup_volume
 
 # Container names
-containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "postgres" "agr.local.alliancemine.loaddata")
+containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server" "agr.local.alliancemine.loaddata")
 
 # Stop and remove containers if they are already running
 for container in "${containers[@]}"; do
@@ -56,7 +56,7 @@ docker run -d --name agr.local.alliancemine.tomcat.server \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:stage
 
 # Launch Postgres container
-docker run -d --name postgres \
+docker run -d --name agr.local.alliancemine.postgres.server \
     --net intermine \
     -p 5432:5432 \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \

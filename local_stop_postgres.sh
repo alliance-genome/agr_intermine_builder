@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Check if a container named "postgres" is running
-if [ $(docker ps -aq -f name=^/postgres$) ]; then
-    echo "Stopping and removing the 'postgres' container..."
+if [ $(docker ps -aq -f name=^/agr.local.alliancemine.postgres.server$) ]; then
+    echo "Stopping and removing the 'agr.local.alliancemine.postgres.server' container..."
     # Stop the container if it is running
-    docker stop postgres
+    docker stop agr.local.alliancemine.postgres.server
     # Remove the container after stopping
-    docker rm postgres
-    echo "Container 'postgres' has been removed."
+    docker rm agr.local.alliancemine.postgres.server
+    echo "Container 'agr.local.alliancemine.postgres.server' has been removed."
 else
-    echo "No 'postgres' container is currently running."
+    echo "No 'agr.local.alliancemine.postgres.server' container is currently running."
 fi

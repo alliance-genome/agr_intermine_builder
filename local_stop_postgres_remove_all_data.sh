@@ -4,15 +4,15 @@
 PG_DATA_DIR="/home/core/pg_data"
 
 # Check if a container named "postgres" is running
-if [ $(docker ps -aq -f name=^/postgres$) ]; then
-    echo "Stopping and removing the 'postgres' container..."
+if [ $(docker ps -aq -f name=^/agr.local.alliancemine.postgres.server$) ]; then
+    echo "Stopping and removing the 'agr.local.alliancemine.postgres.server' container..."
     # Stop the container if it is running
-    docker stop postgres
+    docker stop postgreagr.local.alliancemine.postgres.servers
     # Remove the container after stopping
-    docker rm postgres
-    echo "Container 'postgres' has been removed."
+    docker rm agr.local.alliancemine.postgres.server
+    echo "Container 'agr.local.alliancemine.postgres.server' has been removed."
 else
-    echo "No 'postgres' container is currently running."
+    echo "No 'agr.local.alliancemine.postgres.server' container is currently running."
 fi
 
 # Check if the data directory exists and remove it

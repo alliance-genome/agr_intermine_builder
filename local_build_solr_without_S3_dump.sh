@@ -39,4 +39,4 @@ docker run --name agr.local.alliancemine.loaddata \
     -v db_backup_volume:/root/data \
     -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
-    ./local_load_db_build_solr
+    ./local_load_db_build_solr_without_dump

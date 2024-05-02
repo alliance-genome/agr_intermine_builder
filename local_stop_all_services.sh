@@ -13,7 +13,7 @@ stop_and_remove() {
 }
 
 # Container names
-containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "postgres" "agr.local.alliancemine.loaddata")
+containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server" "agr.local.alliancemine.loaddata")
 
 # Stop and remove containers if they are already running
 for container in "${containers[@]}"; do
