@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the local directory for PostgreSQL data
-PG_DATA_DIR="/home/core/pg_data"
+PG_DATA_DIR="/home/ec2-user/pg_data"
 
 # Check if a container named "postgres" is running
 if [ $(docker ps -aq -f name=^/agr.local.alliancemine.postgres.server$) ]; then

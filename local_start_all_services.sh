@@ -2,7 +2,7 @@
 ./docker_auth
 
 # Define the local directory for PostgreSQL data
-PG_DATA_DIR="/home/core/pg_data"
+PG_DATA_DIR="/home/ec2-user/pg_data"
 
 # Check if the directory exists, if not, create it
 if [ ! -d "$PG_DATA_DIR" ]; then
@@ -45,16 +45,23 @@ done
 docker run -d --name agr.local.alliancemine.solr.server \
     --net intermine \
     -p 8983:8983 \
+    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:stage
 
 # Launch Tomcat container
 docker run -d --name agr.local.alliancemine.tomcat.server \
     --net intermine \
     -p 8080:8080 \
+    --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:stage
 
 # Launch Postgres container
-docker run -d --name agr.local.alliancemine.postgres.server \
-    --net intermine \
-    -p 5432:5432 \
-    100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
+docker run \
+  -d \
+  --name agr.local.alliancemine.postgres.server \
+  --net intermine \
+  -p 5432:5432 \
+  --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+  -e PGDATA=/var/lib/postgresql/data \
+  -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
+  100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage

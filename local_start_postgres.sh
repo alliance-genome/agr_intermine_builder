@@ -2,7 +2,7 @@
 ./docker_auth
 
 # Define the local directory for PostgreSQL data
-PG_DATA_DIR="/home/core/pg_data"
+PG_DATA_DIR="/home/ec2-user/pg_data"
 
 # Create the network if it doesn't exist
 docker network ls | grep -w intermine || docker network create intermine
@@ -27,6 +27,8 @@ docker run \
   -d \
   --name agr.local.alliancemine.postgres.server \
   --net intermine \
+  -p 5432:5432 \
+  --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
   -e PGDATA=/var/lib/postgresql/data \
   -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
   100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage

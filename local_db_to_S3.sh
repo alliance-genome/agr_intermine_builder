@@ -18,5 +18,6 @@ docker run \
   --net intermine \
   --rm \
   -v "/data:/root/data" \
+  --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
   "100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage" \
   ./local_dump_db_to_S3_only postgres postgres

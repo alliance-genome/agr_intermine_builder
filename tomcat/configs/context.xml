@@ -17,4 +17,5 @@
 -->
 <Context antiResourceLocking="false" privileged="true" >
   <Valve className="org.apache.catalina.valves.RemoteAddrValve" allow="^.*$" />
+  <Resources cachingAllowed="true" cacheMaxSize="131287" />
 </Context>
