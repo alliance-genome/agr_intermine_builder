@@ -31,7 +31,11 @@ This README provides instructions on how to run various shell scripts included i
 - `local_build_docker_intermine_builder.sh`
   - Builds the intermine Docker image from this repository.
   - Uses the Dockerfile found at `intermine_builder/intermine_builder.Dockerfile`
-  - 
+  - **IMPORTANT**: You can use custom `alliancemine` and `alliancemine-bio-sources` branches by editing the Dockerfile: `intermine_builder/intermine_builder.Dockerfile`
+    - Around lines ~23 and ~31 are two custom arguments: 
+      - `ARG ALLIANCEMINE_BRANCH_NAME=master`
+      - `ARG BIO_SOURCES_BRANCH_NAME=master`
+    - Updating these arguments with branch names from GitHub will allow you to compile these branches into the `intermine_builder` image when the shell script `local_build_docker_intermine_builder.sh` is used.
 
 - `local_build_all.sh`
   - Runs the intermine_builder container and loads all extracted data.
