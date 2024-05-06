@@ -79,7 +79,7 @@ Next, to load the data into Solr and run the rest of the scripts to start the we
 
 The first script will use the latest Postgres S3 dump to load Solr (without the need for Postgres) and the second script will use the data from the local Postgres database itself.
 
-One the Solr load is finished, the website should be available from the following URL: 
+One the Solr load is finished, the website should be available from the following URL. **IMPORTANT**: You *must* be signed on to the VPN to load the site: 
 
     http://dev-intermine.alliancegenome.org:5000/bluegenes/alliancemine
 
