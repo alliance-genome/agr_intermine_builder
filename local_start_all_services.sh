@@ -31,7 +31,7 @@ docker network ls | grep -w intermine || docker network create intermine
 docker volume ls | grep -w db_backup_volume || docker volume create db_backup_volume
 
 # Container names
-containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server" "agr.local.alliancemine.loaddata")
+containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server")
 
 # Stop and remove containers if they are already running
 for container in "${containers[@]}"; do

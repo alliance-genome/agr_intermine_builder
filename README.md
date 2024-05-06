@@ -4,7 +4,7 @@ This README provides instructions on how to run various shell scripts included i
 
 ### List of shell scripts
 - `local_download_images.sh`
-  - Optionally pulls down 5 images from AWS ECR.
+  - Pulls down 5 images from AWS ECR.
     - `agr_java_software:stage`
     - `agr_intermine_builder_env:stage`
     - `agr_intermine_solr_env:stage`
@@ -13,10 +13,12 @@ This README provides instructions on how to run various shell scripts included i
 
 - `local_extract_data.sh`
   - Downloads data from the FMS.
-  - Modify to set release version.
+  - Uses `agr_java_software:stage` image.
+  - Please modify script to set release version.
 
 - `local_start_postgres.sh`
   - Starts the Postgres container.
+  - Uses `agr_intermine_postgres_env:stage` image.
   - Creates the local directory for saving data if it doesn't already exist.
 
 - `local_stop_postgres.sh`
@@ -28,7 +30,8 @@ This README provides instructions on how to run various shell scripts included i
 
 - `local_build_docker_intermine_builder.sh`
   - Builds the intermine Docker image from this repository.
-  - Only necessary to run if the intermine_builder image from stage is not preferred (as in, there are some specific changes in this repo you need for your image).
+  - Uses the Dockerfile found at `intermine_builder/intermine_builder.Dockerfile`
+  - 
 
 - `local_build_all.sh`
   - Runs the intermine_builder container and loads all extracted data.
@@ -44,5 +47,24 @@ This README provides instructions on how to run various shell scripts included i
   - Places the user at bash prompt inside the container.
 
 - `local_build_solr.sh`
+  - Builds the Solr index using a Postgres dump from S3.
+  - Requires an exisiting S3 dump to exist.
+
+- `local_build_solr_without_S3_dump.sh`
   - Builds the Solr index using the local Postgres data.
-  - Requires a local Postgres dump to be retrieved from the S3 bucket.
+  - Does not use or require an S3 dump.
+
+- `local_start_all_services.sh`
+  - Starts the following services:
+    - `agr.local.alliancemine.bluegenes.server`
+    - `agr.local.alliancemine.solr.server`
+    - `agr.local.alliancemine.tomcat.server`
+    - `agr.local.alliancemine.postgres.server`
+
+- `'local_stop_all_services.sh`
+  - Stops the following services:
+    - `agr.local.alliancemine.bluegenes.server`
+    - `agr.local.alliancemine.solr.server `
+    - `agr.local.alliancemine.tomcat.server`
+    - `agr.local.alliancemine.postgres.server`
+    - `agr.local.alliancemine.loaddata`
