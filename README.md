@@ -53,6 +53,12 @@ This command will grab new copies of the repositories `alliancemine` and `allian
 
 Changing those variables and running the `local_build_docker_intermine_builder.sh` script will pull down custom branches for those two repositories into your `intermine_builder` image using whatever branch names you've updated in place of `master`. Be sure to change these variables back to `master` if you'd like to go back to the `master` branches at some point.
 
+Alternatively, you can manually trigger the `IntermineBuilderENV` pipeline on GoCD. This pipeline will re-build the `intermine_builder:stage` image on GoCD. Once the pipeline finishes, you can re-pull down a new version of the image using:
+
+    docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage
+
+This image will have been built with the latest versions of the `alliancemine` and `alliancemine-bio-sources` repositories and the `stage` version of the `agr_intermine_builder` repo.
+
 If you have manually loaded data into Postgres using the `bash` approach, you can use the following script to dump the data into the S3 bucket when you are finished:
 
     local_db_to_S3.sh
