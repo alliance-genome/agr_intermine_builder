@@ -42,7 +42,7 @@ Alternatively, to use a `bash` shell prompt to manually load data, use the scrip
 
     local_intermine_builder_bash.sh
 
-Inside of this container you will fine both the `alliancemine` and `alliancemine-bio-sources` repositories. If you update the `alliancemine` and `alliancemine-bio-sources` repositories on GitHub, and you would like to use the new changes to load data with this image, you need to first exit from the image and *rebuild it* with the following command:
+Inside of this container you will find both the `alliancemine` and `alliancemine-bio-sources` repositories. If you update the `alliancemine` and `alliancemine-bio-sources` repositories on GitHub, and you would like to use the new changes to load data with this image, you need to first exit from the image and *rebuild it* with the following command:
 
     local_build_docker_intermine_builder.sh
 
