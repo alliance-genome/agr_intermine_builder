@@ -53,7 +53,7 @@ This command will grab new copies of the repositories `alliancemine` and `allian
 
 Changing those variables and running the `local_build_docker_intermine_builder.sh` script will pull down custom branches for those two repositories into your `intermine_builder` image using whatever branch names you've updated in place of `master`. Be sure to change these variables back to `master` if you'd like to go back to the `master` branches at some point.
 
-Alternatively, you can manually trigger the `IntermineBuilderENV` pipeline on GoCD. This pipeline will re-build the `intermine_builder:stage` image on GoCD. Once the pipeline finishes, you can re-pull down a new version of the image using:
+Alternatively, you can manually trigger the `IntermineBuilderENV` pipeline on GoCD. This pipeline will re-build the `intermine_builder:stage` image on GoCD. Once the pipeline finishes, you can pull down a new version of the image using:
 
     docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage
 
