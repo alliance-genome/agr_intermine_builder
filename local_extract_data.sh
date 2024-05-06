@@ -8,7 +8,7 @@ docker run \
   --name "agr.local.data_extractor" \
   --net intermine \
   -v "/data:/data" \
-  -e ALLIANCE_RELEASE="7.0.0" \
+  -e ALLIANCE_RELEASE="7.2.0" \
   -e EXTRACTOR_OUTPUTDIR="/data" \
   -e NEO4J_HOST="stage-neo4j.alliancegenome.org" \
   --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
