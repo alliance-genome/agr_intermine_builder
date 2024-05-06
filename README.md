@@ -36,22 +36,22 @@ Next, to load an entire run of the AllianceMine data, use the command:
 
     local_build_all.sh
 
-This script requires a Postgres container to be running. Once it finishes, it will upload a dump of the data to the S3 bucket. It does not load Solr or start any of the other services.
+This script requires a Postgres container to be running. Once it finishes, it will upload a dump of the data to the S3 bucket. It does *not* load Solr or start any of the other services.
 
 Alternatively, to use a `bash` shell prompt to manually load data, use the script:
 
     local_intermine_builder_bash.sh
 
-Inside of this container you will fine both the `alliancemine` and `alliancemine-bio-sources` repositories. If you update the `alliancemine` and `alliancemine-bio-sources` repositories on GitHub, and you would like to use the new changes to load data with this image, you need to first exit from the image and rebuild it with the following command:
+Inside of this container you will fine both the `alliancemine` and `alliancemine-bio-sources` repositories. If you update the `alliancemine` and `alliancemine-bio-sources` repositories on GitHub, and you would like to use the new changes to load data with this image, you need to first exit from the image and *rebuild it* with the following command:
 
     local_build_docker_intermine_builder.sh
 
-This command will grab new copies of the repositories `alliancemine` and `alliancemine-bio-sources` and add them to the image to be used in the `bash` container. If you would like to use *custom* branches from `alliancemine` and/or `alliancemine-bio-sources`, you can edit the Dockerfile located at `intermine_builder/intermine_builder.Dockerfile` in this repository. Around lines ~23 and ~31 are two custom arguments which can be adjusted: 
+This command will grab new copies of the repositories `alliancemine` and `alliancemine-bio-sources` and add them to the image to be used in the `bash` container. If you would like to use *custom* branches from `alliancemine` and/or `alliancemine-bio-sources`, you can edit the Dockerfile located at `intermine_builder/intermine_builder.Dockerfile` in *this* repository. Around lines ~23 and ~31 are two custom arguments which can be adjusted: 
 
       ARG ALLIANCEMINE_BRANCH_NAME=master
       ARG BIO_SOURCES_BRANCH_NAME=master
 
-Changing those variables and running the `local_build_docker_intermine_builder.sh` script will pull down custom branches for those two repositories into your `intermine_builder` image using whatever branch names you've used in place of `master`. Be sure to change these variables back to `master` if you'd like to go back to the `master` branches at some point.
+Changing those variables and running the `local_build_docker_intermine_builder.sh` script will pull down custom branches for those two repositories into your `intermine_builder` image using whatever branch names you've updated in place of `master`. Be sure to change these variables back to `master` if you'd like to go back to the `master` branches at some point.
 
 If you have manually loaded data into Postgres using the `bash` approach, you can use the following script to dump the data into the S3 bucket when you are finished:
 
