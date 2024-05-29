@@ -20,7 +20,7 @@ RUN mkdir .intermine
 RUN git clone https://github.com/alliance-genome/alliancemine
 
 # Custom branch for alliancemine. Replace 'master' with your branch name if using a custom branch.
-ARG ALLIANCEMINE_BRANCH_NAME=master
+ARG ALLIANCEMINE_BRANCH_NAME=test_local
 WORKDIR alliancemine
 RUN git checkout ${ALLIANCEMINE_BRANCH_NAME} && git config pull.rebase false && git pull
 
@@ -28,7 +28,7 @@ WORKDIR /root
 RUN git clone https://github.com/alliance-genome/alliancemine-bio-sources
 
 # Custom branch for bio-sources. Replace 'master' with your branch name if using a custom branch.
-ARG BIO_SOURCES_BRANCH_NAME=master
+ARG BIO_SOURCES_BRANCH_NAME=test_local
 WORKDIR alliancemine-bio-sources
 RUN git checkout ${BIO_SOURCES_BRANCH_NAME} && git config pull.rebase false && git pull
 
