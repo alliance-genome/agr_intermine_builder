@@ -39,6 +39,7 @@ RUN echo "postgres:5432:*:postgres:postgres" >> /root/.pgpass
 RUN chmod 400 /root/.pgpass
 
 WORKDIR /root/alliancemine
+RUN chmod +x ./load_db_build_solr
 
 #COPY ./alliancemine.${ENVIRONMENT}.properties /root/alliancemine/alliancemine.properties
 #COPY ./alliancemine.${ENVIRONMENT}.properties /root/.intermine/alliancemine.properties
