@@ -6,6 +6,7 @@ ENV JAVA_HOME="/usr/lib/jvm/default-jvm"
 
 RUN apk add --no-cache openjdk8 openjdk8-jre && ln -sf "${JAVA_HOME}/bin/"* "/usr/bin/"
 RUN apk add --no-cache git maven bash postgresql-client aws-cli wget build-base
+RUN apk add --no-cache --update py3-pip
 
 ENV MEM_OPTS="-Xmx32g -Xms2g"
 ENV HOME="/root"
