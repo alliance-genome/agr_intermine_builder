@@ -26,7 +26,7 @@ containers=("agr.local.alliancemine.solr.server" "agr.local.alliancemine.loaddat
 
 # Stop and remove containers if they are already running
 for container in "${containers[@]}"; do
-    stop_and_remove $container
+    stop_and_remove "$container"
 done
 
 # Launch Solr container
@@ -34,6 +34,7 @@ docker run -d --name agr.local.alliancemine.solr.server \
     --net intermine \
     -p 8983:8983 \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+    --restart unless-stopped \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:stage
 
 # Launch Loaddata container
@@ -42,5 +43,6 @@ docker run --name agr.local.alliancemine.loaddata \
     -v db_backup_volume:/root/data \
     -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+    --rm \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
     ./local_load_db_build_solr_without_dump

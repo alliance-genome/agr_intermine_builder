@@ -1,5 +1,6 @@
 version: "3"
 services:
+  # Main application builder
   intermine_builder:
     container_name: intermine_builder
     build:
@@ -7,20 +8,30 @@ services:
       dockerfile: ./intermine_builder.Dockerfile
     user: ${UID:-1000}:${GID:-1000}
     volumes:
-      - ./data/mine/dump:/home/intermine/intermine/dump
-      - ./data/mine/configs:/home/intermine/intermine/configs
+      - ./data/mine/dump:/home/intermine/intermine/dump        # Database dumps
+      - ./data/mine/configs:/home/intermine/intermine/configs  # Configuration files
       - ./data/mine/alliance:/home/intermine/intermine/alliancemine
     environment:
+      # Core settings
       - MINE_NAME=${MINE_NAME:-biotestmine}
       - MINE_REPO_URL=${MINE_REPO_URL:-}
       - IM_DATA_DIR=${IM_DATA_DIR:-DATA_DIR}
+      
+      # Memory configuration
       - MEM_OPTS=${MEM_OPTS:-"-Xmx4g -Xms1g"}
+      
+      # Repository settings
       - IM_REPO_URL=${IM_REPO_URL:-}
       - IM_REPO_BRANCH=${IM_REPO_BRANCH:-}
     depends_on: 
       - postgres
       - solr
       - tomcat
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   postgres:
     container_name: intermine_postgres
@@ -30,6 +41,13 @@ services:
     user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   solr:
     container_name: intermine_solr
@@ -42,6 +60,11 @@ services:
     user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./data/solr:/var/solr
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8983/solr"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   tomcat:
     container_name: intermine_tomcat
@@ -52,3 +75,8 @@ services:
       - MEM_OPTS=${MEM_OPTS:-"-Xmx1g -Xms500m"}
     ports:
       - ${TOMCAT_HOST_PORT:-9999}:${TOMCAT_PORT:-8080}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

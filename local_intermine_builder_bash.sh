@@ -1,8 +1,21 @@
 #!/bin/bash
+# Add error handling
+set -euo pipefail
+
 ./docker_auth
 
 # Create the network if it doesn't exist
 docker network ls | grep -w intermine || docker network create intermine
+
+# Add error checking for AWS credentials before pulling secrets
+if ! aws sts get-caller-identity &>/dev/null; then
+    echo "Error: AWS credentials not configured properly"
+    exit 1
+fi
+
+# Improve secrets file handling with cleanup trap
+SECRETS_FILE="./alliancemine.properties"
+trap 'rm -f ${SECRETS_FILE}' EXIT
 
 # Check if a container named "agr.local.intermine_builder" already exists
 if [ $(docker ps -aq -f name=^/agr.local.intermine_builder$) ]; then

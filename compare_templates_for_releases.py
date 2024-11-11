@@ -14,23 +14,41 @@ from intermine.webservice import Service
 PROGRAM_START = time()
 
 usage = """
-%s: Compare templates from two versions of the same webservice
-usage: %s www.flymine.org/query beta.flymine.org/beta ["email@to"] ["email@from"]
-All arguments are positional. The last two are optional.
+%s: Compare templates between two versions of an InterMine webservice
+
+Usage: 
+    %s SERVICE_A [SERVICE_B] [EMAIL_TO] [EMAIL_FROM]
+
 Arguments:
-    * service version A
-    * service version B (optional - service to compare to)
-    * an email address to send email to (optional - print to std out if not present)
-    * an email to mark as the sender (optional - defaults to the first email address)
+    SERVICE_A        URL of primary InterMine service (e.g. www.flymine.org/query)
+    SERVICE_B        URL of secondary service to compare against (optional)
+                    If omitted, compares SERVICE_A against itself
+    EMAIL_TO        Email address to send results to (optional)
+                    If omitted, prints results to stdout
+    EMAIL_FROM      Email address to send results from (optional) 
+                    If omitted, uses EMAIL_TO as sender
+
+Examples:
+    %s www.flymine.org/query beta.flymine.org/beta
+    %s www.flymine.org/query beta.flymine.org/beta user@example.com
+    %s www.flymine.org/query beta.flymine.org/beta user@example.com sender@example.com
 """
 
-SUBJECT = "The results of comparison between %s and %s at %s" 
+SUBJECT = "Template Comparison Results: {service_a} vs {service_b} - {timestamp}"
+
 BODY = """
-Template comparison run complete. 
-The template comparison run you requested at {initial_time}
-between {rel_a} and {rel_b} has been completed at {time}
-(taking {duration:.2f} seconds).
-The results are as follows:
+Template Comparison Summary
+==========================
+
+Run Details:
+- Started: {initial_time}
+- Completed: {time} 
+- Duration: {duration:.2f} seconds
+- Service A: {rel_a}
+- Service B: {rel_b}
+
+Results:
+--------
 """
 
 rfc822_specials = '()<>@,;:\\"[]'

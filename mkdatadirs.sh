@@ -14,7 +14,13 @@ if [ -z $1 ]; then
   exit 1;
 fi
 
-# awk is the simplest way to parse a YAML without introducing any dependencies.
+# Add error checking for file existence
+if [ ! -f "$1" ]; then
+  echo "Error: File '$1' does not exist"
+  exit 1
+fi
+
+# Add quotes around $1 to handle filenames with spaces
 awk 'BEGIN {FS="\n"} {
   for (i=1; i<=NF; i++) {
     if ($i ~ /^ *volumes:/) {
@@ -29,4 +35,4 @@ awk 'BEGIN {FS="\n"} {
       }
     }
   }
-}' $1 | xargs mkdir -p
+}' "$1" | xargs mkdir -p

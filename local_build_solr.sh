@@ -33,12 +33,17 @@ done
 docker run -d --name agr.local.alliancemine.solr.server \
     --net intermine \
     -p 8983:8983 \
+    --memory=4g \
+    --memory-swap=4g \
+    -e SOLR_HEAP=3g \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_solr_env:stage
 
 # Launch Loaddata container
 docker run --name agr.local.alliancemine.loaddata \
     --net intermine \
+    --memory=2g \
+    --memory-swap=2g \
     -v db_backup_volume:/root/data \
     -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \

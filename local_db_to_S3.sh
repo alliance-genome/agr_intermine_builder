@@ -1,16 +1,24 @@
 #!/bin/bash
-./docker_auth
+# Add error handling
+set -e
+
+# Source docker authentication
+if ! ./docker_auth; then
+    echo "Failed to authenticate with Docker" >&2
+    exit 1
+fi
 
 # Create the network if it doesn't exist
 docker network ls | grep -w intermine || docker network create intermine
 
-# Check if a container named "agr.local.intermine_builder" already exists
-if [ $(docker ps -aq -f name=^/agr.local.intermine_builder$) ]; then
-    # Stop the container if it is running
-    docker stop agr.local.intermine_builder
-    # Remove the container after stopping
-    docker rm agr.local.intermine_builder
-    echo "Removed existing container named 'agr.local.intermine_builder'"
+# Make container name a variable for easier maintenance
+CONTAINER_NAME="agr.local.intermine_builder"
+
+# Check if container exists
+if [ $(docker ps -aq -f name=^/${CONTAINER_NAME}$) ]; then
+    echo "Stopping and removing existing container '${CONTAINER_NAME}'..."
+    docker stop ${CONTAINER_NAME} || true
+    docker rm ${CONTAINER_NAME} || true
 fi
 
 docker run \
