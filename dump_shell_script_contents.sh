@@ -3,13 +3,24 @@
 # Use the current directory as the search directory
 SEARCH_DIR=$(pwd)
 
-# Specify the output file where the contents will be dumped
-OUTPUT_FILE="output.txt"
+# Allow output file to be specified as argument, otherwise use default
+OUTPUT_FILE="${1:-output.txt}"
 
 echo "Searching in $SEARCH_DIR for .sh files..."
 
-# Initialize or clear the output file before starting the loop
-echo "" > "$OUTPUT_FILE"
+# Initialize or clear the output file with error handling
+if ! echo "" > "$OUTPUT_FILE"; then
+    echo "Error: Unable to create/write to $OUTPUT_FILE"
+    exit 1
+fi
+
+# Store file list first to check if any files were found
+files=$(find "$SEARCH_DIR" -maxdepth 1 -type f -name "*.sh")
+
+if [ -z "$files" ]; then
+    echo "No .sh files found in $SEARCH_DIR"
+    exit 0
+fi
 
 # Find all .sh files in the current directory only and process them
 find "$SEARCH_DIR" -maxdepth 1 -type f -name "*.sh" | while read -r filename; do
