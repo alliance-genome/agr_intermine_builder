@@ -19,9 +19,22 @@ services:
       - IM_REPO_URL=${IM_REPO_URL:-}
       - IM_REPO_BRANCH=${IM_REPO_BRANCH:-}
     depends_on: 
-      - postgres
-      - solr
-      - tomcat
+      postgres:
+        condition: service_healthy
+      solr:
+        condition: service_healthy
+      tomcat:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 3g
 
   postgres:
     container_name: intermine_postgres
@@ -29,6 +42,16 @@ services:
     user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
   solr:
     container_name: intermine_solr
@@ -39,6 +62,16 @@ services:
     user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./data/solr:/var/solr
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8983/solr"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2.5g
 
   tomcat:
     container_name: intermine_tomcat
@@ -47,9 +80,19 @@ services:
       - MEM_OPTS=${MEM_OPTS:-"-Xmx1g -Xms500m"}
     ports:
       - ${TOMCAT_HOST_PORT:-9999}:${TOMCAT_PORT:-8080}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1.5g
 
-# volumes:
-#   PostgresDBData:
-#   SolrDBData:
-#   MineData:
-#   MineConfigs:
+volumes:
+  PostgresDBData:
+  SolrDBData:
+  MineData:
+  MineConfigs:

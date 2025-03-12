@@ -19,5 +19,6 @@ docker run \
   --rm \
   -v "/data:/root/data" \
   --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
+  --log-opt tag="local_build" \
   "100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage" \
   ./local_build_db_all agr.local.alliancemine.postgres.server postgres

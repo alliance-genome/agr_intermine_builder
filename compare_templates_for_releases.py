@@ -1,13 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
 from time import ctime, time
 import traceback
 import smtplib
 from email.mime.text import MIMEText
 from collections import defaultdict
+from typing import Dict, List, Optional
 from intermine.webservice import Service
 
 #### CONSTANTS ####
@@ -15,31 +14,58 @@ from intermine.webservice import Service
 PROGRAM_START = time()
 
 usage = """
-%s: Compare templates from two versions of the same webservice
-usage: %s www.flymine.org/query beta.flymine.org/beta ["email@to"] ["email@from"]
-All arguments are positional. The last two are optional.
+%s: Compare templates between two versions of an InterMine webservice
+
+Usage: 
+    %s SERVICE_A [SERVICE_B] [EMAIL_TO] [EMAIL_FROM]
+
 Arguments:
-    * service version A
-    * service version B (optional - service to compare to)
-    * an email address to send email to (optional - print to std out if not present)
-    * an email to mark as the sender (optional - defaults to the first email address)
+    SERVICE_A        URL of primary InterMine service (e.g. www.flymine.org/query)
+    SERVICE_B        URL of secondary service to compare against (optional)
+                    If omitted, compares SERVICE_A against itself
+    EMAIL_TO        Email address to send results to (optional)
+                    If omitted, prints results to stdout
+    EMAIL_FROM      Email address to send results from (optional) 
+                    If omitted, uses EMAIL_TO as sender
+
+Examples:
+    %s www.flymine.org/query beta.flymine.org/beta
+    %s www.flymine.org/query beta.flymine.org/beta user@example.com
+    %s www.flymine.org/query beta.flymine.org/beta user@example.com sender@example.com
 """
 
-SUBJECT = "The results of comparison between %s and %s at %s" 
+SUBJECT = "Template Comparison Results: {service_a} vs {service_b} - {timestamp}"
+
 BODY = """
-Template comparison run complete. 
-The template comparison run you requested at {initial_time}
-between {rel_a} and {rel_b} has been completed at {time}
-(taking {duration:.2f} seconds).
-The results are as follows:
+Template Comparison Summary
+==========================
+
+Run Details:
+- Started: {initial_time}
+- Completed: {time} 
+- Duration: {duration:.2f} seconds
+- Service A: {rel_a}
+- Service B: {rel_b}
+
+Results:
+--------
 """
 
 rfc822_specials = '()<>@,;:\\"[]'
 
 #### ROUTINES ####
 
-def compare_templates(url_a, url_b=None, send_to=None, send_from=None):
-    """Main program logic"""
+def compare_templates(url_a: str, url_b: Optional[str] = None, 
+                     send_to: Optional[str] = None, send_from: Optional[str] = None) -> None:
+    """
+    Main program logic
+    
+    Args:
+        url_a: Primary service URL
+        url_b: Secondary service URL to compare against
+        send_to: Email address to send results to
+        send_from: Email address to send results from
+    """
 
     if url_b is None:
         url_b = url_a
@@ -56,15 +82,25 @@ def compare_templates(url_a, url_b=None, send_to=None, send_from=None):
     results = fetch_results(url_a, url_b)
     report_results(results, send_to, send_from)
 
-def fetch_results(url_a, url_b):
-    try: 
-        services = map(Service, [url_a, url_b])
+def fetch_results(url_a: str, url_b: str) -> Dict:
+    """
+    Fetch results from services
+    
+    Args:
+        url_a: Primary service URL
+        url_b: Secondary service URL
+    
+    Returns:
+        Dict containing failures and row counts for each service
+    """
+    try:
+        services = [Service(url) for url in [url_a, url_b]]
     except Exception as e:
-        raise Exception("Invalid service urls: '%s', '%s'\n" % (url_a, url_b) + str(e))
+        raise Exception(f"Invalid service urls: '{url_a}', '{url_b}'\n{str(e)}")
 
     results = {
-        "failures_from": dict(( (service.release, {}) for service in services)),
-        "rows_from": dict(( (service.release, {}) for service in services))
+        "failures_from": {service.release: {} for service in services},
+        "rows_from": {service.release: {} for service in services}
     }
 
     start = time()
@@ -83,7 +119,7 @@ def fetch_results(url_a, url_b):
             except Exception as e:
                 results["failures_from"][service.release][name] = str(e) + "\nXML:\n" + str(service.templates[name])
 
-            print "Querying %s for results for %s" % (service.release, name)
+            print("Querying %s for results for %s" % (service.release, name))
             try: 
                 c = template.count()
                 results["rows_from"][service.release][name] = c
@@ -92,15 +128,23 @@ def fetch_results(url_a, url_b):
 
     end = time()
     total = end - start
-    print "Finished fetching results: that took %d min, %d secs" % (total / 60, total % 60)
+    print(f"Finished fetching results: that took {total // 60} min, {total % 60} secs")
     return results
 
 def report_results(results, send_to, send_from):
-    """Handle the results"""
+    """
+    Report results by sending an email and/or printing to stdout
+    
+    Args:
+        results: Dict containing failures and row counts from services
+        send_to: Email address to send report to (optional)
+        send_from: Email address to send report from (required if send_to provided)
+    """
+
     body = create_message_body(results)
-    print body
+    print(body)
     if send_to is not None:
-        print "Sending email to %s" % send_to
+        print("Sending email to %s" % send_to)
         msg = MIMEText(body)
         params = results["rows_from"].keys()
         if len(params) == 1:
@@ -113,8 +157,17 @@ def report_results(results, send_to, send_from):
         smtp.sendmail(send_from, [send_to], msg.as_string())
         smtp.quit()
 
-def create_message_body(results):
-    """Analyse the data and present it as a string"""
+
+def create_message_body(results: Dict) -> str:
+    """
+    Analyse the data and present it as a string
+    
+    Args:
+        results: Dict containing failures and row counts from services
+    
+    Returns:
+        String containing the report
+    """
     releases = results["rows_from"].keys()
     if len(releases) == 1:
         rel_a = releases[0]
@@ -160,19 +213,15 @@ def create_message_body(results):
 
         fmt = "%-" + str(longest_template_name) + "s | %6d | %6d | %s\n" 
         for name, results_by_rel in sorted(template_results.items()):
-            diff = abs(reduce(lambda x, y: x - y, results_by_rel.values()))
-            max_c = max(results_by_rel.values())
+            values = list(results_by_rel.values())
+            diff = abs(values[0] - values[1])
+            max_c = max(values)
 
-            if diff == 0:
-                category = "SAME"
-            else: 
-                proportion = float(diff) / float(max_c)
-                if proportion < 0.1:
-                    category = "CLOSE"
-                elif proportion < 0.5:
-                    category = "DIFFERENT"
-                else: 
-                    category = "VERY DIFFERENT"
+            category = "SAME" if diff == 0 else (
+                "CLOSE" if proportion < 0.1 else
+                "DIFFERENT" if proportion < 0.5 else
+                "VERY DIFFERENT"
+            )
 
             body += fmt % (name, results_by_rel[rel_a], results_by_rel[rel_b], category)
 
@@ -186,7 +235,15 @@ def create_message_body(results):
     return body
 
 def isAddressValid(addr):
-    """Check that Email addresses are valid"""
+    """
+    Check that Email addresses are valid
+    
+    Args:
+        addr: Email address to check
+    
+    Returns:
+        Boolean indicating validity
+    """
     # First we validate the name portion (name@domain)
     c = 0
     while c < len(addr):
@@ -224,17 +281,12 @@ def isAddressValid(addr):
 
     return count >= 1
 
-#### CALL MAIN ####
 
 if __name__ == "__main__":
-
-    args = sys.argv[1:]
-
-    try: 
-        compare_templates(*args)
-    except:
-        tb = traceback.format_exc()
-        print tb
-        print usage % (sys.argv[0], sys.argv[0])
-        exit(1)
+    try:
+        compare_templates(*sys.argv[1:])
+    except Exception:
+        print(traceback.format_exc())
+        print(usage % (sys.argv[0], sys.argv[0]))
+        sys.exit(1)
 

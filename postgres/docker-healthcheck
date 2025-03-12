@@ -1,12 +1,19 @@
 #!/bin/bash
 set -eo pipefail
 
+# Default configuration values
 host="${PGHOST:-localhost}"
 port="${PGPORT:-5432}"
 user="${PSQL_USER:-postgres}"
 db="postgres"
 export PGPASSWORD="${PSQL_PWD:-postgres}"
 
+# Maximum number of retries
+max_attempts=3
+attempt=1
+retry_delay=2
+
+# Construct psql arguments
 args=(
 	# force postgres to not use the local unix socket (test "external" connectibility)
 	--host "$host"
@@ -16,8 +23,22 @@ args=(
 	--quiet --no-align --tuples-only
 )
 
-if select="$(echo 'SELECT 1' | psql "${args[@]}")" && [ "$select" = '1' ]; then
-	exit 0
-fi
+# Function to check database connection
+check_connection() {
+	echo 'SELECT 1' | psql "${args[@]}" 2>/dev/null
+}
 
+# Retry logic with timeout
+while [ $attempt -le $max_attempts ]; do
+	if select="$(check_connection)" && [ "$select" = '1' ]; then
+		echo "Database connection successful"
+		exit 0
+	fi
+	
+	echo "Attempt $attempt of $max_attempts failed. Retrying in ${retry_delay}s..."
+	sleep $retry_delay
+	attempt=$((attempt + 1))
+done
+
+echo "Database connection failed after $max_attempts attempts"
 exit 1

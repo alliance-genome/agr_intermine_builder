@@ -2,4 +2,6 @@ docker build \
 	-t 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage \
 	--build-arg ENVIRONMENT=stage \
 	--build-arg SOLR_HOST=stage-intermine-solr.alliancegenome.org \
+	--no-cache \
+	--platform linux/amd64 \
 	-f intermine_builder/intermine_builder.Dockerfile ./intermine_builder 

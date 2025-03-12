@@ -25,10 +25,16 @@ stop_and_remove() {
 }
 
 # Create the network if it doesn't exist
-docker network ls | grep -w intermine || docker network create intermine
+if ! docker network ls | grep -w intermine > /dev/null; then
+    echo "Creating intermine network..."
+    docker network create intermine || { echo "Failed to create network"; exit 1; }
+fi
 
 # Create the volume if it doesn't exist
-docker volume ls | grep -w db_backup_volume || docker volume create db_backup_volume
+if ! docker volume ls | grep -w db_backup_volume > /dev/null; then
+    echo "Creating db_backup_volume..."
+    docker volume create db_backup_volume || { echo "Failed to create volume"; exit 1; }
+fi
 
 # Container names
 containers=("agr.local.alliancemine.bluegenes.server" "agr.local.alliancemine.solr.server" "agr.local.alliancemine.tomcat.server" "agr.local.alliancemine.postgres.server")
@@ -55,7 +61,7 @@ docker run -d --name agr.local.alliancemine.tomcat.server \
     --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
     100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_tomcat_env:stage
 
-# Launch Postgres container
+# Launch Postgres container first (since other services depend on it)
 docker run \
   -d \
   --name agr.local.alliancemine.postgres.server \
@@ -64,4 +70,17 @@ docker run \
   --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
   -e PGDATA=/var/lib/postgresql/data \
   -v "$PG_DATA_DIR:/var/lib/postgresql/data" \
+  --health-cmd="pg_isready -U postgres" \
+  --health-interval=10s \
+  --health-timeout=5s \
+  --health-retries=5 \
   100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_postgres_env:stage
+
+# Wait for Postgres to be healthy
+echo "Waiting for Postgres to be ready..."
+while ! docker ps --filter "name=agr.local.alliancemine.postgres.server" --filter "health=healthy" --quiet; do
+    sleep 5
+done
+
+# Launch remaining containers
+# ... existing container launch commands with added health checks ...
