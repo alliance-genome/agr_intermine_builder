@@ -1,0 +1,97 @@
+⏳ Waiting for PostgreSQL at agr.local.alliancemine.postgres.server:5432...
+agr.local.alliancemine.postgres.server:5432 - accepting connections
+✅ PostgreSQL is ready!
+⚙️ Setting up environment...
+🔨 Creating InterMine database schema...
+To honour the JVM settings for this build a new JVM will be forked. Please consider using the daemon: https://docs.gradle.org/4.9/userguide/gradle_daemon.html.
+Daemon will be stopped at the end of the build stopping after processing
+
+> Configure project :
+Using properties file: '/root/alliancemine/alliancemine.properties'
+cleaning
+deleting idresolver cache
+deleting datasources.xml
+deleting organisms.xml
+deleting publications.xml
+deleted log files
+
+> Task :dbmodel:initConfig
+> Task :dbmodel:processResources UP-TO-DATE
+> Task :dbmodel:copyDefaultInterMineProperties
+> Task :dbmodel:copyMineProperties
+> Task :dbmodel:addSourceDependencies
+
+> Task :dbmodel:generateKeys
+Processing alliance-wb-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-wb-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing alliance-fb-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-fb-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing alliance-zfin-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-zfin-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing alliance-mgi-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-mgi-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing alliance-rgd-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-rgd-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing alliance-xtrops-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-xtrops-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing alliance-xlaevis-fasta_keys.properties
+Processing fasta_keys.properties now, as didn't find alliance-xlaevis-fasta_keys.properties in 'bio-source-fasta-5*.jar'
+Processing do_keys.properties
+Processing go_keys.properties
+Processing eco_keys.properties
+Processing mmo_keys.properties
+Processing emapa_keys.properties
+Processing zfa_keys.properties
+Processing wbbt_keys.properties
+Processing fbbt_keys.properties
+Processing psi-mi-ontology_keys.properties
+Processing go-slim_keys.properties
+Processing sgd_keys.properties
+Processing sgd-gff_keys.properties
+Processing sgd-gff-utr_keys.properties
+Processing sgd-db-utr_keys.properties
+Processing fungi-homologs_keys.properties
+Processing cgob-homologs_keys.properties
+Processing cglabrata-homologs_keys.properties
+Processing pombe-homologs_keys.properties
+Processing homolog-genes_keys.properties
+Processing sgd-complementation-db_keys.properties
+Processing sgd-complexes_keys.properties
+Processing sgd-protein-properties_keys.properties
+Processing sgd-protein-ntermini_keys.properties
+Processing alliance-genes_keys.properties
+Processing go-annotation_keys.properties
+Processing alliance-disease_keys.properties
+Processing alliance-orthologs_keys.properties
+Processing alliance-alleles_keys.properties
+Processing alliance-expression_keys.properties
+Processing update-publications_keys.properties
+Processing entrez-organism_keys.properties
+Processing so_keys.properties
+
+> Task :dbmodel:copyGenomicModel SKIPPED
+> Task :dbmodel:createSoModel SKIPPED
+> Task :dbmodel:mergeModels SKIPPED
+> Task :dbmodel:generateModel SKIPPED
+> Task :dbmodel:compileJava UP-TO-DATE
+> Task :dbmodel:classes UP-TO-DATE
+> Task :dbmodel:jar
+
+> Task :dbmodel:buildDB
+Creating schema in objectstore os.production for /root/alliancemine/dbmodel/build/os.production-schema.xml
+Creating tables in objectstore os.production with schema os.production-schema.xml
+  [buildDB] Our new url -> jdbc:postgresql://agr.local.alliancemine.postgres.server/alliancemine
+  [buildDB] Our new url -> jdbc:postgresql://agr.local.alliancemine.postgres.server/alliancemine
+Storing metadata in objectstore os.production for model genomic
+Creating search indexes for objectstore os.production
+Postgres analyzing objectstore os.production for genomic to optimize performance
+************************************************************************************************************************
+IF YOU CHANGE YOUR DATA MODEL BE SURE TO RUN THE clean TASK BEFORE buildDB ELSE YOU WILL NOT UPDATE THE MINE'S MODEL! :)
+************************************************************************************************************************
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 5.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/4.9/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD SUCCESSFUL in 29s
+9 actionable tasks: 7 executed, 2 up-to-date

@@ -1,0 +1,40 @@
+usage:
+  ./project_build [-v] [-b] [-l | -r] [-T] [-u | -U] [-V <version>] [-D dest_database_name] [-a <actions>] dump_host dump_prefix
+
+flags:
+ -v is passed to ant
+ -l attempt to restart by reading the last dump file
+ -r attempt to restart just after the last dump point _without_ loading a dump
+ -b run build-db before starting build and drop any existing backup databases
+ -n parse files and report actions, but don't execute anything
+ -V set the release number to pass to ant (as -Drelease=release_number)
+ -T instead of making backup copies of the database in the
+    server using the "CREATE DATABASE foo WITH TEMPLATE bar" command,
+    dump and reload to restart.
+ -E Set the default database encoding (defaults to SQL_ASCII if not passed)
+ -D set the destination database for the completed build; the database will be
+    copied to this name in the same postgres server that the build used
+ -a set the list of actions to perform - the list must be a subset of the
+    sources/postprocesses in the project.xml file.
+     - The -l and -r operate as usual.
+     - To run all steps starting at <some_action> use a dash after the action
+       name: -a <some_action>-
+     - To perform only the final dump use: -a final-dump
+     - The action names can be patterns: -a 'flymine-static,*dmel*'
+     - To refer to dump step and skip its corresponding action use the action
+       name with "-dump" appended
+          eg -a fly-fish-dump-  (starts with the fly-fish dump then continues)
+             -a fly-fish-dump,flymine-static,create-references,final-dump
+ -u Build userprofile database if not already populated
+ -U Build userprofile database even if already populated
+
+dump_host is the host to run pg_dump and pg_restore on
+
+With the -t flag, one dump is made the end of the build with the name
+dump_prefix.final
+
+Without the -t flag, a dump is made after integrating each source in the
+project.xml that has dump="true" set.  A final dump is also made.
+
+example:
+  ./project_build prod1 /tmp/production_dump

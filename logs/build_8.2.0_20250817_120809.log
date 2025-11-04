@@ -1,0 +1,870 @@
+🔨 Installing alliancemine-bio-sources dependencies...
+Downloading https://services.gradle.org/distributions/gradle-4.9-bin.zip
+........................................................................
+Unzipping /home/intermine/.gradle/wrapper/dists/gradle-4.9-bin/e9cinqnqvph59rr7g70qubb4t/gradle-4.9-bin.zip to /home/intermine/.gradle/wrapper/dists/gradle-4.9-bin/e9cinqnqvph59rr7g70qubb4t
+Set executable permissions for: /home/intermine/.gradle/wrapper/dists/gradle-4.9-bin/e9cinqnqvph59rr7g70qubb4t/gradle-4.9/bin/gradle
+Download https://jcenter.bintray.com/org/intermine/plugin/5.1.0/plugin-5.1.0.pom
+Download https://jcenter.bintray.com/org/intermine/plugin/5.1.0/plugin-5.1.0.jar
+> Task :bio-source-alliance-alleles:initConfig
+> Task :bio-source-alliance-alleles:processResources
+Download https://jcenter.bintray.com/org/intermine/bio-model/5.1.0/bio-model-5.1.0.pom
+Download https://jcenter.bintray.com/org/intermine/bio-model/5.1.0/bio-model-5.1.0.jar
+> Task :bio-source-alliance-alleles:copyBioGenomicModel
+> Task :bio-source-alliance-alleles:copyGlobalAdditionsFile
+Download https://jcenter.bintray.com/org/intermine/intermine-objectstore/5.1.0/intermine-objectstore-5.1.0.pom
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-1.2-api/2.17.1/log4j-1.2-api-2.17.1.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-resources/5.1.0/intermine-resources-5.1.0.pom
+Download https://jcenter.bintray.com/org/postgresql/postgresql/42.2.2/postgresql-42.2.2.pom
+Download https://jcenter.bintray.com/ant/ant/1.6.5/ant-1.6.5.pom
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j/2.17.1/log4j-2.17.1.pom
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-slf4j-impl/2.17.1/log4j-slf4j-impl-2.17.1.pom
+Download https://jcenter.bintray.com/org/postgresql/pgjdbc-core-parent/1.1.3/pgjdbc-core-parent-1.1.3.pom
+Download https://jcenter.bintray.com/org/apache/apache/4/apache-4.pom
+Download https://jcenter.bintray.com/org/apache/logging/logging-parent/3/logging-parent-3.pom
+Download https://jcenter.bintray.com/org/postgresql/pgjdbc-versions/1.1.3/pgjdbc-versions-1.1.3.pom
+Download https://jcenter.bintray.com/commons-io/commons-io/1.2/commons-io-1.2.pom
+Download https://jcenter.bintray.com/org/apache/apache/23/apache-23.pom
+Download https://jcenter.bintray.com/com/zaxxer/HikariCP/3.2.0/HikariCP-3.2.0.pom
+Download https://jcenter.bintray.com/commons-beanutils/commons-beanutils/1.9.3/commons-beanutils-1.9.3.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/41/commons-parent-41.pom
+Download https://jcenter.bintray.com/org/sonatype/oss/oss-parent/9/oss-parent-9.pom
+Download https://jcenter.bintray.com/au/com/bytecode/opencsv/2.4/opencsv-2.4.pom
+Download https://jcenter.bintray.com/net/iharder/base64/2.3.8/base64-2.3.8.pom
+Download https://jcenter.bintray.com/org/ow2/asm/asm/4.2/asm-4.2.pom
+Download https://jcenter.bintray.com/mockobjects/mockobjects-core/0.09/mockobjects-core-0.09.pom
+Download https://jcenter.bintray.com/mockobjects/mockobjects-jdk1.3/0.09/mockobjects-jdk1.3-0.09.pom
+Download https://jcenter.bintray.com/org/apache/apache/18/apache-18.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-model/5.1.0/intermine-model-5.1.0.pom
+Download https://jcenter.bintray.com/org/ow2/asm/asm-parent/4.2/asm-parent-4.2.pom
+Download https://jcenter.bintray.com/org/ow2/ow2/1.3/ow2-1.3.pom
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-api/2.17.1/log4j-api-2.17.1.pom
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-core/2.17.1/log4j-core-2.17.1.pom
+Download https://jcenter.bintray.com/org/slf4j/slf4j-api/1.7.25/slf4j-api-1.7.25.pom
+Download https://jcenter.bintray.com/org/slf4j/slf4j-parent/1.7.25/slf4j-parent-1.7.25.pom
+Download https://jcenter.bintray.com/commons-lang/commons-lang/2.6/commons-lang-2.6.pom
+Download https://jcenter.bintray.com/cglib/cglib/3.1/cglib-3.1.pom
+Download https://jcenter.bintray.com/commons-collections/commons-collections/3.2/commons-collections-3.2.pom
+Download https://jcenter.bintray.com/org/skyscreamer/jsonassert/1.2.3/jsonassert-1.2.3.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/17/commons-parent-17.pom
+Download https://jcenter.bintray.com/org/sonatype/oss/oss-parent/7/oss-parent-7.pom
+Download https://jcenter.bintray.com/org/apache/apache/7/apache-7.pom
+Download https://jcenter.bintray.com/commons-collections/commons-collections/3.2.2/commons-collections-3.2.2.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/39/commons-parent-39.pom
+Download https://jcenter.bintray.com/org/apache/apache/16/apache-16.pom
+Download https://jcenter.bintray.com/commons-logging/commons-logging/1.2/commons-logging-1.2.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/34/commons-parent-34.pom
+Download https://jcenter.bintray.com/org/apache/apache/13/apache-13.pom
+Download https://jcenter.bintray.com/org/json/json/20090211/json-20090211.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-objectstore/5.1.0/intermine-objectstore-5.1.0.jar
+Download https://jcenter.bintray.com/org/intermine/intermine-model/5.1.0/intermine-model-5.1.0.jar
+Download https://jcenter.bintray.com/ant/ant/1.6.5/ant-1.6.5.jar
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-1.2-api/2.17.1/log4j-1.2-api-2.17.1.jar
+Download https://jcenter.bintray.com/org/intermine/intermine-resources/5.1.0/intermine-resources-5.1.0.jar
+Download https://jcenter.bintray.com/org/postgresql/postgresql/42.2.2/postgresql-42.2.2.jar
+Download https://jcenter.bintray.com/commons-io/commons-io/1.2/commons-io-1.2.jar
+Download https://jcenter.bintray.com/commons-beanutils/commons-beanutils/1.9.3/commons-beanutils-1.9.3.jar
+Download https://jcenter.bintray.com/net/iharder/base64/2.3.8/base64-2.3.8.jar
+Download https://jcenter.bintray.com/com/zaxxer/HikariCP/3.2.0/HikariCP-3.2.0.jar
+Download https://jcenter.bintray.com/cglib/cglib/3.1/cglib-3.1.jar
+Download https://jcenter.bintray.com/au/com/bytecode/opencsv/2.4/opencsv-2.4.jar
+Download https://jcenter.bintray.com/org/ow2/asm/asm/4.2/asm-4.2.jar
+Download https://jcenter.bintray.com/mockobjects/mockobjects-core/0.09/mockobjects-core-0.09.jar
+Download https://jcenter.bintray.com/mockobjects/mockobjects-jdk1.3/0.09/mockobjects-jdk1.3-0.09.jar
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-core/2.17.1/log4j-core-2.17.1.jar
+Download https://jcenter.bintray.com/org/slf4j/slf4j-api/1.7.25/slf4j-api-1.7.25.jar
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-api/2.17.1/log4j-api-2.17.1.jar
+Download https://jcenter.bintray.com/commons-lang/commons-lang/2.6/commons-lang-2.6.jar
+Download https://jcenter.bintray.com/commons-collections/commons-collections/3.2.2/commons-collections-3.2.2.jar
+Download https://jcenter.bintray.com/org/skyscreamer/jsonassert/1.2.3/jsonassert-1.2.3.jar
+Download https://jcenter.bintray.com/commons-logging/commons-logging/1.2/commons-logging-1.2.jar
+Download https://jcenter.bintray.com/org/json/json/20090211/json-20090211.jar
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-slf4j-impl/2.17.1/log4j-slf4j-impl-2.17.1.jar
+> Task :bio-source-alliance-alleles:mergeModels
+> Task :bio-source-alliance-alleles:generateModel SKIPPED
+Download https://jcenter.bintray.com/org/intermine/bio-core/5.1.0/bio-core-5.1.0.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-api/5.1.0/intermine-api-5.1.0.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-webtasks/5.1.0/intermine-webtasks-5.1.0.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-webapp/5.1.0/intermine-webapp-5.1.0.pom
+Download https://jcenter.bintray.com/org/apache/solr/solr-solrj/7.2.1/solr-solrj-7.2.1.pom
+Download https://jcenter.bintray.com/org/apache/solr/solr-parent/7.2.1/solr-parent-7.2.1.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-pathquery/5.1.0/intermine-pathquery-5.1.0.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-solr-grandparent/7.2.1/lucene-solr-grandparent-7.2.1.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-snowball/3.0.2/lucene-snowball-3.0.2.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-integrate/5.1.0/intermine-integrate-5.1.0.pom
+Download https://jcenter.bintray.com/xalan/xalan/2.7.2/xalan-2.7.2.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-contrib/3.0.2/lucene-contrib-3.0.2.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-highlighter/3.0.2/lucene-highlighter-3.0.2.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-queries/3.0.2/lucene-queries-3.0.2.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-parent/3.0.2/lucene-parent-3.0.2.pom
+Download https://jcenter.bintray.com/org/json/json/20170516/json-20170516.pom
+Download https://jcenter.bintray.com/org/apache/jena/apache-jena-libs/3.16.0/apache-jena-libs-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-core/3.0.2/lucene-core-3.0.2.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena/3.16.0/jena-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/logging/log4j/log4j-bom/2.13.3/log4j-bom-2.13.3.pom
+Download https://jcenter.bintray.com/org/apache/logging/logging-parent/1/logging-parent-1.pom
+Download https://jcenter.bintray.com/commons-io/commons-io/2.0.1/commons-io-2.0.1.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/15/commons-parent-15.pom
+Download https://jcenter.bintray.com/javax/mail/mail/1.4/mail-1.4.pom
+Download https://jcenter.bintray.com/org/apache/struts/struts-core/1.3.10/struts-core-1.3.10.pom
+Download https://jcenter.bintray.com/org/apache/struts/struts-taglib/1.3.10/struts-taglib-1.3.10.pom
+Download https://jcenter.bintray.com/org/directwebremoting/dwr/2.0.1/dwr-2.0.1.pom
+Download https://jcenter.bintray.com/org/apache/struts/struts-parent/1.3.10/struts-parent-1.3.10.pom
+Download https://jcenter.bintray.com/org/apache/struts/struts-tiles/1.3.10/struts-tiles-1.3.10.pom
+Download https://jcenter.bintray.com/javax/servlet/jstl/1.2/jstl-1.2.pom
+Download https://jcenter.bintray.com/org/apache/struts/struts-master/4/struts-master-4.pom
+Download https://jcenter.bintray.com/org/apache/taglibs/taglibs-standard/1.2.5/taglibs-standard-1.2.5.pom
+Download https://jcenter.bintray.com/org/apache/apache/2/apache-2.pom
+Download https://jcenter.bintray.com/org/apache/taglibs/taglibs-parent/3/taglibs-parent-3.pom
+Download https://jcenter.bintray.com/org/apache/apache/10/apache-10.pom
+Download https://jcenter.bintray.com/commons-fileupload/commons-fileupload/1.2.2/commons-fileupload-1.2.2.pom
+Download https://jcenter.bintray.com/commons-httpclient/commons-httpclient/3.0/commons-httpclient-3.0.pom
+Download https://jcenter.bintray.com/org/everit/json/org.everit.json.schema/1.5.1/org.everit.json.schema-1.5.1.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/16/commons-parent-16.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-databind/2.2.3/jackson-databind-2.2.3.pom
+Download https://jcenter.bintray.com/org/apache/oltu/oauth2/org.apache.oltu.oauth2.client/1.0.1/org.apache.oltu.oauth2.client-1.0.1.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/media/jersey-media-json-jackson/2.25/jersey-media-json-jackson-2.25.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/media/project/2.25/project-2.25.pom
+Download https://jcenter.bintray.com/com/fasterxml/oss-parent/11/oss-parent-11.pom
+Download https://jcenter.bintray.com/org/apache/oltu/oauth2/org.apache.oltu.oauth2.parent/1.0.1/org.apache.oltu.oauth2.parent-1.0.1.pom
+Download https://jcenter.bintray.com/javax/ws/rs/javax.ws.rs-api/2.0.1/javax.ws.rs-api-2.0.1.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/project/2.25/project-2.25.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/core/jersey-client/2.25/jersey-client-2.25.pom
+Download https://jcenter.bintray.com/net/java/jvnet-parent/5/jvnet-parent-5.pom
+Download https://jcenter.bintray.com/org/apache/oltu/org.apache.oltu.parent/3/org.apache.oltu.parent-3.pom
+Download https://jcenter.bintray.com/net/java/jvnet-parent/4/jvnet-parent-4.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-core/3.16.0/jena-core-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-math3/3.2/commons-math3-3.2.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-bom/2.5.0-b30/hk2-bom-2.5.0-b30.pom
+Download https://jcenter.bintray.com/commons-codec/commons-codec/1.15/commons-codec-1.15.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/28/commons-parent-28.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/52/commons-parent-52.pom
+Download https://jcenter.bintray.com/fastutil/fastutil/5.0.9/fastutil-5.0.9.pom
+Download https://jcenter.bintray.com/taglibs/string/1.1.0/string-1.1.0.pom
+Download https://jcenter.bintray.com/javax/xml/bind/jaxb-api/2.3.1/jaxb-api-2.3.1.pom
+Download https://jcenter.bintray.com/org/apache/struts/struts-extras/1.3.10/struts-extras-1.3.10.pom
+Download https://jcenter.bintray.com/javax/xml/bind/jaxb-api-parent/2.3.1/jaxb-api-parent-2.3.1.pom
+Download https://jcenter.bintray.com/stax/stax/1.2.0/stax-1.2.0.pom
+Download https://jcenter.bintray.com/xalan/serializer/2.7.2/serializer-2.7.2.pom
+Download https://jcenter.bintray.com/commons-io/commons-io/2.5/commons-io-2.5.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpmime/4.5.3/httpmime-4.5.3.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpclient/4.5.3/httpclient-4.5.3.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcore/4.4.6/httpcore-4.4.6.pom
+Download https://jcenter.bintray.com/org/apache/zookeeper/zookeeper/3.4.10/zookeeper-3.4.10.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcomponents-client/4.5.3/httpcomponents-client-4.5.3.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcomponents-core/4.4.6/httpcomponents-core-4.4.6.pom
+Download https://jcenter.bintray.com/org/codehaus/woodstox/woodstox-core-asl/4.4.1/woodstox-core-asl-4.4.1.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/project/7/project-7.pom
+Download https://jcenter.bintray.com/org/noggit/noggit/0.8/noggit-0.8.pom
+Download https://jcenter.bintray.com/org/codehaus/woodstox/stax2-api/3.1.4/stax2-api-3.1.4.pom
+Download https://jcenter.bintray.com/org/slf4j/jcl-over-slf4j/1.7.7/jcl-over-slf4j-1.7.7.pom
+Download https://jcenter.bintray.com/org/slf4j/slf4j-parent/1.7.7/slf4j-parent-1.7.7.pom
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-memory/3.0.2/lucene-memory-3.0.2.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-shacl/3.16.0/jena-shacl-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-rdfconnection/3.16.0/jena-rdfconnection-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-tdb2/3.16.0/jena-tdb2-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-tdb/3.16.0/jena-tdb-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-db/3.16.0/jena-db-3.16.0.pom
+Download https://jcenter.bintray.com/javax/activation/activation/1.1/activation-1.1.pom
+Download https://jcenter.bintray.com/commons-validator/commons-validator/1.3.1/commons-validator-1.3.1.pom
+Download https://jcenter.bintray.com/commons-chain/commons-chain/1.2/commons-chain-1.2.pom
+Download https://jcenter.bintray.com/antlr/antlr/2.7.2/antlr-2.7.2.pom
+Download https://jcenter.bintray.com/commons-digester/commons-digester/1.8/commons-digester-1.8.pom
+Download https://jcenter.bintray.com/oro/oro/2.0.8/oro-2.0.8.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/10/commons-parent-10.pom
+Download https://jcenter.bintray.com/junit/junit/3.8.1/junit-3.8.1.pom
+Download https://jcenter.bintray.com/commons-validator/commons-validator/1.5.1/commons-validator-1.5.1.pom
+Download https://jcenter.bintray.com/com/google/guava/guava/19.0/guava-19.0.pom
+Download https://jcenter.bintray.com/com/google/guava/guava-parent/19.0/guava-parent-19.0.pom
+Download https://jcenter.bintray.com/org/apache/oltu/oauth2/org.apache.oltu.oauth2.common/1.0.1/org.apache.oltu.oauth2.common-1.0.1.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-core/2.2.3/jackson-core-2.2.3.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-annotations/2.2.3/jackson-annotations-2.2.3.pom
+Download https://jcenter.bintray.com/com/fasterxml/oss-parent/10/oss-parent-10.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-annotations/2.8.4/jackson-annotations-2.8.4.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jackson-parent/2.8/jackson-parent-2.8.pom
+Download https://jcenter.bintray.com/com/fasterxml/oss-parent/27/oss-parent-27.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/ext/jersey-entity-filtering/2.25/jersey-entity-filtering-2.25.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/core/jersey-common/2.25/jersey-common-2.25.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jaxrs/jackson-jaxrs-json-provider/2.8.4/jackson-jaxrs-json-provider-2.8.4.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jaxrs/jackson-jaxrs-base/2.8.4/jackson-jaxrs-base-2.8.4.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/ext/project/2.25/project-2.25.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jaxrs/jackson-jaxrs-providers/2.8.4/jackson-jaxrs-providers-2.8.4.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-api/2.5.0-b30/hk2-api-2.5.0-b30.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/external/javax.inject/2.5.0-b30/javax.inject-2.5.0-b30.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-locator/2.5.0-b30/hk2-locator-2.5.0-b30.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/external/2.5.0-b30/external-2.5.0-b30.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-parent/2.5.0-b30/hk2-parent-2.5.0-b30.pom
+Download https://jcenter.bintray.com/commons-cli/commons-cli/1.4/commons-cli-1.4.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-base/3.16.0/jena-base-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-iri/3.16.0/jena-iri-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/42/commons-parent-42.pom
+Download https://jcenter.bintray.com/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.pom
+Download https://jcenter.bintray.com/com/sun/activation/all/1.2.0/all-1.2.0.pom
+Download https://jcenter.bintray.com/net/java/jvnet-parent/1/jvnet-parent-1.pom
+Download https://jcenter.bintray.com/stax/stax-api/1.0.1/stax-api-1.0.1.pom
+Download https://jcenter.bintray.com/xml-apis/xml-apis/1.3.04/xml-apis-1.3.04.pom
+Download https://jcenter.bintray.com/org/apache/apache/3/apache-3.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-arq/3.16.0/jena-arq-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-storage/3.16.0/jena-dboe-storage-3.16.0.pom
+Download https://jcenter.bintray.com/commons-digester/commons-digester/1.8.1/commons-digester-1.8.1.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/11/commons-parent-11.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/bundles/repackaged/jersey-guava/2.25/jersey-guava-2.25.pom
+Download https://jcenter.bintray.com/javax/annotation/javax.annotation-api/1.2/javax.annotation-api-1.2.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/osgi-resource-locator/1.0.1/osgi-resource-locator-1.0.1.pom
+Download https://jcenter.bintray.com/net/java/jvnet-parent/3/jvnet-parent-3.pom
+Download https://jcenter.bintray.com/org/glassfish/pom/8/pom-8.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/bundles/repackaged/project/2.25/project-2.25.pom
+Download https://jcenter.bintray.com/org/glassfish/jersey/bundles/project/2.25/project-2.25.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-core/2.8.4/jackson-core-2.8.4.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-databind/2.8.4/jackson-databind-2.8.4.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/module/jackson-module-jaxb-annotations/2.8.4/jackson-module-jaxb-annotations-2.8.4.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-utils/2.5.0-b30/hk2-utils-2.5.0-b30.pom
+Download https://jcenter.bintray.com/org/glassfish/hk2/external/aopalliance-repackaged/2.5.0-b30/aopalliance-repackaged-2.5.0-b30.pom
+Download https://jcenter.bintray.com/org/javassist/javassist/3.20.0-GA/javassist-3.20.0-GA.pom
+Download https://jcenter.bintray.com/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom
+Download https://jcenter.bintray.com/org/slf4j/slf4j-parent/1.7.30/slf4j-parent-1.7.30.pom
+Download https://jcenter.bintray.com/commons-io/commons-io/2.6/commons-io-2.6.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-compress/1.20/commons-compress-1.20.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-shaded-guava/3.16.0/jena-shaded-guava-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-csv/1.8/commons-csv-1.8.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/50/commons-parent-50.pom
+Download https://jcenter.bintray.com/org/apache/commons/commons-parent/48/commons-parent-48.pom
+Download https://jcenter.bintray.com/com/github/andrewoma/dexx/collection/0.7/collection-0.7.pom
+Download https://jcenter.bintray.com/org/apache/apache/21/apache-21.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpclient/4.5.10/httpclient-4.5.10.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcomponents-client/4.5.10/httpcomponents-client-4.5.10.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcomponents-parent/11/httpcomponents-parent-11.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jackson-base/2.10.1/jackson-base-2.10.1.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jackson-bom/2.10.1/jackson-bom-2.10.1.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jackson-parent/2.10/jackson-parent-2.10.pom
+Download https://jcenter.bintray.com/com/fasterxml/oss-parent/38/oss-parent-38.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1.pom
+Download https://jcenter.bintray.com/org/slf4j/jcl-over-slf4j/1.7.30/jcl-over-slf4j-1.7.30.pom
+Download https://jcenter.bintray.com/org/apache/thrift/libthrift/0.13.0/libthrift-0.13.0.pom
+Download https://jcenter.bintray.com/com/github/jsonld-java/jsonld-java/0.12.5/jsonld-java-0.12.5.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpclient-cache/4.5.10/httpclient-cache-4.5.10.pom
+Download https://jcenter.bintray.com/com/github/jsonld-java/jsonld-java-parent/0.12.5/jsonld-java-parent-0.12.5.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jackson-bom/2.9.9/jackson-bom-2.9.9.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jackson-parent/2.9.1.2/jackson-parent-2.9.1.2.pom
+Download https://jcenter.bintray.com/com/fasterxml/oss-parent/34/oss-parent-34.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-trans-data/3.16.0/jena-dboe-trans-data-3.16.0.pom
+Download https://jcenter.bintray.com/javax/inject/javax.inject/1/javax.inject-1.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcore/4.4.12/httpcore-4.4.12.pom
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcomponents-core/4.4.12/httpcomponents-core-4.4.12.pom
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1.pom
+Download https://jcenter.bintray.com/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-index/3.16.0/jena-dboe-index-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-transaction/3.16.0/jena-dboe-transaction-3.16.0.pom
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-base/3.16.0/jena-dboe-base-3.16.0.pom
+Download https://jcenter.bintray.com/org/intermine/intermine-api/5.1.0/intermine-api-5.1.0.jar
+Download https://jcenter.bintray.com/org/intermine/intermine-webtasks/5.1.0/intermine-webtasks-5.1.0.jar
+Download https://jcenter.bintray.com/org/intermine/bio-core/5.1.0/bio-core-5.1.0.jar
+Download https://jcenter.bintray.com/org/intermine/intermine-integrate/5.1.0/intermine-integrate-5.1.0.jar
+Download https://jcenter.bintray.com/org/intermine/intermine-pathquery/5.1.0/intermine-pathquery-5.1.0.jar
+Download https://jcenter.bintray.com/org/apache/struts/struts-taglib/1.3.10/struts-taglib-1.3.10.jar
+Download https://jcenter.bintray.com/org/apache/struts/struts-extras/1.3.10/struts-extras-1.3.10.jar
+Download https://jcenter.bintray.com/org/apache/struts/struts-tiles/1.3.10/struts-tiles-1.3.10.jar
+Download https://jcenter.bintray.com/org/apache/struts/struts-core/1.3.10/struts-core-1.3.10.jar
+Download https://jcenter.bintray.com/org/everit/json/org.everit.json.schema/1.5.1/org.everit.json.schema-1.5.1.jar
+Download https://jcenter.bintray.com/commons-validator/commons-validator/1.5.1/commons-validator-1.5.1.jar
+Download https://jcenter.bintray.com/commons-digester/commons-digester/1.8.1/commons-digester-1.8.1.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-shacl/3.16.0/jena-shacl-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/solr/solr-solrj/7.2.1/solr-solrj-7.2.1.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-tdb/3.16.0/jena-tdb-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-storage/3.16.0/jena-dboe-storage-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-rdfconnection/3.16.0/jena-rdfconnection-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-tdb2/3.16.0/jena-tdb2-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-transaction/3.16.0/jena-dboe-transaction-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-trans-data/3.16.0/jena-dboe-trans-data-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-index/3.16.0/jena-dboe-index-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-dboe-base/3.16.0/jena-dboe-base-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-core/3.16.0/jena-core-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-arq/3.16.0/jena-arq-3.16.0.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-base/3.16.0/jena-base-3.16.0.jar
+Download https://jcenter.bintray.com/com/github/jsonld-java/jsonld-java/0.12.5/jsonld-java-0.12.5.jar
+Download https://jcenter.bintray.com/commons-io/commons-io/2.6/commons-io-2.6.jar
+Download https://jcenter.bintray.com/xalan/xalan/2.7.2/xalan-2.7.2.jar
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-snowball/3.0.2/lucene-snowball-3.0.2.jar
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-highlighter/3.0.2/lucene-highlighter-3.0.2.jar
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-queries/3.0.2/lucene-queries-3.0.2.jar
+Download https://jcenter.bintray.com/org/apache/oltu/oauth2/org.apache.oltu.oauth2.client/1.0.1/org.apache.oltu.oauth2.client-1.0.1.jar
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-core/3.0.2/lucene-core-3.0.2.jar
+Download https://jcenter.bintray.com/org/apache/lucene/lucene-memory/3.0.2/lucene-memory-3.0.2.jar
+Download https://jcenter.bintray.com/org/apache/oltu/oauth2/org.apache.oltu.oauth2.common/1.0.1/org.apache.oltu.oauth2.common-1.0.1.jar
+Download https://jcenter.bintray.com/org/json/json/20170516/json-20170516.jar
+Download https://jcenter.bintray.com/org/slf4j/jcl-over-slf4j/1.7.30/jcl-over-slf4j-1.7.30.jar
+Download https://jcenter.bintray.com/org/apache/thrift/libthrift/0.13.0/libthrift-0.13.0.jar
+Download https://jcenter.bintray.com/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar
+Download https://jcenter.bintray.com/javax/mail/mail/1.4/mail-1.4.jar
+Download https://jcenter.bintray.com/org/directwebremoting/dwr/2.0.1/dwr-2.0.1.jar
+Download https://jcenter.bintray.com/javax/servlet/jstl/1.2/jstl-1.2.jar
+Download https://jcenter.bintray.com/commons-fileupload/commons-fileupload/1.2.2/commons-fileupload-1.2.2.jar
+Download https://jcenter.bintray.com/commons-httpclient/commons-httpclient/3.0/commons-httpclient-3.0.jar
+Download https://jcenter.bintray.com/org/glassfish/jersey/media/jersey-media-json-jackson/2.25/jersey-media-json-jackson-2.25.jar
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jaxrs/jackson-jaxrs-base/2.8.4/jackson-jaxrs-base-2.8.4.jar
+Download https://jcenter.bintray.com/com/fasterxml/jackson/jaxrs/jackson-jaxrs-json-provider/2.8.4/jackson-jaxrs-json-provider-2.8.4.jar
+Download https://jcenter.bintray.com/com/fasterxml/jackson/module/jackson-module-jaxb-annotations/2.8.4/jackson-module-jaxb-annotations-2.8.4.jar
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1.jar
+Download https://jcenter.bintray.com/org/glassfish/jersey/core/jersey-common/2.25/jersey-common-2.25.jar
+Download https://jcenter.bintray.com/org/glassfish/jersey/core/jersey-client/2.25/jersey-client-2.25.jar
+Download https://jcenter.bintray.com/org/glassfish/jersey/ext/jersey-entity-filtering/2.25/jersey-entity-filtering-2.25.jar
+Download https://jcenter.bintray.com/javax/ws/rs/javax.ws.rs-api/2.0.1/javax.ws.rs-api-2.0.1.jar
+Download https://jcenter.bintray.com/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpclient-cache/4.5.10/httpclient-cache-4.5.10.jar
+Download https://jcenter.bintray.com/commons-codec/commons-codec/1.15/commons-codec-1.15.jar
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpclient/4.5.10/httpclient-4.5.10.jar
+Download https://jcenter.bintray.com/javax/xml/bind/jaxb-api/2.3.1/jaxb-api-2.3.1.jar
+Download https://jcenter.bintray.com/fastutil/fastutil/5.0.9/fastutil-5.0.9.jar
+Download https://jcenter.bintray.com/taglibs/string/1.1.0/string-1.1.0.jar
+Download https://jcenter.bintray.com/stax/stax/1.2.0/stax-1.2.0.jar
+Download https://jcenter.bintray.com/xalan/serializer/2.7.2/serializer-2.7.2.jar
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpcore/4.4.12/httpcore-4.4.12.jar
+Download https://jcenter.bintray.com/org/apache/httpcomponents/httpmime/4.5.3/httpmime-4.5.3.jar
+Download https://jcenter.bintray.com/org/apache/zookeeper/zookeeper/3.4.10/zookeeper-3.4.10.jar
+Download https://jcenter.bintray.com/org/codehaus/woodstox/stax2-api/3.1.4/stax2-api-3.1.4.jar
+Download https://jcenter.bintray.com/org/codehaus/woodstox/woodstox-core-asl/4.4.1/woodstox-core-asl-4.4.1.jar
+Download https://jcenter.bintray.com/org/noggit/noggit/0.8/noggit-0.8.jar
+Download https://jcenter.bintray.com/javax/activation/activation/1.1/activation-1.1.jar
+Download https://jcenter.bintray.com/antlr/antlr/2.7.2/antlr-2.7.2.jar
+Download https://jcenter.bintray.com/commons-chain/commons-chain/1.2/commons-chain-1.2.jar
+Download https://jcenter.bintray.com/oro/oro/2.0.8/oro-2.0.8.jar
+Download https://jcenter.bintray.com/junit/junit/3.8.1/junit-3.8.1.jar
+Download https://jcenter.bintray.com/com/google/guava/guava/19.0/guava-19.0.jar
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1.jar
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-locator/2.5.0-b30/hk2-locator-2.5.0-b30.jar
+Download https://jcenter.bintray.com/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1.jar
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-api/2.5.0-b30/hk2-api-2.5.0-b30.jar
+Download https://jcenter.bintray.com/org/glassfish/hk2/external/javax.inject/2.5.0-b30/javax.inject-2.5.0-b30.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-iri/3.16.0/jena-iri-3.16.0.jar
+Download https://jcenter.bintray.com/commons-cli/commons-cli/1.4/commons-cli-1.4.jar
+Download https://jcenter.bintray.com/stax/stax-api/1.0.1/stax-api-1.0.1.jar
+Download https://jcenter.bintray.com/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.jar
+Download https://jcenter.bintray.com/xml-apis/xml-apis/1.3.04/xml-apis-1.3.04.jar
+Download https://jcenter.bintray.com/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.jar
+Download https://jcenter.bintray.com/org/glassfish/jersey/bundles/repackaged/jersey-guava/2.25/jersey-guava-2.25.jar
+Download https://jcenter.bintray.com/org/glassfish/hk2/osgi-resource-locator/1.0.1/osgi-resource-locator-1.0.1.jar
+Download https://jcenter.bintray.com/org/glassfish/hk2/hk2-utils/2.5.0-b30/hk2-utils-2.5.0-b30.jar
+Download https://jcenter.bintray.com/org/glassfish/hk2/external/aopalliance-repackaged/2.5.0-b30/aopalliance-repackaged-2.5.0-b30.jar
+Download https://jcenter.bintray.com/org/apache/jena/jena-shaded-guava/3.16.0/jena-shaded-guava-3.16.0.jar
+Download https://jcenter.bintray.com/org/javassist/javassist/3.20.0-GA/javassist-3.20.0-GA.jar
+Download https://jcenter.bintray.com/org/apache/commons/commons-csv/1.8/commons-csv-1.8.jar
+Download https://jcenter.bintray.com/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10.jar
+Download https://jcenter.bintray.com/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar
+Download https://jcenter.bintray.com/com/github/andrewoma/dexx/collection/0.7/collection-0.7.jar
+Download https://jcenter.bintray.com/javax/inject/javax.inject/1/javax.inject-1.jar
+Download https://jcenter.bintray.com/org/intermine/intermine-webapp/5.1.0/intermine-webapp-5.1.0.war
+> Task :bio-source-alliance-alleles:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-alleles:classes
+> Task :bio-source-alliance-alleles:jar
+> Task :bio-source-alliance-alleles:install
+> Task :bio-source-alliance-disease:initConfig
+> Task :bio-source-alliance-disease:processResources
+> Task :bio-source-alliance-disease:copyBioGenomicModel
+> Task :bio-source-alliance-disease:copyGlobalAdditionsFile
+> Task :bio-source-alliance-disease:mergeModels
+> Task :bio-source-alliance-disease:generateModel SKIPPED
+
+> Task :bio-source-alliance-disease:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-disease:classes
+> Task :bio-source-alliance-disease:jar
+> Task :bio-source-alliance-disease:install
+> Task :bio-source-alliance-expression:initConfig
+> Task :bio-source-alliance-expression:processResources
+> Task :bio-source-alliance-expression:copyBioGenomicModel
+> Task :bio-source-alliance-expression:copyGlobalAdditionsFile
+> Task :bio-source-alliance-expression:mergeModels
+> Task :bio-source-alliance-expression:generateModel SKIPPED
+
+> Task :bio-source-alliance-expression:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-expression:classes
+> Task :bio-source-alliance-expression:jar
+> Task :bio-source-alliance-expression:install
+> Task :bio-source-alliance-genes:initConfig
+> Task :bio-source-alliance-genes:processResources
+> Task :bio-source-alliance-genes:copyBioGenomicModel
+> Task :bio-source-alliance-genes:copyGlobalAdditionsFile
+> Task :bio-source-alliance-genes:mergeModels
+> Task :bio-source-alliance-genes:generateModel SKIPPED
+
+> Task :bio-source-alliance-genes:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-genes:classes
+> Task :bio-source-alliance-genes:jar
+> Task :bio-source-alliance-genes:install
+> Task :bio-source-alliance-genetic-interactions:initConfig
+> Task :bio-source-alliance-genetic-interactions:processResources
+> Task :bio-source-alliance-genetic-interactions:copyBioGenomicModel
+> Task :bio-source-alliance-genetic-interactions:copyGlobalAdditionsFile
+> Task :bio-source-alliance-genetic-interactions:mergeModels
+> Task :bio-source-alliance-genetic-interactions:generateModel SKIPPED
+
+> Task :bio-source-alliance-genetic-interactions:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-genetic-interactions:classes
+> Task :bio-source-alliance-genetic-interactions:jar
+> Task :bio-source-alliance-genetic-interactions:install
+> Task :bio-source-alliance-molecular-interactions:initConfig
+> Task :bio-source-alliance-molecular-interactions:processResources
+> Task :bio-source-alliance-molecular-interactions:copyBioGenomicModel
+> Task :bio-source-alliance-molecular-interactions:copyGlobalAdditionsFile
+> Task :bio-source-alliance-molecular-interactions:mergeModels
+> Task :bio-source-alliance-molecular-interactions:generateModel SKIPPED
+
+> Task :bio-source-alliance-molecular-interactions:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-molecular-interactions:classes
+> Task :bio-source-alliance-molecular-interactions:jar
+> Task :bio-source-alliance-molecular-interactions:install
+> Task :bio-source-alliance-orthologs:initConfig
+> Task :bio-source-alliance-orthologs:processResources
+> Task :bio-source-alliance-orthologs:copyBioGenomicModel
+> Task :bio-source-alliance-orthologs:copyGlobalAdditionsFile
+> Task :bio-source-alliance-orthologs:mergeModels
+> Task :bio-source-alliance-orthologs:generateModel SKIPPED
+
+> Task :bio-source-alliance-orthologs:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-alliance-orthologs:classes
+> Task :bio-source-alliance-orthologs:jar
+> Task :bio-source-alliance-orthologs:install
+> Task :bio-source-cglabrata-homologs:initConfig
+> Task :bio-source-cglabrata-homologs:processResources
+> Task :bio-source-cglabrata-homologs:copyBioGenomicModel
+> Task :bio-source-cglabrata-homologs:copyGlobalAdditionsFile
+> Task :bio-source-cglabrata-homologs:mergeModels
+> Task :bio-source-cglabrata-homologs:generateModel SKIPPED
+
+> Task :bio-source-cglabrata-homologs:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-cglabrata-homologs:classes
+> Task :bio-source-cglabrata-homologs:jar
+> Task :bio-source-cglabrata-homologs:install
+> Task :bio-source-cgob-homologs:initConfig
+> Task :bio-source-cgob-homologs:processResources
+> Task :bio-source-cgob-homologs:copyBioGenomicModel
+> Task :bio-source-cgob-homologs:copyGlobalAdditionsFile
+> Task :bio-source-cgob-homologs:mergeModels
+> Task :bio-source-cgob-homologs:generateModel SKIPPED
+
+> Task :bio-source-cgob-homologs:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-cgob-homologs:classes
+> Task :bio-source-cgob-homologs:jar
+> Task :bio-source-cgob-homologs:install
+> Task :bio-source-emapa:initConfig
+> Task :bio-source-emapa:processResources
+> Task :bio-source-emapa:copyBioGenomicModel
+> Task :bio-source-emapa:copyGlobalAdditionsFile
+> Task :bio-source-emapa:mergeModels
+> Task :bio-source-emapa:generateModel SKIPPED
+
+> Task :bio-source-emapa:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-emapa:classes
+> Task :bio-source-emapa:jar
+> Task :bio-source-emapa:install
+> Task :bio-source-fbbt:initConfig
+> Task :bio-source-fbbt:processResources
+> Task :bio-source-fbbt:copyBioGenomicModel
+> Task :bio-source-fbbt:copyGlobalAdditionsFile
+> Task :bio-source-fbbt:mergeModels
+> Task :bio-source-fbbt:generateModel SKIPPED
+
+> Task :bio-source-fbbt:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-fbbt:classes
+> Task :bio-source-fbbt:jar
+> Task :bio-source-fbbt:install
+> Task :bio-source-fungi-homologs:initConfig
+> Task :bio-source-fungi-homologs:processResources
+> Task :bio-source-fungi-homologs:copyBioGenomicModel
+> Task :bio-source-fungi-homologs:copyGlobalAdditionsFile
+> Task :bio-source-fungi-homologs:mergeModels
+> Task :bio-source-fungi-homologs:generateModel SKIPPED
+
+> Task :bio-source-fungi-homologs:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-fungi-homologs:classes
+> Task :bio-source-fungi-homologs:jar
+> Task :bio-source-fungi-homologs:install
+> Task :bio-source-go-annotation:initConfig
+> Task :bio-source-go-annotation:processResources
+> Task :bio-source-go-annotation:copyBioGenomicModel
+> Task :bio-source-go-annotation:copyGlobalAdditionsFile
+> Task :bio-source-go-annotation:mergeModels
+> Task :bio-source-go-annotation:generateModel SKIPPED
+
+> Task :bio-source-go-annotation:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-go-annotation:classes
+> Task :bio-source-go-annotation:jar
+> Task :bio-source-go-annotation:install
+> Task :bio-source-go-slim:initConfig
+> Task :bio-source-go-slim:processResources
+> Task :bio-source-go-slim:copyBioGenomicModel
+> Task :bio-source-go-slim:copyGlobalAdditionsFile
+> Task :bio-source-go-slim:mergeModels
+> Task :bio-source-go-slim:generateModel SKIPPED
+
+> Task :bio-source-go-slim:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-go-slim:classes
+> Task :bio-source-go-slim:jar
+> Task :bio-source-go-slim:install
+> Task :bio-source-homolog-genes:initConfig
+> Task :bio-source-homolog-genes:processResources
+> Task :bio-source-homolog-genes:copyBioGenomicModel
+> Task :bio-source-homolog-genes:copyGlobalAdditionsFile
+> Task :bio-source-homolog-genes:mergeModels
+> Task :bio-source-homolog-genes:generateModel SKIPPED
+
+> Task :bio-source-homolog-genes:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-homolog-genes:classes
+> Task :bio-source-homolog-genes:jar
+> Task :bio-source-homolog-genes:install
+> Task :bio-source-hpo:initConfig
+> Task :bio-source-hpo:processResources
+> Task :bio-source-hpo:copyBioGenomicModel
+> Task :bio-source-hpo:copyGlobalAdditionsFile
+> Task :bio-source-hpo:mergeModels
+> Task :bio-source-hpo:generateModel SKIPPED
+
+> Task :bio-source-hpo:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-hpo:classes
+> Task :bio-source-hpo:jar
+> Task :bio-source-hpo:install
+> Task :bio-source-mmo:initConfig
+> Task :bio-source-mmo:processResources
+> Task :bio-source-mmo:copyBioGenomicModel
+> Task :bio-source-mmo:copyGlobalAdditionsFile
+> Task :bio-source-mmo:mergeModels
+> Task :bio-source-mmo:generateModel SKIPPED
+
+> Task :bio-source-mmo:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-mmo:classes
+> Task :bio-source-mmo:jar
+> Task :bio-source-mmo:install
+> Task :bio-source-mpo:initConfig
+> Task :bio-source-mpo:processResources
+> Task :bio-source-mpo:copyBioGenomicModel
+> Task :bio-source-mpo:copyGlobalAdditionsFile
+> Task :bio-source-mpo:mergeModels
+> Task :bio-source-mpo:generateModel SKIPPED
+
+> Task :bio-source-mpo:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-mpo:classes
+> Task :bio-source-mpo:jar
+> Task :bio-source-mpo:install
+> Task :bio-source-pato:initConfig
+> Task :bio-source-pato:processResources
+> Task :bio-source-pato:copyBioGenomicModel
+> Task :bio-source-pato:copyGlobalAdditionsFile
+> Task :bio-source-pato:mergeModels
+> Task :bio-source-pato:generateModel SKIPPED
+
+> Task :bio-source-pato:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-pato:classes
+> Task :bio-source-pato:jar
+> Task :bio-source-pato:install
+> Task :bio-source-pombe-homologs:initConfig
+> Task :bio-source-pombe-homologs:processResources
+> Task :bio-source-pombe-homologs:copyBioGenomicModel
+> Task :bio-source-pombe-homologs:copyGlobalAdditionsFile
+> Task :bio-source-pombe-homologs:mergeModels
+> Task :bio-source-pombe-homologs:generateModel SKIPPED
+
+> Task :bio-source-pombe-homologs:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-pombe-homologs:classes
+> Task :bio-source-pombe-homologs:jar
+> Task :bio-source-pombe-homologs:install
+> Task :bio-source-sgd:initConfig
+> Task :bio-source-sgd:processResources
+> Task :bio-source-sgd:copyBioGenomicModel
+> Task :bio-source-sgd:copyGlobalAdditionsFile
+> Task :bio-source-sgd:mergeModels
+> Task :bio-source-sgd:generateModel SKIPPED
+
+> Task :bio-source-sgd:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd:classes
+> Task :bio-source-sgd:jar
+> Task :bio-source-sgd:install
+> Task :bio-source-sgd-complementation-db:initConfig
+> Task :bio-source-sgd-complementation-db:processResources
+> Task :bio-source-sgd-complementation-db:copyBioGenomicModel
+> Task :bio-source-sgd-complementation-db:copyGlobalAdditionsFile
+> Task :bio-source-sgd-complementation-db:mergeModels
+> Task :bio-source-sgd-complementation-db:generateModel SKIPPED
+
+> Task :bio-source-sgd-complementation-db:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-complementation-db:classes
+> Task :bio-source-sgd-complementation-db:jar
+> Task :bio-source-sgd-complementation-db:install
+> Task :bio-source-sgd-complexes:initConfig
+> Task :bio-source-sgd-complexes:processResources
+> Task :bio-source-sgd-complexes:copyBioGenomicModel
+> Task :bio-source-sgd-complexes:copyGlobalAdditionsFile
+> Task :bio-source-sgd-complexes:mergeModels
+> Task :bio-source-sgd-complexes:generateModel SKIPPED
+
+> Task :bio-source-sgd-complexes:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-complexes:classes
+> Task :bio-source-sgd-complexes:jar
+> Task :bio-source-sgd-complexes:install
+> Task :bio-source-sgd-db-utr:initConfig
+> Task :bio-source-sgd-db-utr:processResources
+> Task :bio-source-sgd-db-utr:copyBioGenomicModel
+> Task :bio-source-sgd-db-utr:copyGlobalAdditionsFile
+> Task :bio-source-sgd-db-utr:mergeModels
+> Task :bio-source-sgd-db-utr:generateModel SKIPPED
+
+> Task :bio-source-sgd-db-utr:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-db-utr:classes
+> Task :bio-source-sgd-db-utr:jar
+> Task :bio-source-sgd-db-utr:install
+> Task :bio-source-sgd-gff:initConfig
+> Task :bio-source-sgd-gff:processResources
+> Task :bio-source-sgd-gff:copyBioGenomicModel
+> Task :bio-source-sgd-gff:copyGlobalAdditionsFile
+> Task :bio-source-sgd-gff:mergeModels
+> Task :bio-source-sgd-gff:generateModel SKIPPED
+
+> Task :bio-source-sgd-gff:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-gff:classes
+> Task :bio-source-sgd-gff:jar
+> Task :bio-source-sgd-gff:install
+> Task :bio-source-sgd-gff-utr:initConfig
+> Task :bio-source-sgd-gff-utr:processResources
+> Task :bio-source-sgd-gff-utr:copyBioGenomicModel
+> Task :bio-source-sgd-gff-utr:copyGlobalAdditionsFile
+> Task :bio-source-sgd-gff-utr:mergeModels
+> Task :bio-source-sgd-gff-utr:generateModel SKIPPED
+
+> Task :bio-source-sgd-gff-utr:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-gff-utr:classes
+> Task :bio-source-sgd-gff-utr:jar
+> Task :bio-source-sgd-gff-utr:install
+> Task :bio-source-sgd-protein-ntermini:initConfig
+> Task :bio-source-sgd-protein-ntermini:processResources
+> Task :bio-source-sgd-protein-ntermini:copyBioGenomicModel
+> Task :bio-source-sgd-protein-ntermini:copyGlobalAdditionsFile
+> Task :bio-source-sgd-protein-ntermini:mergeModels
+> Task :bio-source-sgd-protein-ntermini:generateModel SKIPPED
+
+> Task :bio-source-sgd-protein-ntermini:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-protein-ntermini:classes
+> Task :bio-source-sgd-protein-ntermini:jar
+> Task :bio-source-sgd-protein-ntermini:install
+> Task :bio-source-sgd-protein-properties:initConfig
+> Task :bio-source-sgd-protein-properties:processResources
+> Task :bio-source-sgd-protein-properties:copyBioGenomicModel
+> Task :bio-source-sgd-protein-properties:copyGlobalAdditionsFile
+> Task :bio-source-sgd-protein-properties:mergeModels
+> Task :bio-source-sgd-protein-properties:generateModel SKIPPED
+
+> Task :bio-source-sgd-protein-properties:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-sgd-protein-properties:classes
+> Task :bio-source-sgd-protein-properties:jar
+> Task :bio-source-sgd-protein-properties:install
+> Task :bio-source-wbbt:initConfig
+> Task :bio-source-wbbt:processResources
+> Task :bio-source-wbbt:copyBioGenomicModel
+> Task :bio-source-wbbt:copyGlobalAdditionsFile
+> Task :bio-source-wbbt:mergeModels
+> Task :bio-source-wbbt:generateModel SKIPPED
+
+> Task :bio-source-wbbt:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-wbbt:classes
+> Task :bio-source-wbbt:jar
+> Task :bio-source-wbbt:install
+> Task :bio-source-zfa:initConfig
+> Task :bio-source-zfa:processResources
+> Task :bio-source-zfa:copyBioGenomicModel
+> Task :bio-source-zfa:copyGlobalAdditionsFile
+> Task :bio-source-zfa:mergeModels
+> Task :bio-source-zfa:generateModel SKIPPED
+
+> Task :bio-source-zfa:compileJava
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :bio-source-zfa:classes
+> Task :bio-source-zfa:jar
+> Task :bio-source-zfa:install
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 5.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/4.9/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD SUCCESSFUL in 4m 10s
+240 actionable tasks: 240 executed
+✅ Bio-sources dependencies installed
+🔨 Installing alliancemine dependencies...
+To honour the JVM settings for this build a new JVM will be forked. Please consider using the daemon: https://docs.gradle.org/4.9/userguide/gradle_daemon.html.
+Daemon will be stopped at the end of the build stopping after processing
+Download https://repo.maven.apache.org/maven2/com/bmuschko/gradle-cargo-plugin/2.8.0/gradle-cargo-plugin-2.8.0.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-daemon-client/1.8.3/cargo-daemon-client-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-extensions-daemon/1.8.3/cargo-extensions-daemon-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-extensions/1.8.3/cargo-extensions-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/codehaus-cargo/1.8.3/codehaus-cargo-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-util/1.8.3/cargo-core-api-util-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-generic/1.8.3/cargo-core-api-generic-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api/1.8.3/cargo-core-api-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core/1.8.3/cargo-core-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-container/1.8.3/cargo-core-api-container-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/commons-discovery/commons-discovery/0.5/commons-discovery-0.5.pom
+Download https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/20/commons-parent-20.pom
+Download https://repo.maven.apache.org/maven2/org/apache/apache/9/apache-9.pom
+Download https://repo.maven.apache.org/maven2/org/apache/ant/ant/1.9.15/ant-1.9.15.pom
+Download https://repo.maven.apache.org/maven2/org/apache/ant/ant-parent/1.9.15/ant-parent-1.9.15.pom
+Download https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.pom
+Download https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/5/commons-parent-5.pom
+Download https://repo.maven.apache.org/maven2/org/apache/geronimo/specs/geronimo-j2ee-deployment_1.1_spec/1.1/geronimo-j2ee-deployment_1.1_spec-1.1.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-module/1.8.3/cargo-core-api-module-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/apache/geronimo/specs/specs/1.2/specs-1.2.pom
+Download https://repo.maven.apache.org/maven2/org/apache/geronimo/genesis/config/project-config/1.1/project-config-1.1.pom
+Download https://repo.maven.apache.org/maven2/org/apache/geronimo/genesis/config/config/1.1/config-1.1.pom
+Download https://repo.maven.apache.org/maven2/org/apache/geronimo/genesis/genesis/1.1/genesis-1.1.pom
+Download https://repo.maven.apache.org/maven2/org/apache/ant/ant-launcher/1.9.15/ant-launcher-1.9.15.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-licensed-dtds/1.8.3/cargo-licensed-dtds-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/jaxen/jaxen/1.1.6/jaxen-1.1.6.pom
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-resources/1.8.3/cargo-resources-1.8.3.pom
+Download https://repo.maven.apache.org/maven2/org/jdom/jdom/1.1.3/jdom-1.1.3.pom
+Download https://repo.maven.apache.org/maven2/com/bmuschko/gradle-cargo-plugin/2.8.0/gradle-cargo-plugin-2.8.0.jar
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-container/1.8.3/cargo-core-api-container-1.8.3.jar
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-generic/1.8.3/cargo-core-api-generic-1.8.3.jar
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-module/1.8.3/cargo-core-api-module-1.8.3.jar
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-core-api-util/1.8.3/cargo-core-api-util-1.8.3.jar
+Download https://repo.maven.apache.org/maven2/commons-discovery/commons-discovery/0.5/commons-discovery-0.5.jar
+Download https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.jar
+Download https://repo.maven.apache.org/maven2/org/apache/ant/ant/1.9.15/ant-1.9.15.jar
+Download https://repo.maven.apache.org/maven2/org/apache/geronimo/specs/geronimo-j2ee-deployment_1.1_spec/1.1/geronimo-j2ee-deployment_1.1_spec-1.1.jar
+Download https://repo.maven.apache.org/maven2/org/apache/ant/ant-launcher/1.9.15/ant-launcher-1.9.15.jar
+Download https://repo.maven.apache.org/maven2/jaxen/jaxen/1.1.6/jaxen-1.1.6.jar
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-licensed-dtds/1.8.3/cargo-licensed-dtds-1.8.3.jar
+Download https://repo.maven.apache.org/maven2/org/jdom/jdom/1.1.3/jdom-1.1.3.jar
+Download https://repo.maven.apache.org/maven2/org/codehaus/cargo/cargo-daemon-client/1.8.3/cargo-daemon-client-1.8.3.jar
+
+> Configure project :
+Using properties file: '/root/alliancemine/alliancemine.properties'
+cleaning
+deleting idresolver cache
+deleting datasources.xml
+deleting organisms.xml
+deleting publications.xml
+deleted log files
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file '/home/intermine/alliancemine/webapp/build.gradle' line: 59
+
+* What went wrong:
+A problem occurred evaluating project ':webapp'.
+> /root/alliancemine/alliancemine.properties (No such file or directory)
+
+* Try:
+Run with --stacktrace option to get the stack trace. Run with --info or --debug option to get more log output. Run with --scan to get full insights.
+
+* Get more help at https://help.gradle.org
+
+BUILD FAILED in 10s
+✅ Alliancemine dependencies installed
+🔨 Creating InterMine database schema...
+To honour the JVM settings for this build a new JVM will be forked. Please consider using the daemon: https://docs.gradle.org/4.9/userguide/gradle_daemon.html.
+Daemon will be stopped at the end of the build stopping after processing
+
+> Configure project :
+Using properties file: '/root/alliancemine/alliancemine.properties'
+cleaning
+deleting idresolver cache
+deleting datasources.xml
+deleting organisms.xml
+deleting publications.xml
+deleted log files
+
+> Task :dbmodel:initConfig
+> Task :dbmodel:processResources
+> Task :dbmodel:copyDefaultInterMineProperties
+> Task :dbmodel:copyMineProperties
+> Task :dbmodel:addSourceDependencies
+Download https://repo.maven.apache.org/maven2/org/intermine/bio-source-do/5.1.0/bio-source-do-5.1.0.pom
+Download https://repo.maven.apache.org/maven2/org/intermine/bio-source-eco/5.1.0/bio-source-eco-5.1.0.pom
+Download https://repo.maven.apache.org/maven2/org/intermine/bio-source-go/5.1.0/bio-source-go-5.1.0.pom

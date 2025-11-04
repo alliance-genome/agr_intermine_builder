@@ -85,6 +85,35 @@ class DockerConfig:
 
 
 @dataclass
+class EC2BuildConfig:
+    """EC2 builder instance configuration for Step Functions."""
+
+    # Instance sizing
+    instance_type: str = "r6i.2xlarge"  # 8 vCPU, 64 GB RAM
+    storage_gb: int = 500
+    iops: int = 10000
+    throughput_mbps: int = 500
+
+    # Memory allocation (64GB total)
+    gradle_heap_gb: int = 32
+    postgres_shared_buffers_gb: int = 16
+    file_cache_gb: int = 12
+    os_overhead_gb: int = 4
+
+    # AMI
+    ami_id: Optional[str] = None  # Custom AMI with dependencies
+    ami_name: str = "agr-intermine-builder-v1"
+
+    # Lifecycle
+    auto_terminate: bool = True
+    max_build_hours: int = 10  # Safety timeout
+
+    # Cost optimization
+    use_spot_instances: bool = False
+    spot_max_price: float = 0.30  # 60% of on-demand (~$0.504/hr)
+
+
+@dataclass
 class InterMineConfig:
     """InterMine build configuration."""
 
@@ -154,6 +183,7 @@ class Config:
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     rds: RDSConfig = field(default_factory=RDSConfig)
     docker: DockerConfig = field(default_factory=DockerConfig)
+    ec2_build: EC2BuildConfig = field(default_factory=EC2BuildConfig)
     intermine: InterMineConfig = field(default_factory=InterMineConfig)
     alliance: AllianceConfig = field(default_factory=AllianceConfig)
 
@@ -308,6 +338,7 @@ class Config:
         database = DatabaseConfig(**data.get('database', {}))
         rds = RDSConfig(**data.get('rds', {}))
         docker = DockerConfig(**data.get('docker', {}))
+        ec2_build = EC2BuildConfig(**data.get('ec2_build', {}))
         intermine = InterMineConfig(**data.get('intermine', {}))
         alliance = AllianceConfig(**data.get('alliance', {}))
 
@@ -315,6 +346,7 @@ class Config:
             database=database,
             rds=rds,
             docker=docker,
+            ec2_build=ec2_build,
             intermine=intermine,
             alliance=alliance,
             environment=data.get('environment', 'stage'),

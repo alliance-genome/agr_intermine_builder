@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  intermine-builder-rds:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ALLIANCEMINE_BRANCH_NAME: ${ALLIANCEMINE_BRANCH_NAME:-master}
+        BIO_SOURCES_BRANCH_NAME: ${BIO_SOURCES_BRANCH_NAME:-master}
+        ENVIRONMENT: ${ENVIRONMENT:-stage}
+        SOLR_HOST: ${SOLR_HOST:-stage-intermine-solr.alliancegenome.org}
+        ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-8.2.0}
+    
+    image: agr-intermine-builder-rds:${ALLIANCE_RELEASE:-8.2.0}
+    container_name: agr-intermine-builder-rds
+    
+    environment:
+      # RDS Connection (required)
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-alliancemine_db}
+      - DB_PROFILE_NAME=${DB_PROFILE_NAME:-alliancemine_profiles_db}
+      
+      # Alliance configuration
+      - ALLIANCE_RELEASE_VERSION=${ALLIANCE_RELEASE:-8.2.0}
+      - SOLR_HOST=${SOLR_HOST:-stage-intermine-solr.alliancegenome.org}
+      
+      # Build settings
+      - GRADLE_OPTS=-Xmx8g -XX:+UseParallelGC -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true
+      
+      # AWS settings
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+          
+    volumes:
+      - ./logs:/root/logs
+      - ./data:/root/data
+      - ${HOME}/.aws:/root/.aws:ro
+      
+    tty: true
+    stdin_open: true
