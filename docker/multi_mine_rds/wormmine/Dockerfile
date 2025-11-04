@@ -1,7 +1,7 @@
 FROM alpine:3.20
 LABEL maintainer="Alliance of Genome Resources"
-LABEL description="AllianceMine - Complete build environment with RDS support"
-LABEL version="8.2.0-rds"
+LABEL description="WormMine - WormBase InterMine with RDS support"
+LABEL version="2.0-rds"
 
 # ============================================
 # Base System Setup
@@ -52,7 +52,7 @@ RUN cpanm --notest --force \
 # ============================================
 # InterMine Build Environment
 # ============================================
-ENV MEM_OPTS="-Xmx16g -Xms8g"
+ENV MEM_OPTS="-Xmx12g -Xms6g"
 ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1 -XX:+HeapDumpOnOutOfMemoryError -XX:MaxHeapFreeRatio=99 -Dorg.gradle.daemon=false -Duser.home=/root"
 ENV GRADLE_USER_HOME="/root/.gradle"
 
@@ -60,50 +60,54 @@ WORKDIR /root
 RUN mkdir -p .intermine
 
 # ============================================
-# Clone AllianceMine Repositories
+# Clone WormMine Repositories
 # ============================================
 
-# Clone AllianceMine
-ARG ALLIANCEMINE_BRANCH=master
-RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
-    https://github.com/alliance-genome/alliancemine.git
+# Clone WormMine
+ARG WORMMINE_BRANCH=master
+RUN git clone --depth 1 --branch ${WORMMINE_BRANCH} \
+    https://github.com/WormBase/wormmine.git || \
+    git clone --depth 1 --branch ${WORMMINE_BRANCH} \
+    https://github.com/intermine/wormmine.git
 
-# Clone AllianceMine bio-sources
+# Clone WormMine bio-sources (if exists)
 ARG BIO_SOURCES_BRANCH=master
 RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
-    https://github.com/alliance-genome/alliancemine-bio-sources.git
+    https://github.com/WormBase/wormmine-bio-sources.git || \
+    echo "No separate bio-sources repo, using standard InterMine bio sources"
 
-# ============================================
-# Build Bio-sources
-# ============================================
-WORKDIR /root/alliancemine-bio-sources
-RUN ./gradlew clean --stacktrace && \
-    ./gradlew install --parallel --stacktrace && \
-    rm -rf /root/.gradle/caches/transforms-* \
-           /root/.gradle/caches/journal-* \
-           /tmp/*
+# Build bio-sources if they exist
+WORKDIR /root
+RUN if [ -d "wormmine-bio-sources" ]; then \
+        cd wormmine-bio-sources && \
+        ./gradlew clean --stacktrace && \
+        ./gradlew install --parallel --stacktrace && \
+        rm -rf /root/.gradle/caches/transforms-* \
+               /root/.gradle/caches/journal-* \
+               /tmp/*; \
+    fi
 
 # ============================================
 # RDS Configuration
 # ============================================
-WORKDIR /root/alliancemine
+WORKDIR /root/wormmine
 
 # RDS environment variables (override via docker-compose)
 ENV RDS_HOST="postgres"
 ENV RDS_PORT="5432"
 ENV RDS_USER="postgres"
 ENV RDS_PASSWORD="postgres"
-ENV RDS_DB_NAME="alliancemine_db"
-ENV RDS_PROFILE_DB_NAME="alliancemine_profiles_db"
-ENV ALLIANCE_RELEASE="8.2.0"
+ENV RDS_DB_NAME="wormmine_db"
+ENV RDS_PROFILE_DB_NAME="wormmine_profiles_db"
+ENV WORMBASE_RELEASE="WS290"
 
 # Create .pgpass for RDS authentication
 RUN echo "*:*:*:${RDS_USER}:${RDS_PASSWORD}" > /root/.pgpass && \
     chmod 400 /root/.pgpass
 
-# Create AllianceMine properties file for RDS
-COPY <<'PROPERTIES_EOF' /root/.intermine/alliancemine.properties
-# AllianceMine RDS Configuration
+# Create WormMine properties file for RDS
+COPY <<'PROPERTIES_EOF' /root/.intermine/wormmine.properties
+# WormMine RDS Configuration
 # Database connections use HikariCP for connection pooling
 
 # Production Database (Main data)
@@ -114,8 +118,8 @@ db.production.datasource.dataSourceProperties.portNumber=${RDS_PORT}
 db.production.datasource.dataSourceProperties.databaseName=${RDS_DB_NAME}
 db.production.datasource.dataSourceProperties.user=${RDS_USER}
 db.production.datasource.dataSourceProperties.password=${RDS_PASSWORD}
-db.production.datasource.maximumPoolSize=20
-db.production.datasource.minimumIdle=10
+db.production.datasource.maximumPoolSize=15
+db.production.datasource.minimumIdle=8
 db.production.datasource.connectionTimeout=30000
 db.production.datasource.idleTimeout=600000
 db.production.datasource.maxLifetime=1800000
@@ -130,8 +134,8 @@ db.common-tgt-items.datasource.dataSourceProperties.portNumber=${RDS_PORT}
 db.common-tgt-items.datasource.dataSourceProperties.databaseName=${RDS_DB_NAME}
 db.common-tgt-items.datasource.dataSourceProperties.user=${RDS_USER}
 db.common-tgt-items.datasource.dataSourceProperties.password=${RDS_PASSWORD}
-db.common-tgt-items.datasource.maximumPoolSize=10
-db.common-tgt-items.datasource.minimumIdle=5
+db.common-tgt-items.datasource.maximumPoolSize=8
+db.common-tgt-items.datasource.minimumIdle=4
 db.common-tgt-items.driver=org.postgresql.Driver
 db.common-tgt-items.platform=PostgreSQL
 
@@ -149,15 +153,15 @@ db.userprofile-production.driver=org.postgresql.Driver
 db.userprofile-production.platform=PostgreSQL
 
 # Project Configuration
-project.title=AllianceMine
-project.subTitle=Alliance of Genome Resources
-project.releaseVersion=${ALLIANCE_RELEASE}
-project.sitePrefix=http://localhost:8080
+project.title=WormMine
+project.subTitle=WormBase InterMine
+project.releaseVersion=${WORMBASE_RELEASE}
+project.sitePrefix=http://localhost:8081
 
 # Web Application
-webapp.deploy.url=http://localhost:8080/manager/text
-webapp.baseurl=http://localhost:8080
-webapp.path=alliancemine
+webapp.deploy.url=http://localhost:8081/manager/text
+webapp.baseurl=http://localhost:8081
+webapp.path=wormmine
 webapp.manager=manager
 webapp.password=manager
 
@@ -169,34 +173,17 @@ PROPERTIES_EOF
 # Data Source Configuration
 # ============================================
 
-# Update Solr configuration to use local Solr
-RUN sed -i 's/localhost/solr/g' dbmodel/resources/keyword_search.properties && \
-    sed -i 's/localhost/solr/g' dbmodel/resources/objectstoresummary.config.properties
+# Update Solr configuration if it exists
+RUN if [ -f "dbmodel/resources/keyword_search.properties" ]; then \
+        sed -i 's/localhost/solr/g' dbmodel/resources/keyword_search.properties; \
+    fi && \
+    if [ -f "dbmodel/resources/objectstoresummary.config.properties" ]; then \
+        sed -i 's/localhost/solr/g' dbmodel/resources/objectstoresummary.config.properties; \
+    fi
 
-# Make load scripts executable
-RUN chmod +x ./load_db_build_solr
-
-# ============================================
-# Build AllianceMine Dependencies
-# ============================================
-RUN echo "Installing AllianceMine Gradle dependencies..." && \
-    ./gradlew install --stacktrace && \
-    rm -rf /root/.gradle/caches/transforms-* \
-           /root/.gradle/caches/journal-* \
-           /tmp/*
-
-# ============================================
-# Add Build Automation Scripts
-# ============================================
-
-# Copy build scripts
-COPY build_full.sh /root/build_full.sh
-COPY extract_data.sh /root/extract_data.sh
-
-RUN chmod +x /root/build_full.sh /root/extract_data.sh
-
-# Create data directories
-RUN mkdir -p /root/data/{genes,alleles,disease,phenotype,orthology,expression,variants,go,dump}
+# Make load scripts executable if they exist
+RUN if [ -f "./project_build" ]; then chmod +x ./project_build; fi && \
+    if [ -f "./load_db_build_solr" ]; then chmod +x ./load_db_build_solr; fi
 
 # ============================================
 # Entrypoint Script
@@ -205,12 +192,12 @@ COPY <<'ENTRYPOINT_EOF' /entrypoint.sh
 #!/bin/bash
 set -e
 
-echo "🚀 AllianceMine RDS Builder Starting..."
+echo "🚀 WormMine RDS Builder Starting..."
 echo "========================================="
 echo "RDS Host: ${RDS_HOST}:${RDS_PORT}"
 echo "Main DB: ${RDS_DB_NAME}"
 echo "Profile DB: ${RDS_PROFILE_DB_NAME}"
-echo "Alliance Release: ${ALLIANCE_RELEASE}"
+echo "WormBase Release: ${WORMBASE_RELEASE}"
 echo "========================================="
 
 # Wait for RDS to be available
@@ -232,13 +219,13 @@ echo "✅ RDS is available!"
 
 # Update properties file with environment variables
 echo "📝 Configuring properties..."
-sed -i "s/\${RDS_HOST}/${RDS_HOST}/g" /root/.intermine/alliancemine.properties
-sed -i "s/\${RDS_PORT}/${RDS_PORT}/g" /root/.intermine/alliancemine.properties
-sed -i "s/\${RDS_USER}/${RDS_USER}/g" /root/.intermine/alliancemine.properties
-sed -i "s/\${RDS_PASSWORD}/${RDS_PASSWORD}/g" /root/.intermine/alliancemine.properties
-sed -i "s/\${RDS_DB_NAME}/${RDS_DB_NAME}/g" /root/.intermine/alliancemine.properties
-sed -i "s/\${RDS_PROFILE_DB_NAME}/${RDS_PROFILE_DB_NAME}/g" /root/.intermine/alliancemine.properties
-sed -i "s/\${ALLIANCE_RELEASE}/${ALLIANCE_RELEASE}/g" /root/.intermine/alliancemine.properties
+sed -i "s/\${RDS_HOST}/${RDS_HOST}/g" /root/.intermine/wormmine.properties
+sed -i "s/\${RDS_PORT}/${RDS_PORT}/g" /root/.intermine/wormmine.properties
+sed -i "s/\${RDS_USER}/${RDS_USER}/g" /root/.intermine/wormmine.properties
+sed -i "s/\${RDS_PASSWORD}/${RDS_PASSWORD}/g" /root/.intermine/wormmine.properties
+sed -i "s/\${RDS_DB_NAME}/${RDS_DB_NAME}/g" /root/.intermine/wormmine.properties
+sed -i "s/\${RDS_PROFILE_DB_NAME}/${RDS_PROFILE_DB_NAME}/g" /root/.intermine/wormmine.properties
+sed -i "s/\${WORMBASE_RELEASE}/${WORMBASE_RELEASE}/g" /root/.intermine/wormmine.properties
 
 echo "✅ Properties configured"
 
@@ -263,10 +250,10 @@ else
     echo "✅ Profile database exists"
 fi
 
-echo "✅ AllianceMine ready for build!"
+echo "✅ WormMine ready for build!"
 echo ""
 echo "To build:"
-echo "  cd /root/alliancemine"
+echo "  cd /root/wormmine"
 echo "  ./gradlew buildDB"
 echo "  ./project_build -b"
 echo "  ./gradlew cargoRedeployRemote"
@@ -281,7 +268,7 @@ RUN chmod +x /entrypoint.sh
 # ============================================
 # Final Setup
 # ============================================
-WORKDIR /root/alliancemine
+WORKDIR /root/wormmine
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
