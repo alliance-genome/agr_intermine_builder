@@ -36,6 +36,9 @@ build-mines = "src.cli.build_mines:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/intermine_builder", "src/cli"]
+
 [tool.black]
 line-length = 100
 target-version = ["py39", "py310", "py311"]
