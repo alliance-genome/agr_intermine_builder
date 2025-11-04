@@ -31,6 +31,7 @@ dev = [
 
 [project.scripts]
 build-mines = "src.cli.build_mines:main"
+rds-manager = "src.cli.rds_manager:main"
 
 [build-system]
 requires = ["hatchling"]
