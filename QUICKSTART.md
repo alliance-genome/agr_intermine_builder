@@ -96,7 +96,10 @@ python -m src.cli.build_mines build --mine alliancemine
    - **extract_data** (10-30 min): Downloads Alliance data from FMS
    - **project_build** (2-4 hours): ⏰ Data integration (LONGEST!)
    - **postprocess** (30-60 min): Indexing and summary tables
-   - **buildUserDB** (5-10 min): Creates profile database
+   - **buildUserDB** (5-10 min): Creates profile database ⚠️ **ONE-TIME ONLY**
+     - Checks if profile DB already exists
+     - If exists, skips creation (persistent across builds)
+     - Can import from production releases
    - **war** (10-20 min): Builds web application WAR file
    - **deploy** (5-10 min): Deploys to Tomcat (optional)
 
@@ -180,6 +183,26 @@ python -m src.cli.build_mines stage --mine alliancemine --stage extract_data
 ```bash
 # Build but skip deployment
 python -m src.cli.build_mines build --mine alliancemine --skip-stages deploy
+
+# Skip buildUserDB if profile already exists
+python -m src.cli.build_mines build --mine alliancemine --skip-stages buildUserDB
+```
+
+### Import Profile Database from Production
+```bash
+# Place your pg_dump file in a mounted volume, then:
+from src.intermine_builder import MineBuilder, MineType, BuildExecutor
+from src.intermine_builder.config import Config
+
+config = Config.from_env()
+with MineBuilder(config) as builder:
+    # Create container
+    builder.docker_manager.create_container(...)
+    builder.docker_manager.start_container(MineType.ALLIANCEMINE)
+
+    # Import profile DB
+    executor = BuildExecutor(builder.docker_manager, mine_config)
+    executor.import_profile_db("/root/data/alliancemine_profiles.sql")
 ```
 
 ### Cleanup
@@ -195,12 +218,19 @@ python -m src.cli.build_mines cleanup
 
 ### On RDS PostgreSQL
 
-| Mine | Main Database | Profile Database | Connections |
-|------|--------------|------------------|-------------|
-| AllianceMine | `alliancemine_db` | `alliancemine_profiles_db` | 20 main / 5 profile |
-| WormMine | `wormmine_db` | `wormmine_profiles_db` | 15 main / 5 profile |
-| MouseMine | `mousemine_db` | `mousemine_profiles_db` | 18 main / 5 profile |
-| FlyMine | `flymine_db` | `flymine_profiles_db` | 16 main / 5 profile |
+| Mine | Main Database | Profile Database | Connections | Profile Notes |
+|------|--------------|------------------|-------------|---------------|
+| AllianceMine | `alliancemine_db` | `alliancemine_profiles_db` | 20 main / 5 profile | Created once, persistent |
+| WormMine | `wormmine_db` | `wormmine_profiles_db` | 15 main / 5 profile | Created once, persistent |
+| MouseMine | `mousemine_db` | `mousemine_profiles_db` | 18 main / 5 profile | Created once, persistent |
+| FlyMine | `flymine_db` | `flymine_profiles_db` | 16 main / 5 profile | Created once, persistent |
+
+**Profile Database Notes:**
+- **One-time creation**: Profile databases are checked before creation
+- **Persistent**: Survives rebuilds - only created if doesn't exist
+- **Unique per mine**: Each mine has its own profile DB
+- **Importable**: Can import from production via `import_profile_db()`
+- **Contains**: User accounts, saved queries, gene lists, templates
 
 ### On Docker
 

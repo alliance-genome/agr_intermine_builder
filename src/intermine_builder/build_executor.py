@@ -6,9 +6,12 @@ Orchestrates InterMine build process through defined stages:
 2. Extract Data - Download/prepare data files
 3. Project Build - Data integration (longest stage: 2-4 hours)
 4. Post Process - Post-processing and indexing
-5. Build User DB - Create user profile database
+5. Build User DB - Create user profile database (once per mine, persistent)
 6. Build WAR - Build web application
 7. Deploy - Deploy to Tomcat (optional)
+
+Note: Profile databases are created once and persist across builds.
+They can be imported from production releases using import_profile_db().
 """
 
 import logging
@@ -187,8 +190,32 @@ class BuildExecutor:
         self._report_progress("postprocess", 1.0)
 
     def stage_build_user_db(self) -> None:
-        """Stage 5: Build user profile database."""
+        """Stage 5: Build user profile database (only if not exists)."""
         self._report_progress("buildUserDB", 0.0)
+
+        # Check if profile database already exists
+        profile_db = self.mine_config.profile_db_name
+        check_db_cmd = f"""
+        psql -h $RDS_HOST -U $RDS_USER -d postgres -tAc \
+        "SELECT 1 FROM pg_database WHERE datname='{profile_db}'"
+        """
+
+        logger.info(f"Checking if profile database '{profile_db}' exists...")
+        exit_code, output = self.docker_manager.execute_command(
+            self.mine_type,
+            check_db_cmd,
+            workdir="/root",
+            stream=False
+        )
+
+        if output.strip() == "1":
+            logger.info(f"✅ Profile database '{profile_db}' already exists, skipping creation")
+            logger.info("Note: Profile DB can be imported from current releases if needed")
+            self._report_progress("buildUserDB", 1.0)
+            return
+
+        # Profile DB doesn't exist, create it
+        logger.info(f"Profile database '{profile_db}' not found, creating new one...")
         self._execute_gradle_task("buildUserDB", "Build User Database")
         self._report_progress("buildUserDB", 1.0)
 
@@ -334,3 +361,81 @@ class BuildExecutor:
 
         logger.info(f"Executing single stage: {stage.value}")
         stage_method()
+
+    def import_profile_db(self, dump_file: str) -> None:
+        """
+        Import profile database from a pg_dump file.
+
+        This allows importing existing profile data from production releases
+        rather than creating a fresh profile database.
+
+        Args:
+            dump_file: Path to pg_dump file (inside container or mounted volume)
+
+        Example:
+            executor.import_profile_db("/root/data/alliancemine_profiles.sql")
+        """
+        profile_db = self.mine_config.profile_db_name
+
+        logger.info(f"Importing profile database: {profile_db}")
+        logger.info(f"Source dump file: {dump_file}")
+
+        # Check if dump file exists
+        check_file = f"test -f {dump_file} && echo 'exists'"
+        exit_code, output = self.docker_manager.execute_command(
+            self.mine_type,
+            check_file,
+            workdir="/root",
+            stream=False
+        )
+
+        if "exists" not in output:
+            raise BuildExecutionError(f"Dump file not found: {dump_file}")
+
+        # Drop existing profile DB if it exists
+        drop_cmd = f"""
+        psql -h $RDS_HOST -U $RDS_USER -d postgres -c \
+        "DROP DATABASE IF EXISTS {profile_db}"
+        """
+        logger.info(f"Dropping existing profile database (if exists)...")
+        self.docker_manager.execute_command(
+            self.mine_type,
+            drop_cmd,
+            workdir="/root",
+            stream=True
+        )
+
+        # Create new profile DB
+        create_cmd = f"""
+        psql -h $RDS_HOST -U $RDS_USER -d postgres -c \
+        "CREATE DATABASE {profile_db}"
+        """
+        logger.info(f"Creating profile database...")
+        exit_code, _ = self.docker_manager.execute_command(
+            self.mine_type,
+            create_cmd,
+            workdir="/root",
+            stream=True
+        )
+
+        if exit_code != 0:
+            raise BuildExecutionError(f"Failed to create profile database")
+
+        # Import dump
+        import_cmd = f"""
+        psql -h $RDS_HOST -U $RDS_USER -d {profile_db} < {dump_file}
+        """
+        logger.info(f"Importing profile data from dump file...")
+        exit_code, _ = self.docker_manager.execute_command(
+            self.mine_type,
+            import_cmd,
+            workdir="/root",
+            stream=True
+        )
+
+        if exit_code != 0:
+            raise BuildExecutionError(f"Failed to import profile database")
+
+        logger.info(f"✅ Profile database imported successfully")
+        logger.info(f"   Database: {profile_db}")
+        logger.info(f"   Source: {dump_file}")
