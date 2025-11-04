@@ -1,0 +1,56 @@
+[project]
+name = "agr-intermine-builder"
+version = "1.0.0"
+description = "Python-based orchestration system for building InterMine instances"
+authors = [
+    {name = "Alliance of Genome Resources"}
+]
+requires-python = ">=3.9"
+dependencies = [
+    "docker>=7.0.0",
+    "boto3>=1.34.0",
+    "psycopg2-binary>=2.9.9",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0.1",
+    "rich>=13.7.0",
+    "colorlog>=6.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-docker>=3.1.0",
+    "mypy>=1.8.0",
+    "types-requests>=2.31.0",
+    "types-PyYAML>=6.0.12",
+    "black>=24.1.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+build-mines = "src.cli.build_mines:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=term-missing"

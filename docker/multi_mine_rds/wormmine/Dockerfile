@@ -186,6 +186,19 @@ RUN if [ -f "./project_build" ]; then chmod +x ./project_build; fi && \
     if [ -f "./load_db_build_solr" ]; then chmod +x ./load_db_build_solr; fi
 
 # ============================================
+# Add Build Automation Scripts
+# ============================================
+
+# Copy build scripts
+COPY build_full.sh /root/build_full.sh
+COPY extract_data.sh /root/extract_data.sh
+
+RUN chmod +x /root/build_full.sh /root/extract_data.sh
+
+# Create data directories
+RUN mkdir -p /root/data/{wormbase,annotations,variations,interactions,go,orthologs,dump}
+
+# ============================================
 # Entrypoint Script
 # ============================================
 COPY <<'ENTRYPOINT_EOF' /entrypoint.sh

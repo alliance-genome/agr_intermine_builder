@@ -441,7 +441,7 @@ def load_config(**overrides) -> Config:
         Config instance
 
     Example:
-        from src.lib.config import load_config
+        from src.intermine_builder.config import load_config
 
         config = load_config(environment="production")
     """

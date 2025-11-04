@@ -4,7 +4,10 @@
       "Bash(cat:*)",
       "Bash(find:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

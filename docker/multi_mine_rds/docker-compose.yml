@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # ==================================
+  # AllianceMine Builder
+  # ==================================
+  alliancemine:
+    build:
+      context: ./alliancemine
+      dockerfile: Dockerfile
+      args:
+        ALLIANCEMINE_BRANCH: master
+        BIO_SOURCES_BRANCH: master
+    image: alliancemine-rds:latest
+    container_name: alliancemine-builder
+    environment:
+      # RDS Configuration
+      RDS_HOST: ${RDS_HOST}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_USER: ${RDS_USER:-postgres}
+      RDS_PASSWORD: ${RDS_PASSWORD}
+      RDS_DB_NAME: alliancemine_db
+      RDS_PROFILE_DB_NAME: alliancemine_profiles_db
+
+      # Alliance Settings
+      ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-8.2.0}
+
+      # Java/Gradle Settings
+      GRADLE_OPTS: "-Xmx16g -Xms8g -Dorg.gradle.daemon=false"
+    volumes:
+      - alliancemine_data:/root/data
+      - alliancemine_logs:/tmp
+      - ./alliancemine/custom_data:/root/custom_data:ro
+    networks:
+      - intermine-network
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      - rds-proxy
+    healthcheck:
+      test: ["CMD", "java", "-version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================================
+  # WormMine Builder
+  # ==================================
+  wormmine:
+    build:
+      context: ./wormmine
+      dockerfile: Dockerfile
+      args:
+        WORMMINE_BRANCH: master
+        BIO_SOURCES_BRANCH: master
+    image: wormmine-rds:latest
+    container_name: wormmine-builder
+    environment:
+      # RDS Configuration
+      RDS_HOST: ${RDS_HOST}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_USER: ${RDS_USER:-postgres}
+      RDS_PASSWORD: ${RDS_PASSWORD}
+      RDS_DB_NAME: wormmine_db
+      RDS_PROFILE_DB_NAME: wormmine_profiles_db
+
+      # WormBase Settings
+      WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS290}
+
+      # Java/Gradle Settings
+      GRADLE_OPTS: "-Xmx12g -Xms6g -Dorg.gradle.daemon=false"
+    volumes:
+      - wormmine_data:/root/data
+      - wormmine_logs:/tmp
+      - ./wormmine/custom_data:/root/custom_data:ro
+    networks:
+      - intermine-network
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      - rds-proxy
+    healthcheck:
+      test: ["CMD", "java", "-version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================================
+  # RDS Proxy (Optional - for local testing)
+  # ==================================
+  rds-proxy:
+    image: postgres:13-alpine
+    container_name: rds-local-proxy
+    environment:
+      POSTGRES_USER: ${RDS_USER:-postgres}
+      POSTGRES_PASSWORD: ${RDS_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - intermine-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RDS_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - local-testing
+
+# ==================================
+# Volumes
+# ==================================
+volumes:
+  alliancemine_data:
+    driver: local
+  alliancemine_logs:
+    driver: local
+  wormmine_data:
+    driver: local
+  wormmine_logs:
+    driver: local
+  postgres_data:
+    driver: local
+
+# ==================================
+# Networks
+# ==================================
+networks:
+  intermine-network:
+    driver: bridge
