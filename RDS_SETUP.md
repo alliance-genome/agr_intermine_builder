@@ -14,24 +14,42 @@ This setup creates **one RDS instance** that hosts databases for:
 
 ## 💰 Recommended Configuration
 
-**Instance:** db.t4g.large (2 vCPU, 8GB RAM)
-- **Cost:** ~$0.13/hour (~$95/month)
+**Instance:** db.t3.large (2 vCPU, 8GB RAM - Intel x86)
+- **Cost:** ~$0.144/hour (~$105/month)
 - **Storage:** 200GB gp3 (~$22/month)
-- **Total:** ~$117/month
+- **Total:** ~$127/month
 - **PostgreSQL:** Version 16.4
 
-### Why db.t4g.large?
+### Why db.t3.large?
 
-✅ 8GB RAM handles ~90 concurrent connections
-✅ ARM Graviton2 (10% cheaper than Intel)
+✅ 8GB RAM handles 250 concurrent connections (InterMine recommendation)
+✅ Intel x86 architecture (standard compatibility)
 ✅ Burstable performance for batch workloads
 ✅ Sufficient for 4 mines building/running
+✅ InterMine-optimized parameter group included
 
-### Alternative: db.t4g.medium (Budget Option)
+### Alternative: db.t3.medium (Budget Option)
 
-- **Cost:** ~$0.065/hour (~$47/month)
+- **Cost:** ~$0.072/hour (~$52/month)
 - **RAM:** 4GB (may struggle with all 4 mines)
 - **Use for:** Testing or single mine builds
+
+## 🎯 InterMine-Optimized PostgreSQL Settings
+
+The provisioner automatically configures PostgreSQL based on **InterMine official recommendations**:
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| max_connections | 250 | InterMine production recommendation |
+| shared_buffers | 25% of RAM | Caching frequently accessed data |
+| effective_cache_size | 50% of RAM | Query planner optimization |
+| work_mem | 512MB | Sort and hash operations |
+| maintenance_work_mem | 1GB | VACUUM, CREATE INDEX operations |
+| default_statistics_target | 250 | Better query plans (InterMine rec) |
+| synchronous_commit | off | Performance boost (InterMine rec) |
+| autovacuum_max_workers | 3 | Critical for data loading |
+
+**Source:** [InterMine PostgreSQL Documentation](https://intermine.readthedocs.io/en/latest/system-requirements/software/postgres/postgres/)
 
 ## 🚀 Quick Start
 
@@ -55,7 +73,7 @@ python -m src.cli.rds_manager create
 ```
 
 This will:
-- ✅ Create db.t4g.large instance
+- ✅ Create db.t3.large instance (Intel x86)
 - ✅ Allocate 200GB gp3 storage
 - ✅ Create security group (allow PostgreSQL port 5432)
 - ✅ Create parameter group (optimized for InterMine)
@@ -93,10 +111,10 @@ python -m src.cli.build_mines build --mine alliancemine
 
 ```bash
 # Smaller (budget)
-python -m src.cli.rds_manager create --instance-type db.t4g.medium --storage 100
+python -m src.cli.rds_manager create --instance-type db.t3.medium --storage 100
 
 # Larger (production)
-python -m src.cli.rds_manager create --instance-type db.t4g.xlarge --storage 500
+python -m src.cli.rds_manager create --instance-type db.t3.xlarge --storage 500
 ```
 
 ### Different Region
@@ -132,7 +150,7 @@ Status: available
 Endpoint: intermine-postgres.xxxxx.us-east-1.rds.amazonaws.com
 Port: 5432
 Engine: postgres 16.4
-Instance Class: db.t4g.large
+Instance Class: db.t3.large
 Storage: 200GB gp3
 Multi-AZ: False
 Publicly Accessible: True
@@ -157,7 +175,7 @@ python -m src.cli.rds_manager delete --confirm --skip-snapshot
 ### RDS Instance
 - **Identifier:** intermine-postgres
 - **Engine:** PostgreSQL 16.4
-- **Instance Class:** db.t4g.large (or specified)
+- **Instance Class:** db.t3.large (Intel x86, or specified)
 - **Storage:** 200GB gp3 (3000 IOPS, 125 MB/s)
 - **Backup:** 7-day retention
 - **Multi-AZ:** Disabled (save cost for dev/test)
@@ -194,7 +212,7 @@ python -m src.cli.rds_manager delete --confirm --skip-snapshot
 ### 1. Use Reserved Instances (Not Implemented Yet)
 - Save 30-60% by committing 1-3 years
 - Pay upfront or monthly
-- **Example:** db.t4g.large 1-year RI: ~$65/month (vs $95 on-demand)
+- **Example:** db.t3.large 1-year RI: ~$73/month (vs $105 on-demand)
 
 ### 2. Stop Instance When Not Building
 ```bash
@@ -251,7 +269,7 @@ aws rds stop-db-instance --db-instance-identifier intermine-postgres
 1. Check parameter group is applied
 2. Verify instance class is correct
 3. Monitor CloudWatch metrics
-4. Consider upgrading to db.t4g.xlarge
+4. Consider upgrading to db.t3.xlarge or db.t3.2xlarge
 
 ### Database Already Exists
 

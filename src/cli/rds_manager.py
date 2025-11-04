@@ -11,7 +11,7 @@ Usage:
 
     # Create with custom settings
     python -m src.cli.rds_manager create \
-        --instance-type db.t4g.large \
+        --instance-type db.t3.large \
         --storage 200 \
         --region us-east-1
 
@@ -88,14 +88,6 @@ def cmd_create(args):
         print(f"RDS_PORT={result['port']}")
         print(f"RDS_USER={result['username']}")
         print(f"RDS_PASSWORD={result['password']}")
-
-        print("\n💰 Estimated Cost:")
-        hourly = 0.13 if args.instance_type == "db.t4g.large" else 0.065
-        monthly_instance = hourly * 730
-        monthly_storage = (args.storage * 0.11)  # gp3 pricing
-        print(f"   Instance: ${hourly}/hour (${monthly_instance:.2f}/month)")
-        print(f"   Storage: ${monthly_storage:.2f}/month ({args.storage}GB gp3)")
-        print(f"   Total: ~${monthly_instance + monthly_storage:.2f}/month")
 
         print("\n⏭️  Next Steps:")
         print("   1. Save credentials to .env file")
@@ -195,7 +187,7 @@ Examples:
   %(prog)s create
 
   # Create with custom instance type
-  %(prog)s create --instance-type db.t4g.medium --storage 100
+  %(prog)s create --instance-type db.t3.medium --storage 100
 
   # Create in specific region
   %(prog)s create --region us-west-2
@@ -236,9 +228,9 @@ Examples:
     )
     create_parser.add_argument(
         '--instance-type',
-        default='db.t4g.large',
-        choices=['db.t4g.micro', 'db.t4g.small', 'db.t4g.medium', 'db.t4g.large', 'db.t4g.xlarge'],
-        help='Instance type (default: db.t4g.large - RECOMMENDED)'
+        default='db.t3.large',
+        choices=['db.t3.micro', 'db.t3.small', 'db.t3.medium', 'db.t3.large', 'db.t3.xlarge', 'db.t3.2xlarge'],
+        help='Instance type (default: db.t3.large - Intel x86, RECOMMENDED)'
     )
     create_parser.add_argument(
         '--storage',

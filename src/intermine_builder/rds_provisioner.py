@@ -142,20 +142,38 @@ class RDSProvisioner:
             )
 
             # Modify parameters for InterMine workloads
+            # Based on InterMine official recommendations:
+            # https://intermine.readthedocs.io/en/latest/system-requirements/software/postgres/postgres/
             parameters = [
-                # Connection settings
-                {'ParameterName': 'max_connections', 'ParameterValue': '200', 'ApplyMethod': 'pending-reboot'},
-                # Memory settings
+                # Connection settings - InterMine recommendation: 250 for production
+                {'ParameterName': 'max_connections', 'ParameterValue': '250', 'ApplyMethod': 'pending-reboot'},
+
+                # Memory settings - InterMine recommendations:
+                # shared_buffers: 10-25% of RAM (using 25%)
                 {'ParameterName': 'shared_buffers', 'ParameterValue': '{DBInstanceClassMemory/4096}', 'ApplyMethod': 'pending-reboot'},
+                # effective_cache_size: 50% of RAM
                 {'ParameterName': 'effective_cache_size', 'ParameterValue': '{DBInstanceClassMemory/2048}', 'ApplyMethod': 'immediate'},
-                # Query tuning
-                {'ParameterName': 'random_page_cost', 'ParameterValue': '1.1', 'ApplyMethod': 'immediate'},
-                {'ParameterName': 'work_mem', 'ParameterValue': '16384', 'ApplyMethod': 'immediate'},  # 16MB
-                {'ParameterName': 'maintenance_work_mem', 'ParameterValue': '524288', 'ApplyMethod': 'immediate'},  # 512MB
-                # Logging
-                {'ParameterName': 'log_min_duration_statement', 'ParameterValue': '5000', 'ApplyMethod': 'immediate'},  # Log slow queries > 5s
-                # Autovacuum
+                # work_mem: ~500MB but <10% of RAM (using ~512MB = 524288 KB)
+                {'ParameterName': 'work_mem', 'ParameterValue': '524288', 'ApplyMethod': 'immediate'},
+                # maintenance_work_mem: 5-20% of RAM (using ~1GB for 8GB instance)
+                {'ParameterName': 'maintenance_work_mem', 'ParameterValue': '1048576', 'ApplyMethod': 'immediate'},
+
+                # Statistics - InterMine recommendation: 250
+                {'ParameterName': 'default_statistics_target', 'ParameterValue': '250', 'ApplyMethod': 'immediate'},
+
+                # Performance optimizations for data warehouse workloads
+                {'ParameterName': 'random_page_cost', 'ParameterValue': '1.1', 'ApplyMethod': 'immediate'},  # SSD optimization
+                {'ParameterName': 'synchronous_commit', 'ParameterValue': '0', 'ApplyMethod': 'immediate'},  # InterMine recommendation
+
+                # Checkpoint settings for write-heavy workloads
+                {'ParameterName': 'checkpoint_completion_target', 'ParameterValue': '0.9', 'ApplyMethod': 'immediate'},
+
+                # Logging - Log slow queries > 5 seconds
+                {'ParameterName': 'log_min_duration_statement', 'ParameterValue': '5000', 'ApplyMethod': 'immediate'},
+
+                # Autovacuum - critical for InterMine data loading
                 {'ParameterName': 'autovacuum', 'ParameterValue': '1', 'ApplyMethod': 'immediate'},
+                {'ParameterName': 'autovacuum_max_workers', 'ParameterValue': '3', 'ApplyMethod': 'pending-reboot'},
             ]
 
             self.rds_client.modify_db_parameter_group(
@@ -173,7 +191,7 @@ class RDSProvisioner:
     def create_rds_instance(
         self,
         instance_identifier: str = "intermine-postgres",
-        instance_class: str = "db.t4g.large",
+        instance_class: str = "db.t3.large",
         allocated_storage: int = 200,
         storage_type: str = "gp3",
         master_username: str = "postgres",
@@ -191,7 +209,7 @@ class RDSProvisioner:
 
         Args:
             instance_identifier: DB instance identifier
-            instance_class: Instance type (db.t4g.large recommended)
+            instance_class: Instance type (db.t3.large recommended - Intel x86)
             allocated_storage: Storage in GB (200 recommended)
             storage_type: Storage type (gp3 recommended)
             master_username: Master username
