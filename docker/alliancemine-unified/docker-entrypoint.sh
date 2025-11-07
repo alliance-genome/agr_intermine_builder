@@ -157,6 +157,21 @@ case "$1" in
     run)
         echo "📋 Mode: RUN (Tomcat + Solr)"
         start_solr
+
+        # Check if auto-build is enabled and build hasn't been done
+        if [ "${AUTO_BUILD}" = "true" ]; then
+            # Check if build marker file exists
+            if [ ! -f "/opt/intermine/.build_complete" ]; then
+                echo "🔄 AUTO_BUILD enabled - running initial build..."
+                build_intermine
+                # Create marker file to prevent rebuilding on restart
+                touch /opt/intermine/.build_complete
+                echo "✅ Initial build complete"
+            else
+                echo "ℹ️  AUTO_BUILD enabled but build already complete (marker exists)"
+            fi
+        fi
+
         start_tomcat
         ;;
 

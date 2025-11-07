@@ -26,6 +26,12 @@ RDS_HOST=your-rds-endpoint.us-east-1.rds.amazonaws.com
 RDS_PORT=5432
 RDS_USER=postgres
 RDS_PASSWORD=your_secure_password
+
+# Optional: Set AllianceMine release version
+ALLIANCE_RELEASE=8.2.0
+
+# Optional: Auto-build on first container start
+AUTO_BUILD=false  # Set to 'true' for automatic build
 ```
 
 ## Step 2: Build Image (10-15 minutes)
@@ -71,14 +77,28 @@ docker-compose exec alliancemine bash -c \
 
 ## Step 5: Run Build (5-9 hours)
 
+### Option A: Auto-Build on First Start
+
+Set `AUTO_BUILD=true` in your `.env` file, then:
 ```bash
-# Option A: Run full build in background
+docker-compose up -d
+# Build will run automatically on first start
+# Check progress: docker-compose logs -f
+```
+
+The build will only run once (marker file created). Subsequent restarts will skip the build.
+
+### Option B: Manual Build
+
+```bash
+# Run full build in background
 docker-compose run -d alliancemine build
 
-# Option B: Run interactively to see progress
+# Or run interactively to see progress
 docker-compose run alliancemine build
+```
 
-# Option C: Step-by-step (for debugging)
+### Option C: Step-by-step (for debugging)
 docker-compose exec alliancemine bash
 cd /opt/intermine/alliancemine
 ./gradlew buildDB
