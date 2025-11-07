@@ -54,23 +54,19 @@ class ResourceLimits:
 class MineConfig:
     """Complete configuration for an InterMine instance."""
 
-    # Basic identification
+    # Basic identification (required fields first)
     mine_type: MineType
     display_name: str
     release_version: str
-
-    # Repository information
     repo_url: str
+    db_name: str
+    profile_db_name: str
+    resources: ResourceLimits
+
+    # Repository information (with defaults)
     repo_branch: str = "master"
     bio_sources_url: Optional[str] = None
     bio_sources_branch: str = "master"
-
-    # Database configuration
-    db_name: str
-    profile_db_name: str
-
-    # Resource limits
-    resources: ResourceLimits
 
     # Data sources
     data_sources: List[DataSource] = field(default_factory=list)
