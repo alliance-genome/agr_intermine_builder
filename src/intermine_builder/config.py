@@ -10,6 +10,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any
 import json
+from dotenv import load_dotenv
+
+# Load .env file from project root
+load_dotenv()
 
 
 @dataclass
@@ -213,12 +217,12 @@ class Config:
         Example:
             config = Config.from_env(environment="production")
         """
-        # Database config
+        # Database config - prioritize RDS_* env vars, fall back to POSTGRES_* or DB_*
         database = DatabaseConfig(
-            user=os.getenv("POSTGRES_USER", "postgres"),
-            password=os.getenv("POSTGRES_PASSWORD", "postgres"),
-            host=os.getenv("POSTGRES_HOST", os.getenv("DB_HOST", "postgres")),
-            port=int(os.getenv("POSTGRES_PORT", os.getenv("DB_PORT", "5432"))),
+            user=os.getenv("RDS_USER", os.getenv("POSTGRES_USER", "postgres")),
+            password=os.getenv("RDS_PASSWORD", os.getenv("POSTGRES_PASSWORD", "postgres")),
+            host=os.getenv("RDS_HOST", os.getenv("POSTGRES_HOST", os.getenv("DB_HOST", "postgres"))),
+            port=int(os.getenv("RDS_PORT", os.getenv("POSTGRES_PORT", os.getenv("DB_PORT", "5432")))),
             database=os.getenv("POSTGRES_DB", "intermine"),
         )
 
