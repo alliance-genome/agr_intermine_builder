@@ -1,0 +1,126 @@
+# ============================================
+# AllianceMine Properties File
+# Generated from template by docker-entrypoint.sh
+# ============================================
+
+# ============================================
+# Production Database (Main Data)
+# ============================================
+db.production.datasource.class=com.zaxxer.hikari.HikariDataSource
+db.production.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
+db.production.datasource.dataSourceProperties.serverName=${RDS_HOST}
+db.production.datasource.dataSourceProperties.portNumber=${RDS_PORT}
+db.production.datasource.dataSourceProperties.databaseName=${RDS_DB_NAME}
+db.production.datasource.dataSourceProperties.user=${RDS_USER}
+db.production.datasource.dataSourceProperties.password=${RDS_PASSWORD}
+
+# HikariCP Connection Pool Settings
+db.production.datasource.maximumPoolSize=20
+db.production.datasource.minimumIdle=10
+db.production.datasource.connectionTimeout=30000
+db.production.datasource.idleTimeout=600000
+db.production.datasource.maxLifetime=1800000
+db.production.datasource.connectionTestQuery=SELECT 1
+
+# JDBC Driver
+db.production.driver=org.postgresql.Driver
+db.production.platform=PostgreSQL
+
+# ============================================
+# Common Target Items Database
+# ============================================
+db.common-tgt-items.datasource.class=com.zaxxer.hikari.HikariDataSource
+db.common-tgt-items.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
+db.common-tgt-items.datasource.dataSourceProperties.serverName=${RDS_HOST}
+db.common-tgt-items.datasource.dataSourceProperties.portNumber=${RDS_PORT}
+db.common-tgt-items.datasource.dataSourceProperties.databaseName=${RDS_DB_NAME}
+db.common-tgt-items.datasource.dataSourceProperties.user=${RDS_USER}
+db.common-tgt-items.datasource.dataSourceProperties.password=${RDS_PASSWORD}
+
+# HikariCP Settings
+db.common-tgt-items.datasource.maximumPoolSize=10
+db.common-tgt-items.datasource.minimumIdle=5
+db.common-tgt-items.datasource.connectionTimeout=30000
+
+db.common-tgt-items.driver=org.postgresql.Driver
+db.common-tgt-items.platform=PostgreSQL
+
+# ============================================
+# User Profile Database
+# ============================================
+db.userprofile-production.datasource.class=com.zaxxer.hikari.HikariDataSource
+db.userprofile-production.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
+db.userprofile-production.datasource.dataSourceProperties.serverName=${RDS_HOST}
+db.userprofile-production.datasource.dataSourceProperties.portNumber=${RDS_PORT}
+db.userprofile-production.datasource.dataSourceProperties.databaseName=${RDS_PROFILE_DB_NAME}
+db.userprofile-production.datasource.dataSourceProperties.user=${RDS_USER}
+db.userprofile-production.datasource.dataSourceProperties.password=${RDS_PASSWORD}
+
+# HikariCP Settings
+db.userprofile-production.datasource.maximumPoolSize=5
+db.userprofile-production.datasource.minimumIdle=2
+db.userprofile-production.datasource.connectionTimeout=30000
+
+db.userprofile-production.driver=org.postgresql.Driver
+db.userprofile-production.platform=PostgreSQL
+
+# ============================================
+# Project Configuration
+# ============================================
+project.title=AllianceMine
+project.subTitle=Alliance of Genome Resources
+project.releaseVersion=${ALLIANCE_RELEASE}
+project.sitePrefix=http://localhost:8080
+project.helpLocation=https://www.alliancegenome.org
+
+# ============================================
+# Web Application Configuration
+# ============================================
+webapp.deploy.url=http://localhost:8080/manager/text
+webapp.baseurl=http://localhost:8080
+webapp.path=alliancemine
+webapp.manager=manager
+webapp.password=manager
+
+# Tomcat Manager credentials (for deployment)
+tomcat.user=manager
+tomcat.pwd=manager
+
+# ============================================
+# Solr Configuration
+# ============================================
+solr.url=http://localhost:${SOLR_PORT}/solr
+
+# ============================================
+# SuperUser Account
+# ============================================
+superuser.account=admin@alliancemine.org
+superuser.password=admin
+
+# ============================================
+# OAuth (optional - configure if using OAuth)
+# ============================================
+# oauth2.providers=GOOGLE,GITHUB
+# oauth2.GOOGLE.client.id=YOUR_GOOGLE_CLIENT_ID
+# oauth2.GOOGLE.client.secret=YOUR_GOOGLE_CLIENT_SECRET
+
+# ============================================
+# External Links
+# ============================================
+links.mod=https://www.alliancegenome.org
+
+# ============================================
+# Performance Tuning
+# ============================================
+# Batch processing settings
+batch.size=1000
+webapp.os.alias=os.production
+
+# Query result caching
+webapp.query.cache.size=10000
+webapp.query.cache.timeout=300
+
+# ============================================
+# XML Factory (required for InterMine)
+# ============================================
+systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl
