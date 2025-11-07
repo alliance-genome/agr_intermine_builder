@@ -108,8 +108,8 @@ class RDSProvisioner:
 
     def create_parameter_group(
         self,
-        group_name: str = "intermine-postgres16",
-        description: str = "Parameter group for InterMine PostgreSQL 16"
+        group_name: str = "intermine-postgres15",
+        description: str = "Parameter group for InterMine PostgreSQL 15"
     ) -> str:
         """
         Create RDS parameter group optimized for InterMine.
@@ -137,7 +137,7 @@ class RDSProvisioner:
             logger.info(f"Creating parameter group: {group_name}")
             self.rds_client.create_db_parameter_group(
                 DBParameterGroupName=group_name,
-                DBParameterGroupFamily='postgres16',
+                DBParameterGroupFamily='postgres15',
                 Description=description
             )
 
@@ -163,7 +163,7 @@ class RDSProvisioner:
 
                 # Performance optimizations for data warehouse workloads
                 {'ParameterName': 'random_page_cost', 'ParameterValue': '1.1', 'ApplyMethod': 'immediate'},  # SSD optimization
-                {'ParameterName': 'synchronous_commit', 'ParameterValue': '0', 'ApplyMethod': 'immediate'},  # InterMine recommendation
+                {'ParameterName': 'synchronous_commit', 'ParameterValue': 'off', 'ApplyMethod': 'immediate'},  # InterMine recommendation
 
                 # Checkpoint settings for write-heavy workloads
                 {'ParameterName': 'checkpoint_completion_target', 'ParameterValue': '0.9', 'ApplyMethod': 'immediate'},
@@ -192,13 +192,13 @@ class RDSProvisioner:
         self,
         instance_identifier: str = "intermine-postgres",
         instance_class: str = "db.t3.large",
-        allocated_storage: int = 200,
+        allocated_storage: int = 500,
         storage_type: str = "gp3",
         master_username: str = "postgres",
         master_password: str = None,
-        postgres_version: str = "16.4",
+        postgres_version: str = "15",
         vpc_security_group_ids: List[str] = None,
-        parameter_group_name: str = "intermine-postgres16",
+        parameter_group_name: str = "intermine-postgres15",
         backup_retention_days: int = 7,
         multi_az: bool = False,
         publicly_accessible: bool = True,
@@ -250,16 +250,20 @@ class RDSProvisioner:
                 logger.info("Generated master password (save this!):")
                 logger.info(f"Password: {master_password}")
 
-            # Prepare tags
+            # Prepare tags (AWS allows: unicode letters, digits, whitespace, _ . : / = + -)
             default_tags = [
                 {'Key': 'Project', 'Value': 'InterMine'},
                 {'Key': 'ManagedBy', 'Value': 'intermine-builder'},
-                {'Key': 'Purpose', 'Value': 'All mines shared database'},
-                {'Key': 'Mines', 'Value': 'AllianceMine,WormMine,MouseMine,FlyMine'},
+                {'Key': 'Purpose', 'Value': 'Shared database for all mines'},
+                {'Key': 'Mines', 'Value': 'AllianceMine+WormMine+MouseMine+FlyMine'},
                 {'Key': 'Environment', 'Value': 'production'}
             ]
             if tags:
-                default_tags.extend([{'Key': k, 'Value': v} for k, v in tags.items()])
+                # Sanitize custom tags - replace invalid characters
+                for k, v in tags.items():
+                    # Remove or replace characters not in: unicode letters, digits, whitespace, _ . : / = + -
+                    sanitized_value = v.replace(',', '+').replace('|', '+')
+                    default_tags.append({'Key': k, 'Value': sanitized_value})
 
             # Create RDS instance
             logger.info(f"Creating RDS instance: {instance_identifier}")
@@ -293,8 +297,8 @@ class RDSProvisioner:
             if parameter_group_name:
                 create_params['DBParameterGroupName'] = parameter_group_name
 
-            # Add gp3 specific settings
-            if storage_type == 'gp3':
+            # Add gp3 specific settings (only if storage >= 400GB, otherwise use defaults)
+            if storage_type == 'gp3' and allocated_storage >= 400:
                 create_params['Iops'] = 3000  # gp3 baseline
                 create_params['StorageThroughput'] = 125  # gp3 baseline MB/s
 
@@ -460,8 +464,15 @@ class RDSProvisioner:
         # Create security group
         sg_id = self.create_security_group(vpc_id)
 
-        # Create parameter group
-        param_group = self.create_parameter_group()
+        # Create parameter group (or use default if permission denied)
+        try:
+            param_group = self.create_parameter_group()
+        except RDSProvisionerError as e:
+            if 'AccessDenied' in str(e) or 'not authorized' in str(e):
+                logger.warning("No permission to create parameter group, using default")
+                param_group = 'default.postgres16'  # Use AWS default
+            else:
+                raise
 
         # Create RDS instance
         instance_details = self.create_rds_instance(

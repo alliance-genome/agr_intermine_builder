@@ -207,6 +207,54 @@ def cmd_start(args):
         return 1
 
 
+def cmd_modify(args):
+    """Modify RDS instance (storage, instance class, etc)."""
+    try:
+        import boto3
+        rds = boto3.client('rds', region_name=args.region)
+
+        print(f"\n🔧 Modifying RDS instance: {args.instance_id}")
+
+        modify_params = {
+            'DBInstanceIdentifier': args.instance_id,
+            'ApplyImmediately': args.apply_immediately
+        }
+
+        # Track what's being modified
+        modifications = []
+
+        if args.storage:
+            modify_params['AllocatedStorage'] = args.storage
+            modifications.append(f"Storage: {args.storage}GB")
+
+        if args.instance_type:
+            modify_params['DBInstanceClass'] = args.instance_type
+            modifications.append(f"Instance type: {args.instance_type}")
+
+        if not modifications:
+            print("❌ ERROR: No modifications specified. Use --storage or --instance-type")
+            return 1
+
+        print(f"   Modifications:")
+        for mod in modifications:
+            print(f"   - {mod}")
+
+        if not args.apply_immediately:
+            print(f"   ⚠️  Changes will be applied during next maintenance window")
+            print(f"   Use --apply-immediately to apply now")
+
+        rds.modify_db_instance(**modify_params)
+
+        print("✅ Modification initiated")
+        print("   Run 'status' to check progress")
+
+        return 0
+
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        return 1
+
+
 def cmd_delete(args):
     """Delete RDS instance."""
     if not args.confirm:
@@ -306,8 +354,8 @@ Examples:
     create_parser.add_argument(
         '--storage',
         type=int,
-        default=200,
-        help='Storage size in GB (default: 200)'
+        default=500,
+        help='Storage size in GB (default: 500)'
     )
     create_parser.add_argument(
         '--password',
@@ -356,6 +404,29 @@ Examples:
         help='DB instance identifier (default: intermine-postgres)'
     )
     start_parser.set_defaults(func=cmd_start)
+
+    # Modify command
+    modify_parser = subparsers.add_parser('modify', help='Modify RDS instance (storage, instance type)')
+    modify_parser.add_argument(
+        '--instance-id',
+        default='intermine-postgres',
+        help='DB instance identifier (default: intermine-postgres)'
+    )
+    modify_parser.add_argument(
+        '--storage',
+        type=int,
+        help='New storage size in GB (can only increase, not decrease)'
+    )
+    modify_parser.add_argument(
+        '--instance-type',
+        help='New instance type (e.g., db.t3.xlarge)'
+    )
+    modify_parser.add_argument(
+        '--apply-immediately',
+        action='store_true',
+        help='Apply changes immediately (default: apply during maintenance window)'
+    )
+    modify_parser.set_defaults(func=cmd_modify)
 
     # Delete command
     delete_parser = subparsers.add_parser('delete', help='Delete RDS instance')
