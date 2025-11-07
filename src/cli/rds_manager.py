@@ -18,6 +18,12 @@ Usage:
     # Check status
     python -m src.cli.rds_manager status
 
+    # Stop instance (saves costs)
+    python -m src.cli.rds_manager stop
+
+    # Start stopped instance
+    python -m src.cli.rds_manager start
+
     # Delete instance (careful!)
     python -m src.cli.rds_manager delete --instance-id intermine-postgres
 """
@@ -142,6 +148,54 @@ def cmd_status(args):
         return 1
 
 
+def cmd_stop(args):
+    """Stop RDS instance (saves costs, can restart later)."""
+    try:
+        import boto3
+        rds = boto3.client('rds', region_name=args.region)
+
+        print(f"\n⏸️  Stopping RDS instance: {args.instance_id}")
+        print("   💰 This will stop billing for the instance (storage still charged)")
+        print("   ⚠️  Instance will auto-start after 7 days")
+
+        rds.stop_db_instance(
+            DBInstanceIdentifier=args.instance_id
+        )
+
+        print("✅ Stop initiated")
+        print("   Status will change from 'available' → 'stopping' → 'stopped'")
+        print("   To restart: python -m src.cli.rds_manager start")
+
+        return 0
+
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        return 1
+
+
+def cmd_start(args):
+    """Start stopped RDS instance."""
+    try:
+        import boto3
+        rds = boto3.client('rds', region_name=args.region)
+
+        print(f"\n▶️  Starting RDS instance: {args.instance_id}")
+
+        rds.start_db_instance(
+            DBInstanceIdentifier=args.instance_id
+        )
+
+        print("✅ Start initiated")
+        print("   Status will change from 'stopped' → 'starting' → 'available'")
+        print("   This may take 5-10 minutes")
+
+        return 0
+
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        return 1
+
+
 def cmd_delete(args):
     """Delete RDS instance."""
     if not args.confirm:
@@ -195,7 +249,13 @@ Examples:
   # Check status
   %(prog)s status
 
-  # Delete instance
+  # Stop instance (saves costs, keeps data)
+  %(prog)s stop
+
+  # Start stopped instance
+  %(prog)s start
+
+  # Delete instance (WARNING: removes all data!)
   %(prog)s delete
         """
     )
@@ -261,6 +321,24 @@ Examples:
         help='DB instance identifier (default: intermine-postgres)'
     )
     status_parser.set_defaults(func=cmd_status)
+
+    # Stop command
+    stop_parser = subparsers.add_parser('stop', help='Stop RDS instance (saves costs)')
+    stop_parser.add_argument(
+        '--instance-id',
+        default='intermine-postgres',
+        help='DB instance identifier (default: intermine-postgres)'
+    )
+    stop_parser.set_defaults(func=cmd_stop)
+
+    # Start command
+    start_parser = subparsers.add_parser('start', help='Start stopped RDS instance')
+    start_parser.add_argument(
+        '--instance-id',
+        default='intermine-postgres',
+        help='DB instance identifier (default: intermine-postgres)'
+    )
+    start_parser.set_defaults(func=cmd_start)
 
     # Delete command
     delete_parser = subparsers.add_parser('delete', help='Delete RDS instance')
