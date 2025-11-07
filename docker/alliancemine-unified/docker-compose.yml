@@ -20,6 +20,7 @@ services:
       args:
         ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-master}
         BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-master}
+        ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-8.2.0}
 
     image: alliancemine-unified:${IMAGE_TAG:-latest}
 
@@ -52,6 +53,7 @@ services:
 
       # Application
       ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-8.2.0}
+      AUTO_BUILD: ${AUTO_BUILD:-false}
 
       # Java Memory Settings
       CATALINA_OPTS: "-Xmx16g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"

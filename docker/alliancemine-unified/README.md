@@ -81,7 +81,16 @@ curl http://localhost:8080/alliancemine/service/version
 curl http://localhost:8983/solr/admin/info/system
 ```
 
-**Mode 2: Build InterMine**
+**Mode 2: Auto-Build on First Start**
+```bash
+# Set AUTO_BUILD=true in .env, then:
+docker-compose up -d
+
+# Build runs automatically on first start only
+# Watch progress: docker-compose logs -f
+```
+
+**Mode 3: Manual Build InterMine**
 ```bash
 # Run full build process
 docker-compose run --rm alliancemine build
@@ -95,13 +104,33 @@ docker-compose run --rm alliancemine bash
 ./gradlew cargoRedeployRemote
 ```
 
-**Mode 3: Development/Debug**
+**Mode 4: Development/Debug**
 ```bash
 # Get shell access
 docker-compose exec alliancemine bash
 
 # Or start with bash
 docker-compose run --rm alliancemine bash
+```
+
+### Custom Release Version
+
+To build a specific AllianceMine release:
+
+```bash
+# Set in .env
+ALLIANCE_RELEASE=8.3.0
+
+# Rebuild image with new version
+docker-compose build --build-arg ALLIANCE_RELEASE=8.3.0
+
+# Or pass directly
+docker-compose build --build-arg ALLIANCE_RELEASE=8.3.0
+
+# The version appears in:
+# - Web interface (project.releaseVersion)
+# - Docker image label
+# - Container environment
 ```
 
 ## Architecture Details
@@ -180,10 +209,17 @@ deploy:
 
 **Optional**:
 - `ALLIANCE_RELEASE`: Release version (default: 8.2.0)
+- `AUTO_BUILD`: Auto-build on first start (`true`/`false`, default: `false`)
 - `TOMCAT_PORT`: Tomcat port (default: 8080)
 - `SOLR_PORT`: Solr port (default: 8983)
 - `CATALINA_OPTS`: Tomcat JVM options
 - `SOLR_JAVA_MEM`: Solr heap size
+
+**AUTO_BUILD Behavior**:
+- When `AUTO_BUILD=true`, the container will automatically run the full InterMine build on first start
+- A marker file (`/opt/intermine/.build_complete`) prevents rebuilding on subsequent restarts
+- To rebuild, remove the marker: `docker-compose exec alliancemine rm /opt/intermine/.build_complete`
+- Useful for automated deployments and CI/CD pipelines
 
 ### InterMine Properties
 

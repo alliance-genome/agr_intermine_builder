@@ -103,7 +103,10 @@ FROM eclipse-temurin:11-jre-alpine
 
 LABEL maintainer="Alliance of Genome Resources"
 LABEL description="AllianceMine unified container with Tomcat + Solr + Build tools"
-LABEL version="8.2.0"
+
+# Build argument for release version
+ARG ALLIANCE_RELEASE=8.2.0
+LABEL version="${ALLIANCE_RELEASE}"
 
 # ============================================
 # Install Runtime Dependencies
@@ -130,7 +133,7 @@ ENV JAVA_HOME=/opt/java/openjdk \
     SOLR_HOME=/var/solr/data \
     SOLR_PORT=8983 \
     TOMCAT_PORT=8080 \
-    ALLIANCE_RELEASE=8.2.0
+    ALLIANCE_RELEASE=${ALLIANCE_RELEASE}
 
 # Memory settings for production
 ENV CATALINA_OPTS="-Xmx8g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
