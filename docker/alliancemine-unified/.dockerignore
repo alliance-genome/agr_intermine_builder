@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Docker
+docker-compose.yml
+.dockerignore
+Dockerfile
+
+# Environment
+.env
+.env.*
+*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Build artifacts (will be built inside container)
+target/
+build/
+dist/
+*.war
+*.jar
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Data files (too large, download at runtime)
+data/
+*.gz
+*.tar
+*.zip
+*.tgz
