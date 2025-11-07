@@ -254,7 +254,9 @@ class RDSProvisioner:
             default_tags = [
                 {'Key': 'Project', 'Value': 'InterMine'},
                 {'Key': 'ManagedBy', 'Value': 'intermine-builder'},
-                {'Key': 'Purpose', 'Value': 'All mines shared database'}
+                {'Key': 'Purpose', 'Value': 'All mines shared database'},
+                {'Key': 'Mines', 'Value': 'AllianceMine,WormMine,MouseMine,FlyMine'},
+                {'Key': 'Environment', 'Value': 'production'}
             ]
             if tags:
                 default_tags.extend([{'Key': k, 'Value': v} for k, v in tags.items()])
@@ -423,7 +425,8 @@ class RDSProvisioner:
         allocated_storage: int = 200,
         master_password: Optional[str] = None,
         vpc_id: Optional[str] = None,
-        create_databases_now: bool = True
+        create_databases_now: bool = True,
+        custom_tags: Optional[Dict[str, str]] = None
     ) -> Dict:
         """
         Complete RDS setup for all InterMine mines.
@@ -435,6 +438,7 @@ class RDSProvisioner:
             master_password: Master password (generated if not provided)
             vpc_id: VPC ID (uses default if not provided)
             create_databases_now: Create all mine databases immediately
+            custom_tags: Additional tags to apply to the instance
 
         Returns:
             Dict with connection details and passwords
@@ -466,7 +470,8 @@ class RDSProvisioner:
             allocated_storage=allocated_storage,
             master_password=master_password,
             vpc_security_group_ids=[sg_id],
-            parameter_group_name=param_group
+            parameter_group_name=param_group,
+            tags=custom_tags
         )
 
         # Wait for instance to be available

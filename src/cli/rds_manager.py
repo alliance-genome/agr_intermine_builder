@@ -56,6 +56,16 @@ def cmd_create(args):
     print("\n🚀 Creating RDS PostgreSQL Instance for InterMine")
     print("="*60)
 
+    # Parse tags from KEY=VALUE format
+    custom_tags = {}
+    if args.tags:
+        for tag in args.tags:
+            if '=' in tag:
+                key, value = tag.split('=', 1)
+                custom_tags[key] = value
+            else:
+                print(f"⚠️  Warning: Ignoring invalid tag format: {tag} (expected KEY=VALUE)")
+
     provisioner = RDSProvisioner(
         region=args.region,
         profile_name=args.profile
@@ -68,7 +78,8 @@ def cmd_create(args):
             allocated_storage=args.storage,
             master_password=args.password,
             vpc_id=args.vpc_id,
-            create_databases_now=not args.skip_databases
+            create_databases_now=not args.skip_databases,
+            custom_tags=custom_tags
         )
 
         print("\n✅ SUCCESS! RDS instance created and ready to use.")
@@ -305,6 +316,12 @@ Examples:
     create_parser.add_argument(
         '--vpc-id',
         help='VPC ID (uses default VPC if not provided)'
+    )
+    create_parser.add_argument(
+        '--tags',
+        nargs='+',
+        metavar='KEY=VALUE',
+        help='Additional tags as KEY=VALUE pairs (e.g., --tags Owner=John Team=DevOps)'
     )
     create_parser.add_argument(
         '--skip-databases',
