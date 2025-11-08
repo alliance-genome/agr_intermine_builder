@@ -5,12 +5,19 @@ version: '3.8'
 # ============================================
 # Simple single-container deployment with RDS
 #
+# Uses configuration from ../../.env (project root)
+# No need for local .env file - all settings inherited
+#
 # Usage:
 #   docker-compose up -d        # Start in background
 #   docker-compose logs -f      # Follow logs
 #   docker-compose exec alliancemine bash  # Shell access
 #   docker-compose down         # Stop and remove
 # ============================================
+
+# Load environment from project root
+env_file:
+  - ../../.env
 
 services:
   alliancemine:

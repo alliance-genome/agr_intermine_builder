@@ -46,12 +46,20 @@ This Docker image consolidates all InterMine components (except PostgreSQL) into
    uv run python -m src.cli.rds_manager create
    ```
 
-2. **Environment file configured** (`.env`):
+2. **Project root `.env` file configured**:
+
+   The unified container uses the existing `.env` file at the project root - no local configuration needed!
+
+   Verify these values exist in `/path/to/agr_intermine_builder/.env`:
    ```bash
    RDS_HOST=intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com
    RDS_PORT=5432
    RDS_USER=postgres
    RDS_PASSWORD=your_password_here
+   RDS_DB_NAME=alliancemine_db
+   RDS_PROFILE_DB_NAME=alliancemine_profiles_db
+   ALLIANCE_RELEASE=8.2.0
+   AUTO_BUILD=false
    ```
 
 ### Build Image

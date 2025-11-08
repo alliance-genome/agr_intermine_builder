@@ -5,33 +5,41 @@
 ## Prerequisites
 
 ✅ Docker & Docker Compose installed
-✅ AWS RDS PostgreSQL instance running
+✅ AWS RDS PostgreSQL instance running (see `../../RDS_SETUP.md`)
 ✅ 32GB+ RAM allocated to Docker
 ✅ 100GB+ free disk space
+✅ Root `.env` file configured (at project root)
 
-## Step 1: Configure Environment (2 minutes)
+## Step 1: Verify Configuration (30 seconds)
+
+**The unified container uses the existing configuration from the project root `.env` file.**
+
+No need to create a local `.env` file! Just verify these values exist in `../../.env`:
 
 ```bash
-cd docker/alliancemine-unified
-cp .env.example .env
-nano .env  # or vim, code, etc.
+# Check configuration
+cd /path/to/agr_intermine_builder
+cat .env | grep -E "RDS_|ALLIANCE_RELEASE|AUTO_BUILD"
 ```
 
-**Edit these required values:**
+**Should see:**
 ```bash
-RDS_HOST=your-rds-endpoint.us-east-1.rds.amazonaws.com
-RDS_PASSWORD=your_secure_password
-
-# Optional: Set release version
+RDS_HOST=intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com
+RDS_PORT=5432
+RDS_USER=postgres
+RDS_PASSWORD=your_password
+RDS_DB_NAME=alliancemine_db
+RDS_PROFILE_DB_NAME=alliancemine_profiles_db
 ALLIANCE_RELEASE=8.2.0
-
-# Optional: Auto-build on first start
 AUTO_BUILD=false  # Set to 'true' for automatic build
 ```
+
+If any are missing, add them to the root `.env` file.
 
 ## Step 2: Build Docker Image (10-15 minutes)
 
 ```bash
+cd docker/alliancemine-unified
 docker-compose build
 ```
 
