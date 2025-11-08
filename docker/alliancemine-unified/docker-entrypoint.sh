@@ -108,6 +108,29 @@ start_solr() {
     done
 
     echo "✅ Solr is running"
+
+    # Create InterMine Solr cores if they don't exist
+    echo "📝 Checking Solr cores..."
+
+    # Check if alliancemine-search core exists
+    if ! curl -s "http://localhost:${SOLR_PORT}/solr/admin/cores?action=STATUS&core=alliancemine-search" | grep -q '"name":"alliancemine-search"'; then
+        echo "   Creating alliancemine-search core..."
+        /opt/solr/bin/solr create -c alliancemine-search -p ${SOLR_PORT}
+        echo "   ✅ alliancemine-search core created"
+    else
+        echo "   ✅ alliancemine-search core already exists"
+    fi
+
+    # Check if alliancemine-autocomplete core exists
+    if ! curl -s "http://localhost:${SOLR_PORT}/solr/admin/cores?action=STATUS&core=alliancemine-autocomplete" | grep -q '"name":"alliancemine-autocomplete"'; then
+        echo "   Creating alliancemine-autocomplete core..."
+        /opt/solr/bin/solr create -c alliancemine-autocomplete -p ${SOLR_PORT}
+        echo "   ✅ alliancemine-autocomplete core created"
+    else
+        echo "   ✅ alliancemine-autocomplete core already exists"
+    fi
+
+    echo "✅ Solr cores initialized"
 }
 
 # ============================================
