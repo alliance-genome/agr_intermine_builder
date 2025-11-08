@@ -35,20 +35,11 @@ RUN apk add --no-cache \
     postgresql-client
 
 # Install Perl modules for InterMine
-RUN cpanm --notest --force \
-    Ouch \
-    LWP \
-    URI \
-    Module::Find \
-    Web::Scraper \
-    Number::Format \
-    Perl6::Junction \
-    YAML \
-    XML::DOM \
-    XML::Simple \
-    Text::Glob \
-    Log::Handler \
-    && rm -rf /root/.cpanm /tmp/*
+# Install in batches and ignore exit codes since --force may still return non-zero
+RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
+    cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
+    cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
+    rm -rf /root/.cpanm /tmp/*
 
 # Set up environment
 ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
