@@ -66,7 +66,11 @@ COPY alliancemine.properties.template /root/.intermine/alliancemine.properties
 COPY alliancemine.properties.template /root/alliancemine/alliancemine.properties
 
 # Pre-build AllianceMine dependencies
-RUN ./gradlew install -PsoTermListFilePath=/build/alliancemine/dbmodel/resources/so_terms --stacktrace && \
+# Copy so_terms file to where Gradle expects it
+RUN mkdir -p /root/.gradle/daemon/4.9/dbmodel/resources && \
+    cp /build/alliancemine/dbmodel/resources/so_terms /root/.gradle/daemon/4.9/dbmodel/resources/so_terms
+
+RUN ./gradlew install --stacktrace && \
     rm -rf /root/.gradle/caches/transforms-* /root/.gradle/caches/journal-*
 
 # ============================================
