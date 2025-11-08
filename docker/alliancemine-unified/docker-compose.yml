@@ -15,12 +15,11 @@ version: '3.8'
 #   docker-compose down         # Stop and remove
 # ============================================
 
-# Load environment from project root
-env_file:
-  - ../../.env
-
 services:
   alliancemine:
+    # Load environment from project root
+    env_file:
+      - ../../.env
     build:
       context: .
       dockerfile: Dockerfile
