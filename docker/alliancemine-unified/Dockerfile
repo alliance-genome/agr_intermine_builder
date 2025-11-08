@@ -59,12 +59,11 @@ WORKDIR /build/alliancemine-bio-sources
 RUN ./gradlew clean install --parallel --stacktrace && \
     rm -rf /root/.gradle/caches/transforms-* /root/.gradle/caches/journal-*
 
-# Create dummy properties file for build-time dependency resolution
-# (will be replaced at runtime with actual RDS configuration)
+# Copy properties template to both possible locations
+# AllianceMine may look in either ~/.intermine/ or the project directory
 WORKDIR /build/alliancemine
-RUN mkdir -p /root/.intermine && \
-    cp alliancemine.properties /root/.intermine/alliancemine.properties || \
-    echo "# Dummy properties for build" > /root/.intermine/alliancemine.properties
+COPY alliancemine.properties.template /root/.intermine/alliancemine.properties
+COPY alliancemine.properties.template /root/alliancemine/alliancemine.properties
 
 # Pre-build AllianceMine dependencies
 RUN ./gradlew install --stacktrace && \
