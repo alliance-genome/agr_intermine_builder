@@ -10,15 +10,30 @@
 ✅ 100GB+ free disk space
 ✅ Root `.env` file configured (at project root)
 
-## Step 1: Verify Configuration (30 seconds)
+## Step 1: Set Release Version (30 seconds)
 
-**The unified container uses the existing configuration from the project root `.env` file.**
-
-No need to create a local `.env` file! Just verify these values exist in `../../.env`:
+**Set the AllianceMine release version** before building:
 
 ```bash
-# Check configuration
 cd /path/to/agr_intermine_builder
+
+# Option A: Use current release from Alliance API (recommended)
+uv run python -m src.cli.set_release current
+
+# Option B: Use next release from Alliance API
+uv run python -m src.cli.set_release next
+
+# Option C: Use specific version
+uv run python -m src.cli.set_release 8.3.0
+
+# Option D: Check current setting
+uv run python -m src.cli.set_release show
+```
+
+This automatically updates the root `.env` file with the correct `ALLIANCE_RELEASE` version.
+
+**Verify configuration** (optional):
+```bash
 cat .env | grep -E "RDS_|ALLIANCE_RELEASE|AUTO_BUILD"
 ```
 
@@ -30,11 +45,9 @@ RDS_USER=postgres
 RDS_PASSWORD=your_password
 RDS_DB_NAME=alliancemine_db
 RDS_PROFILE_DB_NAME=alliancemine_profiles_db
-ALLIANCE_RELEASE=8.2.0
+ALLIANCE_RELEASE=8.2.0  # Updated by set_release command
 AUTO_BUILD=false  # Set to 'true' for automatic build
 ```
-
-If any are missing, add them to the root `.env` file.
 
 ## Step 2: Build Docker Image (10-15 minutes)
 

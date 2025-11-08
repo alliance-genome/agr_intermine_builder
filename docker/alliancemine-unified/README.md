@@ -121,25 +121,42 @@ docker-compose exec alliancemine bash
 docker-compose run --rm alliancemine bash
 ```
 
-### Custom Release Version
+### Set Release Version
 
-To build a specific AllianceMine release:
+**Use the CLI tool to set the release version** from Alliance API or manually:
 
 ```bash
-# Set in .env
+cd /path/to/agr_intermine_builder
+
+# Set to current release from Alliance API (recommended)
+uv run python -m src.cli.set_release current
+
+# Set to next release from Alliance API
+uv run python -m src.cli.set_release next
+
+# Set to specific version
+uv run python -m src.cli.set_release 8.3.0
+
+# Show current setting and available versions
+uv run python -m src.cli.set_release show
+```
+
+This updates the root `.env` file with `ALLIANCE_RELEASE`, which is then used during Docker build.
+
+**Manual method** (alternative):
+```bash
+# Edit root .env directly
 ALLIANCE_RELEASE=8.3.0
 
 # Rebuild image with new version
+cd docker/alliancemine-unified
 docker-compose build --build-arg ALLIANCE_RELEASE=8.3.0
-
-# Or pass directly
-docker-compose build --build-arg ALLIANCE_RELEASE=8.3.0
-
-# The version appears in:
-# - Web interface (project.releaseVersion)
-# - Docker image label
-# - Container environment
 ```
+
+The version appears in:
+- Web interface (project.releaseVersion)
+- Docker image label
+- Container environment
 
 ## Architecture Details
 
