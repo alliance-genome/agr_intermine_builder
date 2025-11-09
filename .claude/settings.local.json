@@ -12,7 +12,9 @@
       "Skill(docker-specialist)",
       "Bash(docker-compose build:*)",
       "Bash(docker exec:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(docker-compose exec:*)",
+      "Skill(intermine-specialist)"
     ],
     "deny": [],
     "ask": []
