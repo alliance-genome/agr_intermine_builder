@@ -1,6 +1,5 @@
 """AWS RDS management for AGR InterMine Builder with multi-mine support."""
 
-import json
 import time
 from datetime import datetime, timedelta
 from enum import Enum
@@ -436,7 +435,7 @@ class RDSManager:
                 ephemeral.endpoint = f"{instance['Endpoint']['Address']}:{instance['Endpoint']['Port']}"
                 ephemeral.status = "available"
                 
-                print(f"✅ Ephemeral build instance ready")
+                print("✅ Ephemeral build instance ready")
                 print(f"   Endpoint: {ephemeral.endpoint}")
                 print(f"   Estimated cost: ~${storage_gb * 0.115 / 30:.2f} + ${0.144 * 8:.2f} = ~${(storage_gb * 0.115 / 30) + (0.144 * 8):.2f} per build")
                 
@@ -460,7 +459,7 @@ class RDSManager:
         else:
             mine_config = self.MINE_CONFIGS[mine_name]
         
-        print(f"📦 Creating databases on build instance...")
+        print("📦 Creating databases on build instance...")
         
         try:
             # Create main and profile databases using psql
@@ -855,7 +854,7 @@ class RDSManager:
             # Here you would trigger the actual InterMine build
             # For now, we'll simulate it
             print(f"   🚧 Build process would start here for {mine.db_name}")
-            print(f"   📊 Using sequential processing to optimize memory")
+            print("   📊 Using sequential processing to optimize memory")
             
             # Simulate build completion
             time.sleep(2)  # In reality, this would be the actual build
@@ -869,7 +868,7 @@ class RDSManager:
         
         # Print summary
         status = self.build_queue.get_status()
-        print(f"\n📊 Build Summary:")
+        print("\n📊 Build Summary:")
         print(f"   Completed: {status['completed']}")
         print(f"   Failed: {status['failed']}")
         

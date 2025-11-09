@@ -177,6 +177,7 @@ RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml"
 # Install Apache Solr
 # ============================================
 COPY --from=solr-builder /opt/solr /opt/solr
+COPY --from=solr-builder /opt/solr/server/solr/solr.xml /var/solr/data/solr.xml
 
 # Create Solr data directories
 RUN mkdir -p /var/solr/data /var/solr/logs && \

@@ -33,7 +33,7 @@ def example_build_single_mine():
 
         # Print results
         if summary["success"]:
-            print(f"\n✅ Build succeeded!")
+            print("\n✅ Build succeeded!")
             print(f"   Total time: {summary['total_duration_hours']:.2f} hours")
             print(f"   Stages completed: {len(summary['completed_stages'])}")
         else:

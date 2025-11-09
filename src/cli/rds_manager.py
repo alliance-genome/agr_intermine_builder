@@ -235,13 +235,13 @@ def cmd_modify(args):
             print("❌ ERROR: No modifications specified. Use --storage or --instance-type")
             return 1
 
-        print(f"   Modifications:")
+        print("   Modifications:")
         for mod in modifications:
             print(f"   - {mod}")
 
         if not args.apply_immediately:
-            print(f"   ⚠️  Changes will be applied during next maintenance window")
-            print(f"   Use --apply-immediately to apply now")
+            print("   ⚠️  Changes will be applied during next maintenance window")
+            print("   Use --apply-immediately to apply now")
 
         rds.modify_db_instance(**modify_params)
 

@@ -11,7 +11,7 @@
               type="org.apache.catalina.UserDatabase"
               description="User database that can be updated and saved"
               factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
-              pathname="conf/tomcat-users.xml" />
+              pathname="/opt/tomcat/conf/tomcat-users.xml" />
   </GlobalNamingResources>
 
   <Service name="Catalina">

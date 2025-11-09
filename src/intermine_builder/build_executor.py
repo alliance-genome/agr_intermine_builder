@@ -17,7 +17,6 @@ They can be imported from production releases using import_profile_db().
 import logging
 from typing import Optional, List, Callable
 from datetime import datetime
-from pathlib import Path
 
 from .mine_config import MineConfig, BuildStage, MineType
 from .docker_manager import DockerManager
@@ -397,7 +396,7 @@ class BuildExecutor:
         psql -h $RDS_HOST -U $RDS_USER -d postgres -c \
         "DROP DATABASE IF EXISTS {profile_db}"
         """
-        logger.info(f"Dropping existing profile database (if exists)...")
+        logger.info("Dropping existing profile database (if exists)...")
         self.docker_manager.execute_command(
             self.mine_type,
             drop_cmd,
@@ -410,7 +409,7 @@ class BuildExecutor:
         psql -h $RDS_HOST -U $RDS_USER -d postgres -c \
         "CREATE DATABASE {profile_db}"
         """
-        logger.info(f"Creating profile database...")
+        logger.info("Creating profile database...")
         exit_code, _ = self.docker_manager.execute_command(
             self.mine_type,
             create_cmd,
@@ -419,13 +418,13 @@ class BuildExecutor:
         )
 
         if exit_code != 0:
-            raise BuildExecutionError(f"Failed to create profile database")
+            raise BuildExecutionError("Failed to create profile database")
 
         # Import dump
         import_cmd = f"""
         psql -h $RDS_HOST -U $RDS_USER -d {profile_db} < {dump_file}
         """
-        logger.info(f"Importing profile data from dump file...")
+        logger.info("Importing profile data from dump file...")
         exit_code, _ = self.docker_manager.execute_command(
             self.mine_type,
             import_cmd,
@@ -434,8 +433,8 @@ class BuildExecutor:
         )
 
         if exit_code != 0:
-            raise BuildExecutionError(f"Failed to import profile database")
+            raise BuildExecutionError("Failed to import profile database")
 
-        logger.info(f"✅ Profile database imported successfully")
+        logger.info("✅ Profile database imported successfully")
         logger.info(f"   Database: {profile_db}")
         logger.info(f"   Source: {dump_file}")
