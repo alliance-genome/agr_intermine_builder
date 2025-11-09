@@ -123,7 +123,8 @@ RUN apk add --no-cache \
     shadow \
     tini \
     lsof \
-    procps
+    procps \
+    gettext
 
 # ============================================
 # Environment Variables
