@@ -145,6 +145,9 @@ class RDSProvisioner:
             # Based on InterMine official recommendations:
             # https://intermine.readthedocs.io/en/latest/system-requirements/software/postgres/postgres/
             parameters = [
+                # SSL Configuration - DISABLE SSL requirement for InterMine
+                {'ParameterName': 'rds.force_ssl', 'ParameterValue': '0', 'ApplyMethod': 'immediate'},
+
                 # Connection settings - InterMine recommendation: 250 for production
                 {'ParameterName': 'max_connections', 'ParameterValue': '250', 'ApplyMethod': 'pending-reboot'},
 

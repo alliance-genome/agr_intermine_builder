@@ -11,7 +11,8 @@
       "Bash(mv:*)",
       "Skill(docker-specialist)",
       "Bash(docker-compose build:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []
