@@ -200,12 +200,13 @@ COPY --from=builder --chown=intermine:intermine /build/alliancemine ./alliancemi
 COPY --from=builder --chown=intermine:intermine /build/alliancemine-bio-sources ./alliancemine-bio-sources
 COPY --from=builder --chown=intermine:intermine /root/.gradle /opt/intermine/.gradle
 
-# Create data and config directories
+# Create data and config directories and fix all permissions
 RUN mkdir -p \
     /opt/intermine/.intermine \
     /opt/intermine/data \
     /opt/intermine/logs && \
-    chown -R intermine:intermine /opt/intermine
+    chown -R intermine:intermine /opt/intermine && \
+    chmod -R u+w /opt/intermine/alliancemine
 
 # ============================================
 # Configuration Files
