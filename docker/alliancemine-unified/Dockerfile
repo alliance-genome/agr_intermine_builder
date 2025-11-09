@@ -70,6 +70,8 @@ COPY alliancemine.properties.template /root/alliancemine/alliancemine.properties
 RUN mkdir -p /root/.gradle/daemon/4.9/dbmodel/resources && \
     cp /build/alliancemine/dbmodel/resources/so_terms /root/.gradle/daemon/4.9/dbmodel/resources/so_terms
 
+RUN mkdir -p /root/.gradle/daemon/4.9/dbmodel/build
+RUN touch /root/.gradle/daemon/4.9/dbmodel/build/so_additions.xml
 RUN ./gradlew install --stacktrace && \
     rm -rf /root/.gradle/caches/transforms-* /root/.gradle/caches/journal-*
 
