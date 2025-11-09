@@ -9,7 +9,9 @@
       "Bash(git ls-tree:*)",
       "Bash(tree:*)",
       "Bash(mv:*)",
-      "Skill(docker-specialist)"
+      "Skill(docker-specialist)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

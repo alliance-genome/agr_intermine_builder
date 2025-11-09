@@ -8,11 +8,11 @@
 # ============================================
 db.production.datasource.class=com.zaxxer.hikari.HikariDataSource
 db.production.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
-db.production.datasource.dataSourceProperties.serverName=${RDS_HOST}
-db.production.datasource.dataSourceProperties.portNumber=${RDS_PORT}
-db.production.datasource.dataSourceProperties.databaseName=${RDS_DB_NAME}
-db.production.datasource.dataSourceProperties.user=${RDS_USER}
-db.production.datasource.dataSourceProperties.password=${RDS_PASSWORD}
+db.production.datasource.serverName=${RDS_HOST}
+db.production.datasource.portNumber=${RDS_PORT}
+db.production.datasource.databaseName=${RDS_DB_NAME}
+db.production.datasource.user=${RDS_USER}
+db.production.datasource.password=${RDS_PASSWORD}
 
 # HikariCP Connection Pool Settings
 db.production.datasource.maximumPoolSize=20
@@ -31,11 +31,11 @@ db.production.platform=PostgreSQL
 # ============================================
 db.common-tgt-items.datasource.class=com.zaxxer.hikari.HikariDataSource
 db.common-tgt-items.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
-db.common-tgt-items.datasource.dataSourceProperties.serverName=${RDS_HOST}
-db.common-tgt-items.datasource.dataSourceProperties.portNumber=${RDS_PORT}
-db.common-tgt-items.datasource.dataSourceProperties.databaseName=${RDS_DB_NAME}
-db.common-tgt-items.datasource.dataSourceProperties.user=${RDS_USER}
-db.common-tgt-items.datasource.dataSourceProperties.password=${RDS_PASSWORD}
+db.common-tgt-items.datasource.serverName=${RDS_HOST}
+db.common-tgt-items.datasource.portNumber=${RDS_PORT}
+db.common-tgt-items.datasource.databaseName=${RDS_DB_NAME}
+db.common-tgt-items.datasource.user=${RDS_USER}
+db.common-tgt-items.datasource.password=${RDS_PASSWORD}
 
 # HikariCP Settings
 db.common-tgt-items.datasource.maximumPoolSize=10
@@ -50,11 +50,11 @@ db.common-tgt-items.platform=PostgreSQL
 # ============================================
 db.userprofile-production.datasource.class=com.zaxxer.hikari.HikariDataSource
 db.userprofile-production.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
-db.userprofile-production.datasource.dataSourceProperties.serverName=${RDS_HOST}
-db.userprofile-production.datasource.dataSourceProperties.portNumber=${RDS_PORT}
-db.userprofile-production.datasource.dataSourceProperties.databaseName=${RDS_PROFILE_DB_NAME}
-db.userprofile-production.datasource.dataSourceProperties.user=${RDS_USER}
-db.userprofile-production.datasource.dataSourceProperties.password=${RDS_PASSWORD}
+db.userprofile-production.datasource.serverName=${RDS_HOST}
+db.userprofile-production.datasource.portNumber=${RDS_PORT}
+db.userprofile-production.datasource.databaseName=${RDS_PROFILE_DB_NAME}
+db.userprofile-production.datasource.user=${RDS_USER}
+db.userprofile-production.datasource.password=${RDS_PASSWORD}
 
 # HikariCP Settings
 db.userprofile-production.datasource.maximumPoolSize=5
