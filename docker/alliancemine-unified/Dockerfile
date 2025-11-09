@@ -216,7 +216,7 @@ COPY --chown=intermine:intermine alliancemine.properties.template /opt/intermine
 
 # Copy build and startup scripts
 COPY --chown=intermine:intermine scripts/ /opt/intermine/scripts/
-RUN chmod +x /opt/intermine/scripts/*.sh
+RUN chmod +x /opt/intermine/scripts/*.py
 
 # ============================================
 # Entrypoint Script
