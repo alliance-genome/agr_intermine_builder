@@ -11,7 +11,7 @@ Manages Docker container lifecycle for InterMine builds:
 
 import docker
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional
 from pathlib import Path
 from docker.models.containers import Container
 from docker.models.images import Image

@@ -63,7 +63,7 @@ services:
 
       # Java Memory Settings
       CATALINA_OPTS: "-Xmx16g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
-      SOLR_JAVA_MEM: "-Xmx4g -Xms2g"
+      SOLR_JAVA_MEM: "4g"
 
       # Ports (if custom)
       TOMCAT_PORT: ${TOMCAT_PORT:-8080}

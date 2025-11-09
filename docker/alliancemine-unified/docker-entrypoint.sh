@@ -62,6 +62,9 @@ configure_intermine() {
 setup_databases() {
     echo "📦 Checking databases..."
 
+    # Export password for psql
+    export PGPASSWORD="${RDS_PASSWORD}"
+
     # Check main database
     if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
          -lqt | cut -d \| -f 1 | grep -qw "${RDS_DB_NAME}"; then

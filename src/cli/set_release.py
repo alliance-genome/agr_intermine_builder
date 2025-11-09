@@ -17,8 +17,6 @@ Usage:
 """
 
 import argparse
-import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -135,7 +133,7 @@ def show_current() -> None:
     try:
         api_current = fetch_release_from_api("current")
         api_next = fetch_release_from_api("next")
-        print(f"\nAvailable from Alliance API:")
+        print("\nAvailable from Alliance API:")
         print(f"  Current: {api_current}")
         print(f"  Next:    {api_next}")
     except RuntimeError as e:
@@ -223,10 +221,10 @@ Examples:
         try:
             update_env_file(version)
             print(f"\n✅ Updated .env file: ALLIANCE_RELEASE={version}")
-            print(f"\nNext steps:")
-            print(f"  cd docker/alliancemine-unified")
+            print("\nNext steps:")
+            print("  cd docker/alliancemine-unified")
             print(f"  docker-compose build --build-arg ALLIANCE_RELEASE={version}")
-            print(f"  docker-compose up -d")
+            print("  docker-compose up -d")
         except Exception as e:
             print(f"\nError updating .env: {e}", file=sys.stderr)
             sys.exit(1)

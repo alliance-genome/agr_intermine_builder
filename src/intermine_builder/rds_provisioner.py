@@ -14,7 +14,7 @@ Features:
 import logging
 import time
 import boto3
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -347,7 +347,7 @@ class RDSProvisioner:
         while True:
             elapsed = time.time() - start_time
             if elapsed > timeout_seconds:
-                raise RDSProvisionerError(f"Timeout waiting for instance to become available")
+                raise RDSProvisionerError("Timeout waiting for instance to become available")
 
             try:
                 response = self.rds_client.describe_db_instances(
@@ -361,7 +361,7 @@ class RDSProvisioner:
                 if status == 'available':
                     endpoint = instance['Endpoint']['Address']
                     port = instance['Endpoint']['Port']
-                    logger.info(f"✅ RDS instance is available!")
+                    logger.info("✅ RDS instance is available!")
                     logger.info(f"   Endpoint: {endpoint}:{port}")
                     return endpoint
 
@@ -416,7 +416,7 @@ class RDSProvisioner:
             cursor.close()
             conn.close()
 
-            logger.info(f"✅ All databases created successfully")
+            logger.info("✅ All databases created successfully")
 
         except Exception as e:
             logger.error(f"Failed to create databases: {e}")
