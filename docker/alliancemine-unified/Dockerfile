@@ -171,7 +171,8 @@ RUN wget -q "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/
 # Configure Tomcat
 COPY tomcat-users.xml "${CATALINA_HOME}/conf/tomcat-users.xml"
 COPY server.xml "${CATALINA_HOME}/conf/server.xml"
-RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml"
+RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml" && \
+    chown intermine:intermine "${CATALINA_HOME}/conf/tomcat-users.xml" "${CATALINA_HOME}/conf/server.xml"
 
 # ============================================
 # Install Apache Solr
