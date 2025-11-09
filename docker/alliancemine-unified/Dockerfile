@@ -17,7 +17,8 @@
 # ============================================
 # Stage 1: Builder - Compile InterMine
 # ============================================
-FROM eclipse-temurin:11-jdk-alpine AS builder
+# InterMine requires Java 8 (1.8) - NOT Java 11
+FROM eclipse-temurin:8-jdk-alpine AS builder
 
 LABEL maintainer="Alliance of Genome Resources"
 LABEL stage="builder"
@@ -77,7 +78,7 @@ RUN ./gradlew install --stacktrace && \
 # ============================================
 # Stage 2: Solr Setup
 # ============================================
-FROM eclipse-temurin:11-jre-alpine AS solr-builder
+FROM eclipse-temurin:8-jre-alpine AS solr-builder
 
 ARG SOLR_VERSION=8.4.1
 ARG SOLR_SHA512=2f210dae8d6a07b111ede22005fbd16aa6848900cda8adb352a33e08229783a170dddb529a7eb990f5157d4f5427c199df2114b9c0ffecdf9490a2ac07c6bb09
@@ -100,7 +101,8 @@ RUN rm -rf /opt/solr/docs /opt/solr/example && \
 # ============================================
 # Stage 3: Runtime - Unified Container
 # ============================================
-FROM eclipse-temurin:11-jre-alpine
+# Must use JDK (not JRE) because InterMine compiles Java at runtime
+FROM eclipse-temurin:8-jdk-alpine
 
 LABEL maintainer="Alliance of Genome Resources"
 LABEL description="AllianceMine unified container with Tomcat + Solr + Build tools"
