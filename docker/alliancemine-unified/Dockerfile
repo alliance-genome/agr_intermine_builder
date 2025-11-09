@@ -200,6 +200,10 @@ COPY --from=builder --chown=intermine:intermine /build/alliancemine ./alliancemi
 COPY --from=builder --chown=intermine:intermine /build/alliancemine-bio-sources ./alliancemine-bio-sources
 COPY --from=builder --chown=intermine:intermine /root/.gradle /opt/intermine/.gradle
 
+# Fix hardcoded /root path in build.gradle to use /opt/intermine
+RUN sed -i 's|/root/alliancemine|/opt/intermine/alliancemine|g' \
+    /opt/intermine/alliancemine/build.gradle
+
 # Create data and config directories and fix all permissions
 RUN mkdir -p \
     /opt/intermine/.intermine \

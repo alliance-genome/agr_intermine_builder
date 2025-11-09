@@ -49,6 +49,10 @@ configure_intermine() {
     envsubst < /opt/intermine/.intermine/alliancemine.properties.template \
              > /opt/intermine/.intermine/alliancemine.properties
 
+    # Also copy to the alliancemine directory where Gradle expects it
+    cp /opt/intermine/.intermine/alliancemine.properties \
+       /opt/intermine/alliancemine/alliancemine.properties
+
     # Set up .pgpass for passwordless psql access
     echo "${RDS_HOST}:${RDS_PORT}:*:${RDS_USER}:${RDS_PASSWORD}" > ~/.pgpass
     chmod 600 ~/.pgpass
