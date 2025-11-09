@@ -6,61 +6,30 @@
 # ============================================
 # Production Database (Main Data)
 # ============================================
-db.production.datasource.class=com.zaxxer.hikari.HikariDataSource
-db.production.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
 db.production.datasource.serverName=${RDS_HOST}
-db.production.datasource.portNumber=${RDS_PORT}
 db.production.datasource.databaseName=${RDS_DB_NAME}
 db.production.datasource.user=${RDS_USER}
 db.production.datasource.password=${RDS_PASSWORD}
-
-# HikariCP Connection Pool Settings
-db.production.datasource.maximumPoolSize=20
-db.production.datasource.minimumIdle=10
-db.production.datasource.connectionTimeout=30000
-db.production.datasource.idleTimeout=600000
-db.production.datasource.maxLifetime=1800000
-db.production.datasource.connectionTestQuery=SELECT 1
-
-# JDBC Driver
 db.production.driver=org.postgresql.Driver
 db.production.platform=PostgreSQL
 
 # ============================================
 # Common Target Items Database
 # ============================================
-db.common-tgt-items.datasource.class=com.zaxxer.hikari.HikariDataSource
-db.common-tgt-items.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
 db.common-tgt-items.datasource.serverName=${RDS_HOST}
-db.common-tgt-items.datasource.portNumber=${RDS_PORT}
 db.common-tgt-items.datasource.databaseName=${RDS_DB_NAME}
 db.common-tgt-items.datasource.user=${RDS_USER}
 db.common-tgt-items.datasource.password=${RDS_PASSWORD}
-
-# HikariCP Settings
-db.common-tgt-items.datasource.maximumPoolSize=10
-db.common-tgt-items.datasource.minimumIdle=5
-db.common-tgt-items.datasource.connectionTimeout=30000
-
 db.common-tgt-items.driver=org.postgresql.Driver
 db.common-tgt-items.platform=PostgreSQL
 
 # ============================================
 # User Profile Database
 # ============================================
-db.userprofile-production.datasource.class=com.zaxxer.hikari.HikariDataSource
-db.userprofile-production.datasource.dataSourceClassName=org.postgresql.ds.PGSimpleDataSource
 db.userprofile-production.datasource.serverName=${RDS_HOST}
-db.userprofile-production.datasource.portNumber=${RDS_PORT}
 db.userprofile-production.datasource.databaseName=${RDS_PROFILE_DB_NAME}
 db.userprofile-production.datasource.user=${RDS_USER}
 db.userprofile-production.datasource.password=${RDS_PASSWORD}
-
-# HikariCP Settings
-db.userprofile-production.datasource.maximumPoolSize=5
-db.userprofile-production.datasource.minimumIdle=2
-db.userprofile-production.datasource.connectionTimeout=30000
-
 db.userprofile-production.driver=org.postgresql.Driver
 db.userprofile-production.platform=PostgreSQL
 
@@ -119,8 +88,3 @@ webapp.os.alias=os.production
 # Query result caching
 webapp.query.cache.size=10000
 webapp.query.cache.timeout=300
-
-# ============================================
-# XML Factory (required for InterMine)
-# ============================================
-systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl
