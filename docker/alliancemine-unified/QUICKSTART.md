@@ -1,219 +1,160 @@
 # AllianceMine Quick Start Guide
 
-Get AllianceMine running in 5 minutes!
-
 ## Prerequisites
 
-- Docker and Docker Compose installed
-- AWS RDS PostgreSQL instance created (see `../../RDS_SETUP.md`)
-- 32GB+ RAM available for Docker
-- Project root `.env` file configured
+- Docker and docker-compose installed
+- AWS RDS PostgreSQL instance running
+- RDS credentials configured in `.env`
 
-## Step 1: Verify Configuration (30 seconds)
+## 1. Configure Environment
 
-**No local .env needed!** The unified container uses the project root configuration.
+Edit `.env` file with your RDS credentials:
 
 ```bash
-# Verify configuration exists
-cd /path/to/agr_intermine_builder
-grep -E "RDS_|ALLIANCE_RELEASE" .env
-```
+ALLIANCE_RELEASE=8.3.0
+DB_VERSION_SUFFIX=
 
-Required values in root `.env`:
-```bash
-RDS_HOST=intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com
+RDS_HOST=your-rds-endpoint.rds.amazonaws.com
 RDS_PORT=5432
 RDS_USER=postgres
-RDS_PASSWORD=your_secure_password
-RDS_DB_NAME=alliancemine_db
-RDS_PROFILE_DB_NAME=alliancemine_profiles_db
-ALLIANCE_RELEASE=8.2.0
-AUTO_BUILD=false  # Optional: Set to 'true' for automatic build
+RDS_PASSWORD=your-password
 ```
 
-## Step 2: Build Image (10-15 minutes)
+## 2. Build Container
 
 ```bash
-cd docker/alliancemine-unified
-
-# Build the Docker image
 docker-compose build
-
-# This will:
-# - Download base images
-# - Clone AllianceMine repositories
-# - Compile bio-sources and InterMine
-# - Install Tomcat and Solr
-# - Create final unified image (~1.5GB)
 ```
 
-## Step 3: Start Container (30 seconds)
+This takes ~10-15 minutes and:
+- Installs Java 8, Perl, PostgreSQL client
+- Clones AllianceMine and bio-sources repositories
+- Builds bio-sources with `gradlew install`
+- Sets up Tomcat and Solr
+- Reinstalls bio-sources for runtime use
+
+## 3. Build Database (Automated)
+
+### Option A: One Command Build (Recommended)
 
 ```bash
-# Start in background
+# Build base version
+python3 build_mine.py
+
+# Or build an iteration
+python3 build_mine.py -1
+```
+
+This automatically:
+1. Sets database version in `.env`
+2. Restarts container
+3. Runs `gradlew clean buildDB`
+
+### Option B: Manual Steps
+
+```bash
+# Set database version (optional)
+python3 set_db_version.py
+
+# Start container
 docker-compose up -d
 
-# Check status
-docker-compose ps
-
-# View logs
-docker-compose logs -f
-```
-
-## Step 4: Verify Services (1 minute)
-
-```bash
-# Check Tomcat
-curl http://localhost:8080/manager/status
-
-# Check Solr
-curl http://localhost:8983/solr/admin/info/system
-
-# Check RDS connection
+# Run buildDB
 docker-compose exec alliancemine bash -c \
-  "pg_isready -h \$RDS_HOST -p \$RDS_PORT -U \$RDS_USER"
+  "cd /opt/intermine/alliancemine && ./gradlew clean buildDB"
 ```
 
-## Step 5: Run Build (5-9 hours)
+The `buildDB` step takes ~5 minutes and:
+- Creates database schema in RDS
+- Generates genomic model from SO terms
+- Merges all bio-source additions
+- Stores metadata
+- Creates search indexes
 
-### Option A: Auto-Build on First Start
-
-Set `AUTO_BUILD=true` in your `.env` file, then:
-```bash
-docker-compose up -d
-# Build will run automatically on first start
-# Check progress: docker-compose logs -f
-```
-
-The build will only run once (marker file created). Subsequent restarts will skip the build.
-
-### Option B: Manual Build
+## 4. Verify Build
 
 ```bash
-# Run full build in background
-docker-compose run -d alliancemine build
+# Check logs
+docker-compose logs -f alliancemine
 
-# Or run interactively to see progress
-docker-compose run alliancemine build
-```
+# Check databases in RDS
+docker-compose exec alliancemine psql -h $RDS_HOST -U $RDS_USER -d postgres -c "\l" | grep alliancemine
 
-### Option C: Step-by-step (for debugging)
+# Access container shell
 docker-compose exec alliancemine bash
-cd /opt/intermine/alliancemine
-./gradlew buildDB
-./project_build -b
-./gradlew postprocess
-./gradlew buildUserDB
-./load_db_build_solr
-./gradlew cargoRedeployRemote
 ```
 
-## Step 6: Access AllianceMine
+## Database Versions
 
-Once build completes:
-
-- **Web Interface**: http://localhost:8080/alliancemine
-- **API Endpoint**: http://localhost:8080/alliancemine/service
-- **Solr Admin**: http://localhost:8983/solr
-
-## Common Tasks
-
-### View Logs
+Build multiple versions on same RDS:
 
 ```bash
-# All logs
-docker-compose logs -f
+# Version 8.3.0 (base)
+python3 build_mine.py
 
-# Inside container
-docker-compose exec alliancemine bash
-tail -f /opt/intermine/logs/intermine.log
-tail -f /opt/tomcat/logs/catalina.out
+# Version 8.3.0-1 (first iteration)
+python3 build_mine.py -1
+
+# Version 8.3.0-2 (second iteration)
+python3 build_mine.py -2
+
+# Version 8.3.0-test (test build)
+python3 build_mine.py -test
 ```
 
-### Restart Services
-
-```bash
-# Restart container
-docker-compose restart
-
-# Restart just Tomcat (inside container)
-docker-compose exec alliancemine bash
-${CATALINA_HOME}/bin/shutdown.sh
-${CATALINA_HOME}/bin/startup.sh
-```
-
-### Shell Access
-
-```bash
-# Get bash shell
-docker-compose exec alliancemine bash
-
-# Or start fresh shell
-docker-compose run --rm alliancemine bash
-```
-
-### Stop Everything
-
-```bash
-# Stop but keep data
-docker-compose down
-
-# Stop and remove volumes (CAREFUL!)
-docker-compose down -v
-```
+Each version creates separate databases:
+- `alliancemine_8_3_0`
+- `alliancemine_8_3_0-1`
+- `alliancemine_8_3_0-2`
+- `alliancemine_8_3_0-test`
 
 ## Troubleshooting
 
-### "Cannot connect to RDS"
-
-Check your RDS security group:
+### Container won't start
 ```bash
-# From your machine
-telnet your-rds-endpoint.amazonaws.com 5432
+docker-compose logs alliancemine
+```
 
-# Inside container
+### RDS connection issues
+```bash
+# Test connection
+docker-compose exec alliancemine psql -h $RDS_HOST -U $RDS_USER -d postgres -c "SELECT 1;"
+```
+
+### Build fails
+```bash
+# Check Gradle output with stacktrace
+docker-compose exec alliancemine bash -c \
+  "cd /opt/intermine/alliancemine && ./gradlew clean buildDB --stacktrace"
+```
+
+### Rebuild container
+```bash
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+## Ports
+
+- **8080**: Tomcat (http://localhost:8080)
+- **8983**: Solr (http://localhost:8983/solr)
+
+## Useful Commands
+
+```bash
+# View logs
+docker-compose logs -f alliancemine
+
+# Shell access
 docker-compose exec alliancemine bash
-psql -h $RDS_HOST -U $RDS_USER -d postgres
+
+# Restart container
+docker-compose restart alliancemine
+
+# Stop everything
+docker-compose down
+
+# Check container status
+docker-compose ps
 ```
-
-### "Out of memory"
-
-Increase Docker memory limits:
-```bash
-# On Mac: Docker Desktop → Preferences → Resources
-# On Linux: /etc/docker/daemon.json
-
-# Then edit docker-compose.yml:
-deploy:
-  resources:
-    limits:
-      memory: 48G  # Increase this
-```
-
-### "Build failed"
-
-```bash
-# View build logs
-docker-compose run alliancemine bash
-cd /opt/intermine/alliancemine
-./gradlew buildDB --stacktrace
-
-# Check RDS connectivity
-pg_isready -h $RDS_HOST -p $RDS_PORT -U $RDS_USER
-
-# Check RDS databases exist
-psql -h $RDS_HOST -U $RDS_USER -d postgres -c "\l"
-```
-
-## Next Steps
-
-- Read full [README.md](README.md) for detailed documentation
-- Check [Architecture](#) section for system design
-- See [Monitoring](#) for production deployment
-- Review [Cost Optimization](#) for AWS savings
-
-## Support
-
-- InterMine Docs: http://intermine.org/im-docs/
-- Alliance GitHub: https://github.com/alliance-genome/alliancemine
-- Issues: https://github.com/alliance-genome/agr_intermine_builder/issues
