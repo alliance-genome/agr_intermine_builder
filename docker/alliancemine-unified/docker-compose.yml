@@ -59,6 +59,7 @@ services:
 
       # Application
       ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-8.2.0}
+      DB_VERSION_SUFFIX: ${DB_VERSION_SUFFIX:-}
       AUTO_BUILD: ${AUTO_BUILD:-false}
 
       # Java Memory Settings

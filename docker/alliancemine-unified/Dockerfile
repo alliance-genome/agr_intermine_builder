@@ -217,8 +217,10 @@ USER intermine
 
 # Reinstall bio-sources with correct user and Gradle home
 # This ensures JARs are in the correct location for runtime builds
+# Sequential build to avoid OOM with parallel compilation during Docker build
 WORKDIR /opt/intermine/alliancemine-bio-sources
-RUN ./gradlew clean install --parallel --stacktrace && \
+ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
+RUN ./gradlew clean install --stacktrace && \
     rm -rf /opt/intermine/.gradle/caches/transforms-* /opt/intermine/.gradle/caches/journal-*
 
 # Back to alliancemine directory
@@ -238,8 +240,13 @@ RUN chmod +x /opt/intermine/scripts/*.py
 # ============================================
 # Entrypoint Script
 # ============================================
+# Switch back to root to install entrypoint script
+USER root
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Switch back to intermine user for runtime
+USER intermine
 
 # ============================================
 # Health Checks
