@@ -61,44 +61,57 @@ configure_intermine() {
 }
 
 # ============================================
-# Check and Create Databases
+# Construct and Sanitize Database Names
 # ============================================
-setup_databases() {
-    echo "📦 Checking databases for AllianceMine ${ALLIANCE_RELEASE}..."
+sanitize_database_names() {
+    echo "📦 Constructing database names..."
 
-    # Export password for psql
-    export PGPASSWORD="${RDS_PASSWORD}"
-
-    # Sanitize database names (PostgreSQL doesn't allow dots in identifiers without quotes)
+    # Construct main database name from release version and suffix
     # Replace dots with underscores: 8.3.0 -> 8_3_0
-    SAFE_DB_NAME=$(echo "${RDS_DB_NAME}" | tr '.' '_')
-    SAFE_PROFILE_DB_NAME=$(echo "${RDS_PROFILE_DB_NAME}" | tr '.' '_')
+    RELEASE_SANITIZED=$(echo "${ALLIANCE_RELEASE}" | tr '.' '_')
+    SAFE_DB_NAME="alliancemine_${RELEASE_SANITIZED}${DB_VERSION_SUFFIX}"
 
-    # Check main database
-    if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-         -lqt | cut -d \| -f 1 | grep -qw "${SAFE_DB_NAME}"; then
-        echo "   Creating main database: ${SAFE_DB_NAME}"
-        psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-             -c "CREATE DATABASE \"${SAFE_DB_NAME}\";"
-        echo "   ✅ Main database created: ${SAFE_DB_NAME}"
-    else
-        echo "   ✅ Main database exists: ${SAFE_DB_NAME}"
-    fi
-
-    # Check profile database
-    if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-         -lqt | cut -d \| -f 1 | grep -qw "${SAFE_PROFILE_DB_NAME}"; then
-        echo "   Creating profile database: ${SAFE_PROFILE_DB_NAME}"
-        psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-             -c "CREATE DATABASE \"${SAFE_PROFILE_DB_NAME}\";"
-        echo "   ✅ Profile database created: ${SAFE_PROFILE_DB_NAME}"
-    else
-        echo "   ✅ Profile database exists: ${SAFE_PROFILE_DB_NAME}"
-    fi
+    # Profile database is fixed (shared across all releases)
+    SAFE_PROFILE_DB_NAME="alliancemine_userprofile"
 
     # Update environment variables with sanitized names for use by InterMine
     export RDS_DB_NAME="${SAFE_DB_NAME}"
     export RDS_PROFILE_DB_NAME="${SAFE_PROFILE_DB_NAME}"
+
+    echo "   Main database: ${RDS_DB_NAME}"
+    echo "   Profile database: ${RDS_PROFILE_DB_NAME}"
+}
+
+# ============================================
+# Check and Create Databases
+# ============================================
+setup_databases() {
+    echo "📦 Checking databases in RDS..."
+
+    # Export password for psql
+    export PGPASSWORD="${RDS_PASSWORD}"
+
+    # Check main database
+    if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
+         -lqt | cut -d \| -f 1 | grep -qw "${RDS_DB_NAME}"; then
+        echo "   Creating main database: ${RDS_DB_NAME}"
+        psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
+             -c "CREATE DATABASE \"${RDS_DB_NAME}\";"
+        echo "   ✅ Main database created: ${RDS_DB_NAME}"
+    else
+        echo "   ✅ Main database exists: ${RDS_DB_NAME}"
+    fi
+
+    # Check profile database (shared across all releases)
+    if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
+         -lqt | cut -d \| -f 1 | grep -qw "${RDS_PROFILE_DB_NAME}"; then
+        echo "   Creating profile database: ${RDS_PROFILE_DB_NAME}"
+        psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
+             -c "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\";"
+        echo "   ✅ Profile database created: ${RDS_PROFILE_DB_NAME}"
+    else
+        echo "   ✅ Profile database exists: ${RDS_PROFILE_DB_NAME}"
+    fi
 }
 
 # ============================================
@@ -182,6 +195,7 @@ build_intermine() {
 
 # Always wait for PostgreSQL and configure
 wait_for_postgres
+sanitize_database_names
 configure_intermine
 setup_databases
 
