@@ -72,7 +72,41 @@ DB_VERSION_SUFFIX=-1
 
 ## Workflow Examples
 
-### Initial Release Build
+### Automated Build (Recommended)
+
+The `build_mine.py` script automates the entire process:
+
+```bash
+# Build base version (8.3.0)
+python3 build_mine.py
+
+# Build first iteration (8.3.0-1)
+python3 build_mine.py -1
+
+# Build second iteration (8.3.0-2)
+python3 build_mine.py -2
+
+# Build patch version (8.3.0-patch1)
+python3 build_mine.py -patch1
+
+# Build test version (8.3.0-test)
+python3 build_mine.py -test
+
+# Just set version and restart (skip buildDB)
+python3 build_mine.py -1 --skip-build
+```
+
+The automated script:
+1. Sets the database version suffix in `.env`
+2. Restarts the container to pick up the new configuration
+3. Runs `./gradlew clean buildDB` inside the container
+4. Reports success/failure
+
+### Manual Workflow
+
+If you prefer manual control:
+
+#### Initial Release Build
 
 ```bash
 # Set up for base version
@@ -90,7 +124,7 @@ This creates databases:
 - `alliancemine_8_3_0`
 - `alliancemine_profiles_8_3_0`
 
-### Patch/Iteration Build
+#### Patch/Iteration Build
 
 ```bash
 # Set suffix for first iteration
@@ -110,7 +144,7 @@ This creates NEW databases:
 
 The original `alliancemine_8_3_0` databases remain untouched.
 
-### Test Build
+#### Test Build
 
 ```bash
 # Set suffix for test
