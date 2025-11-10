@@ -212,6 +212,18 @@ RUN mkdir -p \
     chown -R intermine:intermine /opt/intermine && \
     chmod -R u+w /opt/intermine/alliancemine
 
+# Switch to intermine user for bio-sources reinstall
+USER intermine
+
+# Reinstall bio-sources with correct user and Gradle home
+# This ensures JARs are in the correct location for runtime builds
+WORKDIR /opt/intermine/alliancemine-bio-sources
+RUN ./gradlew clean install --parallel --stacktrace && \
+    rm -rf /opt/intermine/.gradle/caches/transforms-* /opt/intermine/.gradle/caches/journal-*
+
+# Back to alliancemine directory
+WORKDIR /opt/intermine/alliancemine
+
 # ============================================
 # Configuration Files
 # ============================================
@@ -245,9 +257,7 @@ VOLUME ["/opt/intermine/data", "/var/solr/data", "/opt/intermine/logs"]
 # ============================================
 # Startup
 # ============================================
-WORKDIR /opt/intermine/alliancemine
-
-USER intermine
+# Already running as intermine user (set earlier after bio-sources reinstall)
 
 # Use tini for proper signal handling
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
