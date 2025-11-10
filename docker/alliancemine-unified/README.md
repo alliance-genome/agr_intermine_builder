@@ -3,10 +3,32 @@
 **Simplified single-container deployment for AllianceMine with AWS RDS**
 
 This Docker image consolidates all InterMine components (except PostgreSQL) into a single optimized container:
-- **Build Environment**: Java 11, Gradle, InterMine tools
+- **Build Environment**: Java 8, Gradle, InterMine tools
 - **Apache Tomcat 9.0**: Web application server
 - **Apache Solr 8.4**: Search engine
 - **Connects to**: AWS RDS PostgreSQL 15
+
+## Quick Start
+
+### Automated Build (Recommended)
+
+```bash
+# Build base version (8.3.0)
+python3 build_mine.py
+
+# Build an iteration (8.3.0-1)
+python3 build_mine.py -1
+
+# Build a test version
+python3 build_mine.py -test
+```
+
+This script automatically:
+1. Sets the database version in `.env`
+2. Restarts the container
+3. Runs `./gradlew clean buildDB`
+
+See [DATABASE_VERSIONING.md](DATABASE_VERSIONING.md) for complete documentation on database versioning.
 
 ## Why Unified Container?
 
