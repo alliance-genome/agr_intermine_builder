@@ -27,11 +27,11 @@ RDS_PASSWORD=your-password
 Download ALL required data files with a single command:
 
 ```bash
-# Download all data (current release)
+# Download all data (next/upcoming release - default)
 python3 download_data.py
 
-# Or download next/upcoming release
-python3 download_data.py --release-type next
+# Or download current/deployed release
+python3 download_data.py --release-type current
 
 # Dry run to see what would be downloaded
 python3 download_data.py --dry-run
