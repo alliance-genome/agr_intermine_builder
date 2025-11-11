@@ -129,7 +129,7 @@ def create_directory_structure(data_dir: Path) -> None:
     print(f"\n✅ Directory structure created")
 
 
-def get_release_version(release_type: str = "current") -> str:
+def get_release_version(release_type: str = "next") -> str:
     """Fetch release version from FMS API."""
     url = f"{FMS_API_BASE}/releaseversion/{release_type}"
 
@@ -244,8 +244,8 @@ def main():
     parser.add_argument(
         "--release-type",
         choices=["next", "current"],
-        default="current",
-        help="Release type: 'current' (stable) or 'next' (upcoming). Default: current"
+        default="next",
+        help="Release type: 'next' (upcoming) or 'current' (deployed). Default: next"
     )
     parser.add_argument(
         "--data-dir",
