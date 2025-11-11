@@ -72,8 +72,9 @@ services:
 
     # Volumes for data persistence
     volumes:
-      # Data directory for builds
-      - alliancemine-data:/opt/intermine/data
+      # Mount local data sources (read-only for safety)
+      # This is where project.xml looks for data: /root/data/
+      - ./data:/root/data:ro
 
       # Solr indexes
       - solr-data:/var/solr/data
@@ -81,9 +82,6 @@ services:
       # Logs
       - alliancemine-logs:/opt/intermine/logs
       - tomcat-logs:/opt/tomcat/logs
-
-      # Optional: Mount local data sources
-      # - ./data:/opt/intermine/data:ro
 
     # Networking
     networks:
@@ -108,9 +106,6 @@ services:
 # Named Volumes
 # ============================================
 volumes:
-  alliancemine-data:
-    name: alliancemine_data
-
   solr-data:
     name: alliancemine_solr
 

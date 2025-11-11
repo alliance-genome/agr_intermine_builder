@@ -5,6 +5,8 @@
 - Docker and docker-compose installed
 - AWS RDS PostgreSQL instance running
 - RDS credentials configured in `.env`
+- AWS CLI installed and configured (for downloading data)
+- ~10GB disk space for data files
 
 ## 1. Configure Environment
 
@@ -20,7 +22,23 @@ RDS_USER=postgres
 RDS_PASSWORD=your-password
 ```
 
-## 2. Build Container
+## 2. Download Data Files
+
+Download required data files from S3 (~5-10GB):
+
+```bash
+# Estimate size
+python3 download_data.py --estimate-size
+
+# Download data for release 8.3.0
+python3 download_data.py --release 8.3.0
+```
+
+The data will be downloaded to `./data/` and mounted to `/root/data/` in the container.
+
+See `data/README.md` for directory structure details.
+
+## 3. Build Container
 
 ```bash
 docker-compose build
