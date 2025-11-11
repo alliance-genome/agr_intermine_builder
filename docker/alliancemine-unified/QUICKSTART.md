@@ -24,19 +24,26 @@ RDS_PASSWORD=your-password
 
 ## 2. Download Data Files
 
-Download required data files from S3 (~5-10GB):
+Download ALL required data files with a single command:
 
 ```bash
-# Estimate size
-python3 download_data.py --estimate-size
+# Download all data (current release)
+python3 download_data.py
 
-# Download data for release 8.3.0
-python3 download_data.py --release 8.3.0
+# Or download next/upcoming release
+python3 download_data.py --release-type next
+
+# Dry run to see what would be downloaded
+python3 download_data.py --dry-run
 ```
 
-The data will be downloaded to `./data/` and mounted to `/root/data/` in the container.
+This downloads:
+- **FMS API data:** Ontologies (GO, DO, ECO, etc.), disease associations, orthology, alleles, expression, GO annotations
+- **Genome FASTA files:** All 7 organisms from authoritative MOD sources (WormBase, FlyBase, SGD, Ensembl)
 
-See `data/README.md` for directory structure details.
+**Total size:** ~5-10GB
+
+All data is downloaded to `./data/` and mounted to `/root/data/` in the container.
 
 ## 3. Build Container
 
