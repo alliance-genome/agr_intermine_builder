@@ -2,9 +2,8 @@
 """
 AllianceMine Data Downloader
 
-Downloads ALL required data files for InterMine:
-1. Alliance FMS API data (ontologies, annotations, combined data)
-2. Genome FASTA files from Model Organism Databases
+Downloads ALL required data files from Alliance FMS using the snapshot API.
+This matches Alliance's official FMSExtractor behavior.
 
 Usage:
     python3 download_data.py [--release-type current|next] [--dry-run]
@@ -14,7 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 from urllib.request import urlopen, urlretrieve
 from urllib.error import HTTPError, URLError
 
@@ -24,82 +23,34 @@ FMS_API_BASE = "https://fms.alliancegenome.org/api"
 DEFAULT_DATA_DIR = Path("data")
 
 
-# Genome source URLs for each organism
-GENOME_SOURCES = {
-    "WB": {
-        "name": "C. elegans",
-        "source": "WormBase FTP",
-        "url": "https://ftp.wormbase.org/pub/wormbase/releases/WS292/species/c_elegans/PRJNA13758/c_elegans.PRJNA13758.WS292.genomic.fa.gz",
-        "filename": "FASTA_WB.fa.gz"
-    },
-    "FB": {
-        "name": "Drosophila melanogaster",
-        "source": "FlyBase FTP",
-        "url": "ftp://ftp.flybase.net/genomes/Drosophila_melanogaster/current/fasta/dmel-all-chromosome-r6.55.fasta.gz",
-        "filename": "FASTA_FB.fa.gz"
-    },
-    "SGD": {
-        "name": "S. cerevisiae",
-        "source": "SGD",
-        "url": "https://downloads.yeastgenome.org/sequence/S288C_reference/genome_releases/S288C_reference_genome_R64-4-1_20230830.fsa",
-        "filename": "FASTA_SGD.fa"
-    },
-    "ZFIN": {
-        "name": "Zebrafish",
-        "source": "Ensembl",
-        "url": "https://ftp.ensembl.org/pub/release-111/fasta/danio_rerio/dna/Danio_rerio.GRCz11.dna.toplevel.fa.gz",
-        "filename": "FASTA_GRCz11.fa.gz"
-    },
-    "MGI": {
-        "name": "Mouse",
-        "source": "Ensembl",
-        "url": "https://ftp.ensembl.org/pub/release-111/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.toplevel.fa.gz",
-        "filename": "FASTA_GRCm39.fa.gz"
-    },
-    "RGD": {
-        "name": "Rat",
-        "source": "Ensembl",
-        "url": "https://ftp.ensembl.org/pub/release-111/fasta/rattus_norvegicus/dna/Rattus_norvegicus.mRatBN7.2.dna.toplevel.fa.gz",
-        "filename": "FASTA_Rnor7.2.fa.gz"
-    },
-    "XB": {
-        "name": "Xenopus tropicalis",
-        "source": "Ensembl",
-        "url": "https://ftp.ensembl.org/pub/release-111/fasta/xenopus_tropicalis/dna/Xenopus_tropicalis.Xenopus_tropicalis_v9.1.dna.toplevel.fa.gz",
-        "filename": "FASTA_XT10.fa.gz"
-    }
+# Data types to download (filters for the snapshot)
+WANTED_DATA_TYPES = {
+    # Ontologies
+    "ONTOLOGY",
+
+    # Alliance combined files
+    "DISEASE-ALLIANCE", "DISEASE-ALLIANCE-JSON",
+    "ORTHOLOGY-ALLIANCE", "ORTHOLOGY-ALLIANCE-JSON",
+    "ALLELE", "ALLELE-GFF",
+    "EXPRESSION", "EXPRESSION-ALLIANCE", "EXPRESSION-ALLIANCE-JSON",
+
+    # Gene annotations
+    "GAF",
+    "BGI",
+
+    # FASTA genome sequences
+    "FASTA",
+
+    # GFF files
+    "GFF",
+
+    # Gene descriptions
+    "GENE-DESCRIPTION-JSON", "GENE-DESCRIPTION-TXT", "GENE-DESCRIPTION-TSV",
+
+    # Cross references
+    "GENECROSSREFERENCE", "GENECROSSREFERENCEJSON",
+    "CROSSREFERENCEUNIPROT",
 }
-
-
-# FMS API data files (ontologies, annotations, combined data)
-# Format: (data_subtype, data_type, target_subdir)
-FMS_FILES = [
-    # Ontology files
-    ("ONTOLOGY", "DOID", "fms"),      # Disease Ontology
-    ("ONTOLOGY", "GO", "fms"),        # Gene Ontology
-    ("ONTOLOGY", "ECO", "fms"),       # Evidence & Conclusion Ontology
-    ("ONTOLOGY", "MMO", "fms"),       # Measurement Method Ontology
-    ("ONTOLOGY", "EMAPA", "fms"),     # Mouse Anatomy
-    ("ONTOLOGY", "ZFA", "fms"),       # Zebrafish Anatomy
-    ("ONTOLOGY", "WBBT", "fms"),      # Worm Anatomy
-    ("ONTOLOGY", "FBBT", "fms"),      # Fly Anatomy
-    ("ONTOLOGY", "SO", "fms"),        # Sequence Ontology
-
-    # Alliance combined data files
-    ("DISEASE-ALLIANCE", "COMBINED", "fms"),
-    ("ORTHOLOGY-ALLIANCE", "COMBINED", "fms"),
-    ("ALLELE", "COMBINED", "fms"),
-    ("EXPRESSION", "COMBINED", "fms"),
-
-    # GO Annotations (organism-specific)
-    ("GAF", "WB", "fms"),
-    ("GAF", "FB", "fms"),
-    ("GAF", "ZFIN", "fms"),
-    ("GAF", "MGI", "fms"),
-    ("GAF", "RGD", "fms"),
-    ("GAF", "SGD", "fms"),
-    ("GAF", "XB", "fms"),
-]
 
 
 def create_directory_structure(data_dir: Path) -> None:
@@ -109,17 +60,6 @@ def create_directory_structure(data_dir: Path) -> None:
     directories = [
         data_dir / "fms",
         data_dir / "genes",
-        data_dir / "intermine" / "ontology",
-        data_dir / "intermine" / "gff",
-        data_dir / "intermine" / "gff-utr",
-        data_dir / "intermine" / "db-utr",
-        data_dir / "intermine" / "yeast_orthologs" / "fungidb",
-        data_dir / "intermine" / "yeast_orthologs" / "CGOB",
-        data_dir / "intermine" / "yeast_orthologs" / "C.glabrata",
-        data_dir / "intermine" / "yeast_orthologs" / "pombe",
-        data_dir / "intermine" / "yeast_orthologs" / "homolog_genes",
-        data_dir / "intermine" / "protein-properties",
-        data_dir / "intermine" / "protein-ntermini",
     ]
 
     for directory in directories:
@@ -129,21 +69,33 @@ def create_directory_structure(data_dir: Path) -> None:
     print(f"\n✅ Directory structure created")
 
 
-def get_release_version(release_type: str = "next") -> str:
+def get_release_version(release_type: str = "latest") -> str:
     """Fetch release version from FMS API."""
-    url = f"{FMS_API_BASE}/releaseversion/{release_type}"
+    url = f"{FMS_API_BASE}/releaseversion/all"
 
-    print(f"\n📋 Fetching {release_type} release version from FMS...")
+    print(f"\n📋 Fetching release versions from FMS...")
 
     try:
         with urlopen(url) as response:
-            data = json.loads(response.read())
-            version = data.get("releaseVersion")
+            versions = json.loads(response.read())
 
-            if not version:
-                raise ValueError("No releaseVersion in API response")
+            if not versions:
+                raise ValueError("No versions returned from API")
 
-            print(f"   Alliance Release: {version} ({release_type})")
+            # Sort by release date to get latest
+            sorted_versions = sorted(versions, key=lambda x: x['releaseDate'], reverse=True)
+
+            if release_type == "latest":
+                version = sorted_versions[0]['releaseVersion']
+                print(f"   Latest release: {version}")
+            elif release_type == "previous":
+                if len(sorted_versions) < 2:
+                    raise ValueError("No previous release available")
+                version = sorted_versions[1]['releaseVersion']
+                print(f"   Previous release: {version}")
+            else:
+                raise ValueError(f"Unknown release_type: {release_type}")
+
             return version
 
     except (HTTPError, URLError, json.JSONDecodeError) as e:
@@ -151,101 +103,102 @@ def get_release_version(release_type: str = "next") -> str:
         sys.exit(1)
 
 
-def download_fms_file(
-    release_version: str,
-    data_subtype: str,
-    data_type: str,
-    data_dir: Path,
-    target_subdir: str,
-    dry_run: bool = False
-) -> bool:
-    """Download a file from FMS API."""
-    api_url = f"{FMS_API_BASE}/datafile/by/{release_version}/{data_subtype}/{data_type}"
+def get_snapshot_files(release_version: str) -> List[Dict]:
+    """Fetch complete snapshot from FMS API."""
+    url = f"{FMS_API_BASE}/snapshot/release/{release_version}"
+
+    print(f"\n📦 Fetching snapshot from FMS...")
 
     try:
-        with urlopen(api_url) as response:
-            file_list = json.loads(response.read())
+        with urlopen(url) as response:
+            data = json.loads(response.read())
 
-            if not file_list or len(file_list) == 0:
-                print(f"   ⚠️  Not found: {data_subtype}/{data_type}")
-                return False
+            if data.get("status") != "success":
+                raise ValueError(f"Snapshot API returned status: {data.get('status')}")
 
-            file_info = file_list[0]
-            s3_url = file_info.get("s3Url") or file_info.get("stableURL")
+            files = data["snapShot"]["dataFiles"]
+            print(f"   Total files in snapshot: {len(files)}")
 
-            if not s3_url:
-                print(f"   ⚠️  No URL: {data_subtype}/{data_type}")
-                return False
+            return files
 
-            filename = Path(s3_url).name
-            target_dir = data_dir / target_subdir
-            target_path = target_dir / filename
-
-            if target_path.exists():
-                file_size = target_path.stat().st_size / (1024 * 1024)
-                print(f"   ⏭️  Exists: {filename} ({file_size:.1f} MB)")
-                return True
-
-            if dry_run:
-                print(f"   [DRY RUN] {filename}")
-                return True
-
-            print(f"   ⬇️  Downloading: {filename}")
-            urlretrieve(s3_url, target_path)
-
-            file_size = target_path.stat().st_size / (1024 * 1024)
-            print(f"   ✅ Downloaded: {filename} ({file_size:.1f} MB)")
-            return True
-
-    except HTTPError as e:
-        if e.code != 404:
-            print(f"   ⚠️  HTTP error: {data_subtype}/{data_type}")
-        return False
-    except (URLError, json.JSONDecodeError) as e:
-        print(f"   ⚠️  Failed: {data_subtype}/{data_type}")
-        return False
+    except (HTTPError, URLError, json.JSONDecodeError) as e:
+        print(f"❌ Failed to get snapshot: {e}")
+        sys.exit(1)
 
 
-def download_genome_file(
-    org_code: str,
-    genome_info: Dict,
+def filter_wanted_files(files: List[Dict]) -> List[Dict]:
+    """Filter snapshot to only include wanted data types."""
+    wanted = []
+
+    for f in files:
+        data_type = f["dataType"]["name"]
+        if data_type in WANTED_DATA_TYPES:
+            wanted.append(f)
+
+    print(f"   Files to download: {len(wanted)}")
+
+    # Show breakdown by data type
+    by_type = {}
+    for f in wanted:
+        dt = f["dataType"]["name"]
+        by_type[dt] = by_type.get(dt, 0) + 1
+
+    print("\n   Files by type:")
+    for dt in sorted(by_type.keys()):
+        print(f"      {dt:30} {by_type[dt]:4} files")
+
+    return wanted
+
+
+def download_file(
+    file_info: Dict,
     data_dir: Path,
     dry_run: bool = False
 ) -> bool:
-    """Download a genome FASTA file from MOD source."""
-    target_path = data_dir / "fms" / genome_info["filename"]
+    """Download a single file from the snapshot."""
+    s3_url = file_info.get("s3Url")
+
+    if not s3_url:
+        print(f"   ⚠️  No URL for {file_info['dataType']['name']}")
+        return False
+
+    # Determine filename from s3Path
+    s3_path = file_info["s3Path"]
+    filename = Path(s3_path).name
+
+    target_dir = data_dir / "fms"
+    target_path = target_dir / filename
 
     if target_path.exists():
         file_size = target_path.stat().st_size / (1024 * 1024)
-        print(f"   ⏭️  Exists: {genome_info['filename']} ({file_size:.1f} MB)")
+        # Don't print for every existing file to reduce clutter
         return True
 
     if dry_run:
-        print(f"   [DRY RUN] {genome_info['filename']}")
+        print(f"   [DRY RUN] {filename}")
         return True
 
-    print(f"   ⬇️  Downloading: {genome_info['filename']}")
-    print(f"      From: {genome_info['source']}")
+    print(f"   ⬇️  {filename}")
 
     try:
-        urlretrieve(genome_info["url"], target_path)
+        urlretrieve(s3_url, target_path)
         file_size = target_path.stat().st_size / (1024 * 1024)
-        print(f"   ✅ Downloaded: {genome_info['filename']} ({file_size:.1f} MB)")
         return True
+
     except (HTTPError, URLError) as e:
-        print(f"   ❌ Failed: {e}")
+        print(f"   ❌ Failed: {filename}")
         return False
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download AllianceMine data from FMS API and MOD sources"
+        description="Download AllianceMine data from FMS snapshot API"
     )
     parser.add_argument(
         "--release-type",
-        choices=["next", "current"],
-        default="next",
-        help="Release type: 'next' (upcoming) or 'current' (deployed). Default: next"
+        choices=["latest", "previous"],
+        default="latest",
+        help="Release type: 'latest' (most recent) or 'previous'. Default: latest"
     )
     parser.add_argument(
         "--data-dir",
@@ -275,40 +228,39 @@ def main():
     # Create directory structure
     create_directory_structure(args.data_dir)
 
+    # Get snapshot
+    all_files = get_snapshot_files(release_version)
+
+    # Filter to wanted files
+    wanted_files = filter_wanted_files(all_files)
+
     # Track statistics
-    stats = {"fms": {"success": 0, "failed": 0}, "genomes": {"success": 0, "failed": 0}}
+    stats = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Download FMS API files
-    print(f"\n📦 Downloading FMS API files ({len(FMS_FILES)} files)...")
+    # Download files
+    print(f"\n📦 Downloading files...")
     print("=" * 70)
-    for data_subtype, data_type, target_subdir in FMS_FILES:
-        if download_fms_file(
-            release_version,
-            data_subtype,
-            data_type,
-            args.data_dir,
-            target_subdir,
-            args.dry_run
-        ):
-            stats["fms"]["success"] += 1
-        else:
-            stats["fms"]["failed"] += 1
 
-    # Download genome FASTA files
-    print(f"\n🧬 Downloading genome FASTA files ({len(GENOME_SOURCES)} organisms)...")
-    print("=" * 70)
-    for org_code, genome_info in GENOME_SOURCES.items():
-        print(f"\n{org_code}: {genome_info['name']}")
-        if download_genome_file(org_code, genome_info, args.data_dir, args.dry_run):
-            stats["genomes"]["success"] += 1
+    for file_info in wanted_files:
+        if download_file(file_info, args.data_dir, args.dry_run):
+            stats["success"] += 1
         else:
-            stats["genomes"]["failed"] += 1
+            stats["failed"] += 1
+
+    # Count existing files
+    existing_count = 0
+    for f in wanted_files:
+        filename = Path(f["s3Path"]).name
+        if (args.data_dir / "fms" / filename).exists():
+            existing_count += 1
 
     # Summary
     print("\n" + "=" * 70)
     print("📊 Download Summary:")
-    print(f"  FMS files: {stats['fms']['success']} succeeded, {stats['fms']['failed']} failed")
-    print(f"  Genomes: {stats['genomes']['success']} succeeded, {stats['genomes']['failed']} failed")
+    print(f"  Total files: {len(wanted_files)}")
+    print(f"  Already present: {existing_count}")
+    print(f"  Downloaded: {stats['success'] - existing_count}")
+    print(f"  Failed: {stats['failed']}")
     print(f"  Data directory: {args.data_dir.absolute()}")
     print("=" * 70)
 
@@ -323,9 +275,8 @@ def main():
 
     print("=" * 70)
 
-    if stats["fms"]["failed"] > 0 or stats["genomes"]["failed"] > 0:
-        print(f"\n⚠️  Warning: Some files failed to download")
-        print("   This is normal - not all data may be available for this release")
+    if stats["failed"] > 0:
+        print(f"\n⚠️  Warning: {stats['failed']} files failed to download")
 
 
 if __name__ == "__main__":
