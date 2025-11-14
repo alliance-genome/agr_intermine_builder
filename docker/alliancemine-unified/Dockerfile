@@ -1,14 +1,13 @@
 # ============================================
 # AllianceMine Unified Container
-# Build Environment + Tomcat + Solr + RDS
+# Build Environment + Tomcat + RDS
 # ============================================
 # This container consolidates all InterMine components (except PostgreSQL)
 # into a single optimized image for simplified deployment with AWS RDS.
 #
 # Architecture:
-# - Build environment (Java 11, Gradle, InterMine tools)
+# - Build environment (Java 8, Gradle, InterMine tools)
 # - Apache Tomcat 9.0 (webapp server)
-# - Apache Solr 8.4 (search engine)
 # - Connects to external RDS PostgreSQL
 #
 # Multi-stage build reduces final image size significantly.
@@ -17,32 +16,30 @@
 # ============================================
 # Stage 1: Builder - Compile InterMine
 # ============================================
-# InterMine requires Java 8 (1.8) - NOT Java 11
-FROM eclipse-temurin:8-jdk-alpine AS builder
+# Use pre-built Perl base image from ECR (or build locally if not available)
+# To use ECR image: --build-arg PERL_BASE_IMAGE=<account>.dkr.ecr.us-east-1.amazonaws.com/alliancemine-perl-base:latest
+ARG PERL_BASE_IMAGE=eclipse-temurin:8-jdk-alpine
+FROM ${PERL_BASE_IMAGE} AS builder
 
 LABEL maintainer="Alliance of Genome Resources"
 LABEL stage="builder"
 
-# Install build dependencies (only what's needed for builder stage)
-RUN apk add --no-cache \
-    git \
-    build-base \
-    perl \
-    perl-dev \
-    perl-app-cpanminus
-
-# Install Perl modules for InterMine
-# Install in batches and ignore exit codes since --force may still return non-zero
-RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
-    cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
-    cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
-    cpanm --notest --force XML::Parser::PerlSAX || true && \
-    rm -rf /root/.cpanm /tmp/*
-
-# Download project_build script for full InterMine builds
-RUN wget -q https://raw.githubusercontent.com/intermine/intermine-scripts/master/project_build \
-    -O /usr/local/bin/project_build && \
-    chmod +x /usr/local/bin/project_build
+# Install build dependencies
+# If using pre-built perl base, these are already installed
+# If using eclipse-temurin base, install them now
+RUN if ! command -v cpanm &> /dev/null; then \
+        apk add --no-cache git build-base perl perl-dev perl-app-cpanminus && \
+        cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
+        cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
+        cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
+        cpanm --notest --force XML::Parser::PerlSAX || true && \
+        rm -rf /root/.cpanm /tmp/* && \
+        wget -q https://raw.githubusercontent.com/intermine/intermine-scripts/master/project_build \
+            -O /usr/local/bin/project_build && \
+        chmod +x /usr/local/bin/project_build; \
+    else \
+        apk add --no-cache git build-base; \
+    fi
 
 # Set up environment
 ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
@@ -78,37 +75,13 @@ RUN ./gradlew install --stacktrace && \
     rm -rf /root/.gradle/caches/transforms-* /root/.gradle/caches/journal-*
 
 # ============================================
-# Stage 2: Solr Setup
-# ============================================
-# COMMENTED OUT FOR TESTING - Solr takes too long to download
-# FROM eclipse-temurin:8-jre-alpine AS solr-builder
-#
-# ARG SOLR_VERSION=8.4.1
-# ARG SOLR_SHA512=2f210dae8d6a07b111ede22005fbd16aa6848900cda8adb352a33e08229783a170dddb529a7eb990f5157d4f5427c199df2114b9c0ffecdf9490a2ac07c6bb09
-#
-# # Install wget for downloading Solr
-# RUN apk add --no-cache wget bash
-#
-# # Download and verify Solr
-# RUN wget -nv "https://archive.apache.org/dist/lucene/solr/${SOLR_VERSION}/solr-${SOLR_VERSION}.tgz" -O /tmp/solr.tgz && \
-#     echo "${SOLR_SHA512}  /tmp/solr.tgz" | sha512sum -c - && \
-#     mkdir -p /opt && \
-#     tar -C /opt -xzf /tmp/solr.tgz && \
-#     mv "/opt/solr-${SOLR_VERSION}" /opt/solr && \
-#     rm /tmp/solr.tgz
-#
-# # Clean up unnecessary Solr components
-# RUN rm -rf /opt/solr/docs /opt/solr/example && \
-#     mkdir -p /opt/solr/server/solr/configsets/intermine
-
-# ============================================
-# Stage 3: Runtime - Unified Container
+# Stage 2: Runtime - Unified Container
 # ============================================
 # Must use JDK (not JRE) because InterMine compiles Java at runtime
 FROM eclipse-temurin:8-jdk-alpine
 
 LABEL maintainer="Alliance of Genome Resources"
-LABEL description="AllianceMine unified container with Tomcat + Solr + Build tools"
+LABEL description="AllianceMine unified container with Tomcat + Build tools"
 
 # Build argument for release version
 ARG ALLIANCE_RELEASE=8.2.0
@@ -137,14 +110,11 @@ RUN apk add --no-cache \
 ENV JAVA_HOME=/opt/java/openjdk \
     CATALINA_HOME=/opt/tomcat \
     TOMCAT_VERSION=9.0.82 \
-    SOLR_HOME=/var/solr/data \
-    SOLR_PORT=8983 \
     TOMCAT_PORT=8080 \
     ALLIANCE_RELEASE=${ALLIANCE_RELEASE}
 
 # Memory settings for production
-ENV CATALINA_OPTS="-Xmx8g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
-    SOLR_JAVA_MEM="-Xmx2g -Xms1g"
+ENV CATALINA_OPTS="-Xmx8g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 
 # RDS connection (override via environment)
 ENV RDS_HOST=postgres \
@@ -163,37 +133,21 @@ RUN addgroup -g 1000 intermine && \
 # ============================================
 # Install Apache Tomcat
 # ============================================
-# COMMENTED OUT FOR TESTING - Tomcat download takes time
-# WORKDIR /tmp
-# RUN wget -q "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
-#     tar -xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C /opt && \
-#     mv "/opt/apache-tomcat-${TOMCAT_VERSION}" "${CATALINA_HOME}" && \
-#     rm "apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
-#     rm -rf "${CATALINA_HOME}/webapps/docs" \
-#            "${CATALINA_HOME}/webapps/examples" \
-#            "${CATALINA_HOME}/webapps/host-manager" && \
-#     chown -R intermine:intermine "${CATALINA_HOME}"
-#
-# # Configure Tomcat
-# COPY tomcat-users.xml "${CATALINA_HOME}/conf/tomcat-users.xml"
-# COPY server.xml "${CATALINA_HOME}/conf/server.xml"
-# RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml" && \
-#     chown intermine:intermine "${CATALINA_HOME}/conf/tomcat-users.xml" "${CATALINA_HOME}/conf/server.xml"
+WORKDIR /tmp
+RUN wget -q "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
+    tar -xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C /opt && \
+    mv "/opt/apache-tomcat-${TOMCAT_VERSION}" "${CATALINA_HOME}" && \
+    rm "apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
+    rm -rf "${CATALINA_HOME}/webapps/docs" \
+           "${CATALINA_HOME}/webapps/examples" \
+           "${CATALINA_HOME}/webapps/host-manager" && \
+    chown -R intermine:intermine "${CATALINA_HOME}"
 
-# ============================================
-# Install Apache Solr
-# ============================================
-# COMMENTED OUT FOR TESTING - Solr was commented out above
-# COPY --from=solr-builder /opt/solr /opt/solr
-# COPY --from=solr-builder /opt/solr/server/solr/solr.xml /var/solr/data/solr.xml
-#
-# # Create Solr data directories
-# RUN mkdir -p /var/solr/data /var/solr/logs && \
-#     chown -R intermine:intermine /opt/solr /var/solr
-#
-# # Copy Solr configuration from builder
-# COPY --from=builder /build/alliancemine/dbmodel/resources/keyword_search.properties /opt/solr/server/solr/configsets/intermine/
-# COPY solr-config/ /opt/solr/server/solr/configsets/intermine/conf/
+# Configure Tomcat
+COPY tomcat-users.xml "${CATALINA_HOME}/conf/tomcat-users.xml"
+COPY server.xml "${CATALINA_HOME}/conf/server.xml"
+RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml" && \
+    chown intermine:intermine "${CATALINA_HOME}/conf/tomcat-users.xml" "${CATALINA_HOME}/conf/server.xml"
 
 # ============================================
 # Copy Built InterMine Application
@@ -206,7 +160,9 @@ COPY --from=builder --chown=intermine:intermine /build/alliancemine-bio-sources 
 COPY --from=builder --chown=intermine:intermine /root/.gradle /opt/intermine/.gradle
 
 # Copy Perl modules and project_build script from builder
+# Alpine installs CPAN modules to multiple locations
 COPY --from=builder /usr/local/lib/perl5 /usr/local/lib/perl5
+COPY --from=builder /usr/local/share/perl5 /usr/local/share/perl5
 COPY --from=builder /usr/local/bin/project_build /usr/local/bin/project_build
 
 # Fix hardcoded /root path in build.gradle to use /opt/intermine
@@ -269,9 +225,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # ============================================
 # Ports and Volumes
 # ============================================
-EXPOSE 8080 8983
+EXPOSE 8080
 
-VOLUME ["/opt/intermine/data", "/var/solr/data", "/opt/intermine/logs"]
+VOLUME ["/opt/intermine/data", "/opt/intermine/logs"]
 
 # ============================================
 # Startup
