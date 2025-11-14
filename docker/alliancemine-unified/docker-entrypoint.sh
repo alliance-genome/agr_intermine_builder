@@ -112,6 +112,18 @@ setup_databases() {
     else
         echo "   ✅ Profile database exists: ${RDS_PROFILE_DB_NAME}"
     fi
+
+    # Check items database (for data integration staging)
+    ITEMS_DB_NAME="alliancemine_items"
+    if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
+         -lqt | cut -d \| -f 1 | grep -qw "${ITEMS_DB_NAME}"; then
+        echo "   Creating items database: ${ITEMS_DB_NAME}"
+        psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
+             -c "CREATE DATABASE \"${ITEMS_DB_NAME}\";"
+        echo "   ✅ Items database created: ${ITEMS_DB_NAME}"
+    else
+        echo "   ✅ Items database exists: ${ITEMS_DB_NAME}"
+    fi
 }
 
 # ============================================
