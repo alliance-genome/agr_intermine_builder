@@ -23,24 +23,18 @@ FROM eclipse-temurin:8-jdk-alpine AS builder
 LABEL maintainer="Alliance of Genome Resources"
 LABEL stage="builder"
 
-# Install build dependencies
+# Install build dependencies (only what's needed for builder stage)
 RUN apk add --no-cache \
     git \
-    bash \
-    wget \
-    curl \
-    perl \
-    perl-dev \
-    perl-app-cpanminus \
-    build-base \
-    postgresql-client
+    build-base
 
 # Install Perl modules for InterMine
+# COMMENTED OUT FOR TESTING - Perl modules take ~90 seconds
 # Install in batches and ignore exit codes since --force may still return non-zero
-RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
-    cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
-    cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
-    rm -rf /root/.cpanm /tmp/*
+# RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
+#     cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
+#     cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
+#     rm -rf /root/.cpanm /tmp/*
 
 # Set up environment
 ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
@@ -78,25 +72,26 @@ RUN ./gradlew install --stacktrace && \
 # ============================================
 # Stage 2: Solr Setup
 # ============================================
-FROM eclipse-temurin:8-jre-alpine AS solr-builder
-
-ARG SOLR_VERSION=8.4.1
-ARG SOLR_SHA512=2f210dae8d6a07b111ede22005fbd16aa6848900cda8adb352a33e08229783a170dddb529a7eb990f5157d4f5427c199df2114b9c0ffecdf9490a2ac07c6bb09
-
-# Install wget for downloading Solr
-RUN apk add --no-cache wget bash
-
-# Download and verify Solr
-RUN wget -nv "https://archive.apache.org/dist/lucene/solr/${SOLR_VERSION}/solr-${SOLR_VERSION}.tgz" -O /tmp/solr.tgz && \
-    echo "${SOLR_SHA512}  /tmp/solr.tgz" | sha512sum -c - && \
-    mkdir -p /opt && \
-    tar -C /opt -xzf /tmp/solr.tgz && \
-    mv "/opt/solr-${SOLR_VERSION}" /opt/solr && \
-    rm /tmp/solr.tgz
-
-# Clean up unnecessary Solr components
-RUN rm -rf /opt/solr/docs /opt/solr/example && \
-    mkdir -p /opt/solr/server/solr/configsets/intermine
+# COMMENTED OUT FOR TESTING - Solr takes too long to download
+# FROM eclipse-temurin:8-jre-alpine AS solr-builder
+#
+# ARG SOLR_VERSION=8.4.1
+# ARG SOLR_SHA512=2f210dae8d6a07b111ede22005fbd16aa6848900cda8adb352a33e08229783a170dddb529a7eb990f5157d4f5427c199df2114b9c0ffecdf9490a2ac07c6bb09
+#
+# # Install wget for downloading Solr
+# RUN apk add --no-cache wget bash
+#
+# # Download and verify Solr
+# RUN wget -nv "https://archive.apache.org/dist/lucene/solr/${SOLR_VERSION}/solr-${SOLR_VERSION}.tgz" -O /tmp/solr.tgz && \
+#     echo "${SOLR_SHA512}  /tmp/solr.tgz" | sha512sum -c - && \
+#     mkdir -p /opt && \
+#     tar -C /opt -xzf /tmp/solr.tgz && \
+#     mv "/opt/solr-${SOLR_VERSION}" /opt/solr && \
+#     rm /tmp/solr.tgz
+#
+# # Clean up unnecessary Solr components
+# RUN rm -rf /opt/solr/docs /opt/solr/example && \
+#     mkdir -p /opt/solr/server/solr/configsets/intermine
 
 # ============================================
 # Stage 3: Runtime - Unified Container
@@ -160,35 +155,37 @@ RUN addgroup -g 1000 intermine && \
 # ============================================
 # Install Apache Tomcat
 # ============================================
-WORKDIR /tmp
-RUN wget -q "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
-    tar -xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C /opt && \
-    mv "/opt/apache-tomcat-${TOMCAT_VERSION}" "${CATALINA_HOME}" && \
-    rm "apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
-    rm -rf "${CATALINA_HOME}/webapps/docs" \
-           "${CATALINA_HOME}/webapps/examples" \
-           "${CATALINA_HOME}/webapps/host-manager" && \
-    chown -R intermine:intermine "${CATALINA_HOME}"
-
-# Configure Tomcat
-COPY tomcat-users.xml "${CATALINA_HOME}/conf/tomcat-users.xml"
-COPY server.xml "${CATALINA_HOME}/conf/server.xml"
-RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml" && \
-    chown intermine:intermine "${CATALINA_HOME}/conf/tomcat-users.xml" "${CATALINA_HOME}/conf/server.xml"
+# COMMENTED OUT FOR TESTING - Tomcat download takes time
+# WORKDIR /tmp
+# RUN wget -q "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
+#     tar -xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C /opt && \
+#     mv "/opt/apache-tomcat-${TOMCAT_VERSION}" "${CATALINA_HOME}" && \
+#     rm "apache-tomcat-${TOMCAT_VERSION}.tar.gz" && \
+#     rm -rf "${CATALINA_HOME}/webapps/docs" \
+#            "${CATALINA_HOME}/webapps/examples" \
+#            "${CATALINA_HOME}/webapps/host-manager" && \
+#     chown -R intermine:intermine "${CATALINA_HOME}"
+#
+# # Configure Tomcat
+# COPY tomcat-users.xml "${CATALINA_HOME}/conf/tomcat-users.xml"
+# COPY server.xml "${CATALINA_HOME}/conf/server.xml"
+# RUN chmod 600 "${CATALINA_HOME}/conf/tomcat-users.xml" && \
+#     chown intermine:intermine "${CATALINA_HOME}/conf/tomcat-users.xml" "${CATALINA_HOME}/conf/server.xml"
 
 # ============================================
 # Install Apache Solr
 # ============================================
-COPY --from=solr-builder /opt/solr /opt/solr
-COPY --from=solr-builder /opt/solr/server/solr/solr.xml /var/solr/data/solr.xml
-
-# Create Solr data directories
-RUN mkdir -p /var/solr/data /var/solr/logs && \
-    chown -R intermine:intermine /opt/solr /var/solr
-
-# Copy Solr configuration from builder
-COPY --from=builder /build/alliancemine/dbmodel/resources/keyword_search.properties /opt/solr/server/solr/configsets/intermine/
-COPY solr-config/ /opt/solr/server/solr/configsets/intermine/conf/
+# COMMENTED OUT FOR TESTING - Solr was commented out above
+# COPY --from=solr-builder /opt/solr /opt/solr
+# COPY --from=solr-builder /opt/solr/server/solr/solr.xml /var/solr/data/solr.xml
+#
+# # Create Solr data directories
+# RUN mkdir -p /var/solr/data /var/solr/logs && \
+#     chown -R intermine:intermine /opt/solr /var/solr
+#
+# # Copy Solr configuration from builder
+# COPY --from=builder /build/alliancemine/dbmodel/resources/keyword_search.properties /opt/solr/server/solr/configsets/intermine/
+# COPY solr-config/ /opt/solr/server/solr/configsets/intermine/conf/
 
 # ============================================
 # Copy Built InterMine Application
@@ -205,12 +202,15 @@ RUN sed -i 's|/root/alliancemine|/opt/intermine/alliancemine|g' \
     /opt/intermine/alliancemine/build.gradle
 
 # Create data and config directories and fix all permissions
+# CRITICAL: chmod 777 on /root so intermine user can access /root/data mount
 RUN mkdir -p \
     /opt/intermine/.intermine \
     /opt/intermine/data \
-    /opt/intermine/logs && \
+    /opt/intermine/logs \
+    /root/data && \
     chown -R intermine:intermine /opt/intermine && \
-    chmod -R u+w /opt/intermine/alliancemine
+    chmod -R u+w /opt/intermine/alliancemine && \
+    chmod -R 777 /root
 
 # Switch to intermine user for bio-sources reinstall
 USER intermine
