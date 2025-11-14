@@ -17,7 +17,7 @@ db.production.platform=PostgreSQL
 # Common Target Items Database
 # ============================================
 db.common-tgt-items.datasource.serverName=${RDS_HOST}
-db.common-tgt-items.datasource.databaseName=${RDS_DB_NAME}
+db.common-tgt-items.datasource.databaseName=alliancemine_items
 db.common-tgt-items.datasource.user=${RDS_USER}
 db.common-tgt-items.datasource.password=${RDS_PASSWORD}
 db.common-tgt-items.driver=org.postgresql.Driver
