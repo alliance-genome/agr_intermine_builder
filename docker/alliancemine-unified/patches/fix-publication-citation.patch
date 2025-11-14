@@ -1,0 +1,11 @@
+--- a/dbmodel/resources/genomic_priorities.properties
++++ b/dbmodel/resources/genomic_priorities.properties
+@@ -22,7 +22,7 @@ Publication.firstAuthor = sgd, update-publications
+ Publication.year = sgd, update-publications
+ Publication.title = sgd, update-publications
+ Publication.journal = sgd, update-publications
+-Publication.citation = sgd, update-publications
++# Publication.citation = sgd, update-publications
+ Publication.pages = sgd, update-publications
+ Publication.volume = sgd, update-publications
+ Publication.issue = sgd, update-publications
