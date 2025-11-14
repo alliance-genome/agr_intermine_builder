@@ -5,7 +5,7 @@ set -e
 # AllianceMine Docker Entrypoint
 # ============================================
 # Handles initialization, configuration, and startup
-# of Tomcat, Solr, and InterMine build processes.
+# of Tomcat and InterMine build processes.
 # ============================================
 
 echo "============================================"
@@ -13,7 +13,6 @@ echo "🚀 AllianceMine Unified Container"
 echo "============================================"
 echo "Version: ${ALLIANCE_RELEASE}"
 echo "Tomcat: ${TOMCAT_PORT}"
-echo "Solr: ${SOLR_PORT}"
 echo "RDS: ${RDS_HOST}:${RDS_PORT}"
 echo "============================================"
 
@@ -127,54 +126,6 @@ setup_databases() {
 }
 
 # ============================================
-# Start Solr
-# ============================================
-start_solr() {
-    echo "🔍 Starting Solr on port ${SOLR_PORT}..."
-
-    # Start Solr in background
-    /opt/solr/bin/solr start -p ${SOLR_PORT} -m ${SOLR_JAVA_MEM} -noprompt
-
-    # Wait for Solr to be ready
-    MAX_ATTEMPTS=30
-    ATTEMPT=0
-    until curl -s "http://localhost:${SOLR_PORT}/solr/admin/info/system" > /dev/null; do
-        ATTEMPT=$((ATTEMPT+1))
-        if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
-            echo "❌ Solr failed to start"
-            exit 1
-        fi
-        echo "   Waiting for Solr... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
-        sleep 2
-    done
-
-    echo "✅ Solr is running"
-
-    # Create InterMine Solr cores if they don't exist
-    echo "📝 Checking Solr cores..."
-
-    # Check if alliancemine-search core exists
-    if ! curl -s "http://localhost:${SOLR_PORT}/solr/admin/cores?action=STATUS&core=alliancemine-search" | grep -q '"name":"alliancemine-search"'; then
-        echo "   Creating alliancemine-search core..."
-        /opt/solr/bin/solr create -c alliancemine-search -p ${SOLR_PORT} -force
-        echo "   ✅ alliancemine-search core created"
-    else
-        echo "   ✅ alliancemine-search core already exists"
-    fi
-
-    # Check if alliancemine-autocomplete core exists
-    if ! curl -s "http://localhost:${SOLR_PORT}/solr/admin/cores?action=STATUS&core=alliancemine-autocomplete" | grep -q '"name":"alliancemine-autocomplete"'; then
-        echo "   Creating alliancemine-autocomplete core..."
-        /opt/solr/bin/solr create -c alliancemine-autocomplete -p ${SOLR_PORT} -force
-        echo "   ✅ alliancemine-autocomplete core created"
-    else
-        echo "   ✅ alliancemine-autocomplete core already exists"
-    fi
-
-    echo "✅ Solr cores initialized"
-}
-
-# ============================================
 # Start Tomcat
 # ============================================
 start_tomcat() {
@@ -215,24 +166,16 @@ setup_databases
 case "$1" in
     build)
         echo "📋 Mode: BUILD"
-        start_solr
         build_intermine
         ;;
 
     run)
-        echo "📋 Mode: RUN (Database build testing - no Solr/Tomcat)"
+        echo "📋 Mode: RUN (Database build testing - no Tomcat)"
         echo "ℹ️  Container started. Use 'docker exec -it alliancemine bash' to access shell."
         echo "ℹ️  You can manually run database builds from /opt/intermine/alliancemine"
 
         # Keep container alive
         tail -f /dev/null
-        ;;
-
-    solr)
-        echo "📋 Mode: SOLR ONLY"
-        start_solr
-        # Keep container alive
-        tail -f /var/solr/logs/solr.log
         ;;
 
     bash|sh)
