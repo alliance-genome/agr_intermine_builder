@@ -144,7 +144,7 @@ start_solr() {
     # Check if alliancemine-search core exists
     if ! curl -s "http://localhost:${SOLR_PORT}/solr/admin/cores?action=STATUS&core=alliancemine-search" | grep -q '"name":"alliancemine-search"'; then
         echo "   Creating alliancemine-search core..."
-        /opt/solr/bin/solr create -c alliancemine-search -p ${SOLR_PORT}
+        /opt/solr/bin/solr create -c alliancemine-search -p ${SOLR_PORT} -force
         echo "   ✅ alliancemine-search core created"
     else
         echo "   ✅ alliancemine-search core already exists"
@@ -153,7 +153,7 @@ start_solr() {
     # Check if alliancemine-autocomplete core exists
     if ! curl -s "http://localhost:${SOLR_PORT}/solr/admin/cores?action=STATUS&core=alliancemine-autocomplete" | grep -q '"name":"alliancemine-autocomplete"'; then
         echo "   Creating alliancemine-autocomplete core..."
-        /opt/solr/bin/solr create -c alliancemine-autocomplete -p ${SOLR_PORT}
+        /opt/solr/bin/solr create -c alliancemine-autocomplete -p ${SOLR_PORT} -force
         echo "   ✅ alliancemine-autocomplete core created"
     else
         echo "   ✅ alliancemine-autocomplete core already exists"
@@ -181,8 +181,8 @@ build_intermine() {
     cd /opt/intermine/alliancemine
 
     # Run build script
-    if [ -f "/opt/intermine/scripts/build_full.sh" ]; then
-        /opt/intermine/scripts/build_full.sh
+    if [ -f "/opt/intermine/scripts/build_full.py" ]; then
+        python3 /opt/intermine/scripts/build_full.py
     else
         echo "❌ Build script not found"
         exit 1
@@ -208,24 +208,12 @@ case "$1" in
         ;;
 
     run)
-        echo "📋 Mode: RUN (Tomcat + Solr)"
-        start_solr
+        echo "📋 Mode: RUN (Database build testing - no Solr/Tomcat)"
+        echo "ℹ️  Container started. Use 'docker exec -it alliancemine bash' to access shell."
+        echo "ℹ️  You can manually run database builds from /opt/intermine/alliancemine"
 
-        # Check if auto-build is enabled and build hasn't been done
-        if [ "${AUTO_BUILD}" = "true" ]; then
-            # Check if build marker file exists
-            if [ ! -f "/opt/intermine/.build_complete" ]; then
-                echo "🔄 AUTO_BUILD enabled - running initial build..."
-                build_intermine
-                # Create marker file to prevent rebuilding on restart
-                touch /opt/intermine/.build_complete
-                echo "✅ Initial build complete"
-            else
-                echo "ℹ️  AUTO_BUILD enabled but build already complete (marker exists)"
-            fi
-        fi
-
-        start_tomcat
+        # Keep container alive
+        tail -f /dev/null
         ;;
 
     solr)
