@@ -1,0 +1,78 @@
+# ============================================
+# WormMine Properties File
+# Generated from template by docker-entrypoint.sh
+# ============================================
+
+# ============================================
+# Production Database (Main Data)
+# ============================================
+db.production.datasource.serverName=${RDS_HOST}
+db.production.datasource.databaseName=${RDS_DB_NAME}
+db.production.datasource.user=${RDS_USER}
+db.production.datasource.password=${RDS_PASSWORD}
+db.production.driver=org.postgresql.Driver
+db.production.platform=PostgreSQL
+
+# ============================================
+# Common Target Items Database
+# ============================================
+db.common-tgt-items.datasource.serverName=${RDS_HOST}
+db.common-tgt-items.datasource.databaseName=wormmine_items
+db.common-tgt-items.datasource.user=${RDS_USER}
+db.common-tgt-items.datasource.password=${RDS_PASSWORD}
+db.common-tgt-items.driver=org.postgresql.Driver
+db.common-tgt-items.platform=PostgreSQL
+
+# ============================================
+# User Profile Database
+# ============================================
+db.userprofile-production.datasource.serverName=${RDS_HOST}
+db.userprofile-production.datasource.databaseName=${RDS_PROFILE_DB_NAME}
+db.userprofile-production.datasource.user=${RDS_USER}
+db.userprofile-production.datasource.password=${RDS_PASSWORD}
+db.userprofile-production.driver=org.postgresql.Driver
+db.userprofile-production.platform=PostgreSQL
+
+# ============================================
+# Project Configuration
+# ============================================
+project.title=WormMine
+project.subTitle=An integrated data resource for C. elegans and related nematodes
+project.releaseVersion=${WORMBASE_RELEASE}
+project.sitePrefix=http://localhost:8080
+project.helpLocation=https://wormbase.org
+
+# ============================================
+# Web Application Configuration
+# ============================================
+webapp.deploy.url=http://localhost:8080/manager/text
+webapp.baseurl=http://localhost:8080
+webapp.path=wormmine
+webapp.manager=manager
+webapp.password=manager
+
+# Tomcat Manager credentials (for deployment)
+tomcat.user=manager
+tomcat.pwd=manager
+
+# ============================================
+# Solr Configuration
+# ============================================
+solr.url=http://localhost:${SOLR_PORT}/solr/wormmine
+
+# ============================================
+# SuperUser Account
+# ============================================
+superuser.account=admin@wormmine.org
+superuser.password=admin
+
+# ============================================
+# Performance Tuning
+# ============================================
+# Batch processing settings
+batch.size=1000
+webapp.os.alias=os.production
+
+# Query result caching
+webapp.query.cache.size=10000
+webapp.query.cache.timeout=300

@@ -1,0 +1,12 @@
+# Environment
+.env
+
+# Data directories
+data/*
+!data/.gitkeep
+
+# Docker volumes
+*.log
+
+# Mac
+.DS_Store

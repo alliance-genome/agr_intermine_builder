@@ -1,0 +1,117 @@
+version: '3.8'
+
+# ============================================
+# WormMine Unified Docker Compose
+# ============================================
+# Single-container deployment with RDS
+# For manual operation - no auto-start
+#
+# Usage:
+#   docker-compose up -d        # Start in background
+#   docker-compose logs -f      # Follow logs
+#   docker-compose exec wormmine bash  # Shell access
+#   docker-compose down         # Stop and remove
+# ============================================
+
+services:
+  wormmine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        WORMMINE_BRANCH: ${WORMMINE_BRANCH:-master}
+        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-master}
+        WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS290}
+
+    image: wormmine-unified:${IMAGE_TAG:-latest}
+
+    container_name: wormmine
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 32G
+        reservations:
+          cpus: '4'
+          memory: 16G
+
+    # Ports
+    ports:
+      - "${TOMCAT_PORT:-8080}:8080"  # Tomcat webapp
+      - "${SOLR_PORT:-8983}:8983"    # Solr search
+
+    # Environment variables
+    environment:
+      # RDS Connection
+      RDS_HOST: ${RDS_HOST:-intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_USER: ${RDS_USER:-postgres}
+      RDS_PASSWORD: ${RDS_PASSWORD}
+      RDS_DB_NAME: ${RDS_DB_NAME:-wormmine_db}
+      RDS_PROFILE_DB_NAME: ${RDS_PROFILE_DB_NAME:-wormmine_userprofile}
+
+      # Application
+      WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS290}
+      DB_VERSION_SUFFIX: ${DB_VERSION_SUFFIX:-}
+
+      # Java Memory Settings
+      CATALINA_OPTS: "-Xmx16g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      SOLR_JAVA_MEM: "-Xms4g -Xmx4g"
+
+      # Ports (if custom)
+      TOMCAT_PORT: ${TOMCAT_PORT:-8080}
+      SOLR_PORT: ${SOLR_PORT:-8983}
+
+    # Volumes for data persistence
+    volumes:
+      # Mount local data sources (read-write for manual operations)
+      # This is where project.xml looks for data: /root/data/
+      - ./data:/root/data
+
+      # Solr indexes
+      - solr-data:/var/solr/data
+
+      # Logs
+      - wormmine-logs:/opt/intermine/logs
+      - tomcat-logs:/opt/tomcat/logs
+
+    # Networking
+    networks:
+      - intermine-net
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "${RDS_HOST}", "-p", "${RDS_PORT}", "-U", "${RDS_USER}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Command (default: run - manual mode)
+    command: run
+
+# ============================================
+# Named Volumes
+# ============================================
+volumes:
+  solr-data:
+    name: wormmine_solr
+
+  wormmine-logs:
+    name: wormmine_logs
+
+  tomcat-logs:
+    name: wormmine_tomcat_logs
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  intermine-net:
+    name: intermine_network
+    driver: bridge
