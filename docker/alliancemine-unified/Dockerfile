@@ -26,15 +26,23 @@ LABEL stage="builder"
 # Install build dependencies (only what's needed for builder stage)
 RUN apk add --no-cache \
     git \
-    build-base
+    build-base \
+    perl \
+    perl-dev \
+    perl-app-cpanminus
 
 # Install Perl modules for InterMine
-# COMMENTED OUT FOR TESTING - Perl modules take ~90 seconds
 # Install in batches and ignore exit codes since --force may still return non-zero
-# RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
-#     cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
-#     cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
-#     rm -rf /root/.cpanm /tmp/*
+RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
+    cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
+    cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
+    cpanm --notest --force XML::Parser::PerlSAX || true && \
+    rm -rf /root/.cpanm /tmp/*
+
+# Download project_build script for full InterMine builds
+RUN wget -q https://raw.githubusercontent.com/intermine/intermine-scripts/master/project_build \
+    -O /usr/local/bin/project_build && \
+    chmod +x /usr/local/bin/project_build
 
 # Set up environment
 ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
@@ -196,6 +204,10 @@ WORKDIR /opt/intermine
 COPY --from=builder --chown=intermine:intermine /build/alliancemine ./alliancemine
 COPY --from=builder --chown=intermine:intermine /build/alliancemine-bio-sources ./alliancemine-bio-sources
 COPY --from=builder --chown=intermine:intermine /root/.gradle /opt/intermine/.gradle
+
+# Copy Perl modules and project_build script from builder
+COPY --from=builder /usr/local/lib/perl5 /usr/local/lib/perl5
+COPY --from=builder /usr/local/bin/project_build /usr/local/bin/project_build
 
 # Fix hardcoded /root path in build.gradle to use /opt/intermine
 RUN sed -i 's|/root/alliancemine|/opt/intermine/alliancemine|g' \
