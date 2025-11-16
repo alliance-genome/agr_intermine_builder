@@ -42,7 +42,7 @@ RUN if ! command -v cpanm &> /dev/null; then \
     fi
 
 # Set up environment
-ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
+ENV GRADLE_OPTS="-server -Xmx30g -XX:+UseParallelGC -XX:+UseStringDeduplication -Xms2g -XX:SoftRefLRUPolicyMSPerMB=1 -XX:MaxHeapFreeRatio=99 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp -Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
 WORKDIR /build
 
 # Clone AllianceMine repositories
@@ -187,7 +187,7 @@ USER intermine
 # This ensures JARs are in the correct location for runtime builds
 # Sequential build to avoid OOM with parallel compilation during Docker build
 WORKDIR /opt/intermine/alliancemine-bio-sources
-ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
+ENV GRADLE_OPTS="-server -Xmx30g -XX:+UseParallelGC -XX:+UseStringDeduplication -Xms2g -XX:SoftRefLRUPolicyMSPerMB=1 -XX:MaxHeapFreeRatio=99 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/intermine/logs -Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
 RUN ./gradlew clean install --stacktrace && \
     rm -rf /opt/intermine/.gradle/caches/transforms-* /opt/intermine/.gradle/caches/journal-*
 
@@ -201,9 +201,9 @@ WORKDIR /opt/intermine/alliancemine
 # Create InterMine properties template (filled in by entrypoint)
 COPY --chown=intermine:intermine alliancemine.properties.template /opt/intermine/.intermine/alliancemine.properties.template
 
-# Copy build and startup scripts
-COPY --chown=intermine:intermine scripts/ /opt/intermine/scripts/
-RUN chmod +x /opt/intermine/scripts/*.py
+# Copy integration script to alliancemine directory
+COPY --chown=intermine:intermine scripts/integrate_all.py /opt/intermine/alliancemine/
+RUN chmod +x /opt/intermine/alliancemine/integrate_all.py
 
 # ============================================
 # Entrypoint Script

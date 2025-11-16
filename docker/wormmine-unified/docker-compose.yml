@@ -15,13 +15,16 @@ version: '3.8'
 
 services:
   wormmine:
+    # Load environment from project root
+    env_file:
+      - ../../.env
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        WORMMINE_BRANCH: ${WORMMINE_BRANCH:-master}
-        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-master}
-        WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS290}
+        WORMMINE_BRANCH: ${WORMMINE_BRANCH:-im-298}
+        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-im-293}
+        WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS298}
 
     image: wormmine-unified:${IMAGE_TAG:-latest}
 
@@ -66,9 +69,12 @@ services:
 
     # Volumes for data persistence
     volumes:
-      # Mount local data sources (read-write for manual operations)
-      # This is where project.xml looks for data: /root/data/
-      - ./data:/root/data
+      # Mount WS298 data directory
+      # FTP files and AceDB XML dumps
+      - ./WS298:/root/data/ftp_files
+
+      # Mount acedb dumps directory
+      - ./WS298:/root/data/acedb_dumps/WS298
 
       # Solr indexes
       - solr-data:/var/solr/data

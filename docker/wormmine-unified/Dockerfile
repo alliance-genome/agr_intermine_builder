@@ -21,6 +21,7 @@ LABEL stage="builder"
 
 # Install build dependencies including Perl and CPAN
 RUN apk add --no-cache \
+    bash \
     git \
     build-base \
     perl \
@@ -61,12 +62,12 @@ RUN wget -q https://raw.githubusercontent.com/intermine/intermine-scripts/master
     chmod +x /usr/local/bin/project_build
 
 # Set up environment
-ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
+ENV GRADLE_OPTS="-server -Xmx30g -XX:+UseParallelGC -XX:+UseStringDeduplication -Xms2g -XX:SoftRefLRUPolicyMSPerMB=1 -XX:MaxHeapFreeRatio=99 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp -Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
 WORKDIR /build
 
 # Clone WormMine repositories
-ARG WORMMINE_BRANCH=master
-ARG BIO_SOURCES_BRANCH=master
+ARG WORMMINE_BRANCH=im-298
+ARG BIO_SOURCES_BRANCH=im-293
 
 RUN git clone --depth 1 --branch ${WORMMINE_BRANCH} \
     https://github.com/WormBase/WormMine.git wormmine && \
@@ -184,6 +185,7 @@ RUN wget -q "https://archive.apache.org/dist/lucene/solr/${SOLR_VERSION}/solr-${
     mv "solr-${SOLR_VERSION}" /opt/solr && \
     rm "solr-${SOLR_VERSION}.tgz" && \
     mkdir -p ${SOLR_HOME}/data ${SOLR_HOME}/logs && \
+    cp /opt/solr/server/solr/solr.xml ${SOLR_HOME}/data/ && \
     chown -R intermine:intermine /opt/solr ${SOLR_HOME}
 
 # ============================================
@@ -216,7 +218,7 @@ USER intermine
 
 # Reinstall bio-sources with correct user and Gradle home
 WORKDIR /opt/intermine/wormmine-bio-sources
-ENV GRADLE_OPTS="-Xmx4g -Xms2g -Dorg.gradle.daemon=false"
+ENV GRADLE_OPTS="-server -Xmx30g -XX:+UseParallelGC -XX:+UseStringDeduplication -Xms2g -XX:SoftRefLRUPolicyMSPerMB=1 -XX:MaxHeapFreeRatio=99 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/intermine/logs -Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
 RUN ./gradlew clean install --stacktrace && \
     rm -rf /opt/intermine/.gradle/caches/transforms-* /opt/intermine/.gradle/caches/journal-*
 

@@ -66,19 +66,18 @@ configure_intermine() {
 sanitize_database_names() {
     echo "📦 Constructing database names..."
 
-    # Construct main database name from release version and suffix
-    # Replace dots with underscores: WS290 -> wormmine_ws290
-    RELEASE_SANITIZED=$(echo "${WORMBASE_RELEASE}" | tr '[:upper:]' '[:lower:]' | tr '.' '_')
-    SAFE_DB_NAME="wormmine_${RELEASE_SANITIZED}${DB_VERSION_SUFFIX}"
-
-    # Profile database is fixed (shared across all releases)
+    # Fixed database names for WormMine
+    SAFE_DB_NAME="wormmine_final"
+    SAFE_ITEMS_DB_NAME="wormmine_items"
     SAFE_PROFILE_DB_NAME="wormmine_userprofile"
 
     # Update environment variables with sanitized names
     export RDS_DB_NAME="${SAFE_DB_NAME}"
+    export RDS_ITEMS_DB_NAME="${SAFE_ITEMS_DB_NAME}"
     export RDS_PROFILE_DB_NAME="${SAFE_PROFILE_DB_NAME}"
 
     echo "   Main database: ${RDS_DB_NAME}"
+    echo "   Items database: ${RDS_ITEMS_DB_NAME}"
     echo "   Profile database: ${RDS_PROFILE_DB_NAME}"
 }
 
@@ -114,15 +113,14 @@ setup_databases() {
     fi
 
     # Check items database (for data integration staging)
-    ITEMS_DB_NAME="wormmine_items"
     if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-         -lqt | cut -d \| -f 1 | grep -qw "${ITEMS_DB_NAME}"; then
-        echo "   Creating items database: ${ITEMS_DB_NAME}"
+         -lqt | cut -d \| -f 1 | grep -qw "${RDS_ITEMS_DB_NAME}"; then
+        echo "   Creating items database: ${RDS_ITEMS_DB_NAME}"
         psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-             -c "CREATE DATABASE \"${ITEMS_DB_NAME}\";"
-        echo "   ✅ Items database created: ${ITEMS_DB_NAME}"
+             -c "CREATE DATABASE \"${RDS_ITEMS_DB_NAME}\";"
+        echo "   ✅ Items database created: ${RDS_ITEMS_DB_NAME}"
     else
-        echo "   ✅ Items database exists: ${ITEMS_DB_NAME}"
+        echo "   ✅ Items database exists: ${RDS_ITEMS_DB_NAME}"
     fi
 }
 
@@ -139,7 +137,18 @@ start_solr() {
         -m ${SOLR_JAVA_MEM#-Xms} \
         -d /opt/solr/server
 
-    echo "✅ Solr started"
+    # Create WormMine cores if they don't exist
+    if ! /opt/solr/bin/solr status | grep -q "wormmine-search"; then
+        echo "📋 Creating Solr core: wormmine-search"
+        /opt/solr/bin/solr create -c wormmine-search -p ${SOLR_PORT}
+    fi
+
+    if ! /opt/solr/bin/solr status | grep -q "wormmine-autocomplete"; then
+        echo "📋 Creating Solr core: wormmine-autocomplete"
+        /opt/solr/bin/solr create -c wormmine-autocomplete -p ${SOLR_PORT}
+    fi
+
+    echo "✅ Solr started with cores ready"
 }
 
 # ============================================
