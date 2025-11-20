@@ -23,6 +23,7 @@ networks:
 volumes:
   solr_data:
   nginx_cache:
+  cdn_data:
 
 services:
   # Shared Solr instance with multiple cores
@@ -263,7 +264,7 @@ services:
       - mousemine
       - ratmine
 
-  # Nginx reverse proxy
+  # Nginx reverse proxy + CDN
   nginx:
     image: nginx:alpine
     container_name: nginx-proxy
@@ -276,6 +277,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
       - nginx_cache:/var/cache/nginx
+      - cdn_data:/var/www/cdn
     deploy:
       resources:
         limits:
