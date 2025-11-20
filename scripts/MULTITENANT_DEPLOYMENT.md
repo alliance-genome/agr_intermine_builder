@@ -220,7 +220,43 @@ docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_mousemine:latest
 docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_ratmine:latest
 ```
 
-## Step 9: Start All Services
+## Step 9: Set Up CDN (Content Delivery Network)
+
+The multi-tenant instance includes an integrated CDN for serving static assets.
+
+```bash
+# Create standard CDN directory structure
+./scripts/manage_cdn.sh structure
+
+# Upload common JavaScript libraries (example)
+./scripts/manage_cdn.sh upload ~/Downloads/jquery-3.6.0.min.js /cdn/js/jquery/3.6.0/jquery.min.js
+
+# Upload BlueGenes assets
+./scripts/manage_cdn.sh sync ./bluegenes-static /cdn/bluegenes
+
+# Upload mine-specific assets
+./scripts/manage_cdn.sh sync ./alliancemine-assets /cdn/mines/alliancemine
+
+# Check CDN status
+./scripts/manage_cdn.sh status
+
+# List CDN contents
+./scripts/manage_cdn.sh list
+```
+
+CDN URLs will be accessible at:
+- `https://yourdomain.com/cdn/js/jquery/3.6.0/jquery.min.js`
+- `https://yourdomain.com/cdn/bluegenes/app.js`
+- `https://yourdomain.com/cdn/mines/alliancemine/logo.png`
+
+**CDN Features:**
+- 1-year browser caching for immutable assets
+- CORS enabled for cross-origin requests
+- Gzip compression
+- Directory browsing enabled
+- Replaces the need for separate t2.nano CDN instance
+
+## Step 10: Start All Services
 
 ```bash
 # Start all services
@@ -233,7 +269,7 @@ docker-compose logs -f
 docker-compose ps
 ```
 
-## Step 10: Verify Deployment
+## Step 11: Verify Deployment
 
 Check each service:
 
