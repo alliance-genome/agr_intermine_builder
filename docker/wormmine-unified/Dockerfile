@@ -185,7 +185,8 @@ RUN wget -q "https://archive.apache.org/dist/lucene/solr/${SOLR_VERSION}/solr-${
     mv "solr-${SOLR_VERSION}" /opt/solr && \
     rm "solr-${SOLR_VERSION}.tgz" && \
     mkdir -p ${SOLR_HOME}/data ${SOLR_HOME}/logs && \
-    cp /opt/solr/server/solr/solr.xml ${SOLR_HOME}/data/ && \
+    cp /opt/solr/server/solr/solr.xml ${SOLR_HOME}/solr.xml && \
+    cp /opt/solr/server/solr/zoo.cfg ${SOLR_HOME}/ 2>/dev/null || true && \
     chown -R intermine:intermine /opt/solr ${SOLR_HOME}
 
 # ============================================
@@ -201,6 +202,8 @@ COPY --from=builder --chown=intermine:intermine /root/.gradle /opt/intermine/.gr
 # Copy Perl modules and project_build script from builder
 COPY --from=builder /usr/local/lib/perl5 /usr/local/lib/perl5
 COPY --from=builder /usr/local/share/perl5 /usr/local/share/perl5
+COPY --from=builder /usr/lib/perl5/vendor_perl /usr/lib/perl5/vendor_perl
+COPY --from=builder /usr/share/perl5/vendor_perl /usr/share/perl5/vendor_perl
 COPY --from=builder /usr/local/bin/project_build /usr/local/bin/project_build
 
 # Create data and config directories

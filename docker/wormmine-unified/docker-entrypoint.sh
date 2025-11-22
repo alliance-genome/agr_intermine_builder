@@ -130,12 +130,20 @@ setup_databases() {
 start_solr() {
     echo "🔍 Starting Solr on port ${SOLR_PORT}..."
 
-    # Start Solr in background
+    # Ensure JAVA_HOME is set
+    export JAVA_HOME=/opt/java/openjdk
+    export PATH=$JAVA_HOME/bin:$PATH
+
+    # Start Solr in background (use SOLR_HOME as base, not SOLR_HOME/data)
     /opt/solr/bin/solr start \
         -p ${SOLR_PORT} \
-        -s ${SOLR_HOME}/data \
+        -s ${SOLR_HOME} \
         -m ${SOLR_JAVA_MEM#-Xms} \
         -d /opt/solr/server
+
+    # Wait for Solr to be fully started
+    echo "⏳ Waiting for Solr to start..."
+    sleep 5
 
     # Create WormMine cores if they don't exist
     if ! /opt/solr/bin/solr status | grep -q "wormmine-search"; then
@@ -148,7 +156,7 @@ start_solr() {
         /opt/solr/bin/solr create -c wormmine-autocomplete -p ${SOLR_PORT}
     fi
 
-    echo "✅ Solr started with cores ready"
+    echo "✅ Solr started with cores: wormmine-search, wormmine-autocomplete"
 }
 
 # ============================================
