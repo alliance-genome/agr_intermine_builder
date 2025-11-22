@@ -76,6 +76,9 @@ services:
       # Mount acedb dumps directory
       - ./WS298:/root/data/acedb_dumps/WS298
 
+      # Mount processed data directory (output from deploy.sh)
+      - wormmine-data:/root/data/mine_input
+
       # Solr indexes
       - solr-data:/var/solr/data
 
@@ -98,13 +101,19 @@ services:
     # Restart policy
     restart: unless-stopped
 
-    # Command (default: run - manual mode)
-    command: run
+    # Command
+    # Options:
+    #   - run: Manual mode (shell access, services not auto-started)
+    #   - tomcat: Start Solr + Tomcat (for webapp deployment)
+    command: tomcat
 
 # ============================================
 # Named Volumes
 # ============================================
 volumes:
+  wormmine-data:
+    name: wormmine_data
+
   solr-data:
     name: wormmine_solr
 
