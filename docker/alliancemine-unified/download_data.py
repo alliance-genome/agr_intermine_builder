@@ -45,6 +45,7 @@ REQUIRED_FILES = {
 REQUIRED_FILE_PREFIXES = {
     "GAF_",  # All GAF files (*.gaf pattern in project.xml)
     "ONTOLOGY_",  # All ontology files (.obo files for SO, GO, DO, ECO, etc.)
+    "FASTA_",  # All FASTA genome sequence files
 }
 
 
@@ -225,31 +226,38 @@ def normalize_filename(filename: str) -> str:
     Normalize FMS filename to match project.xml expectations.
 
     Removes version suffixes like _1, _2, etc. and .gz extension.
+    Removes version prefixes like 1.0.0.8_ from FASTA files.
     Maps to expected names from REQUIRED_FILES.
 
     Examples:
         EXPRESSION-ALLIANCE_COMBINED_1.tsv.gz -> EXPRESSION-ALLIANCE_COMBINED.tsv
         DISEASE-ALLIANCE_COMBINED_7.tsv.gz -> DISEASE-ALLIANCE_COMBINED.tsv
         GAF_MGI_1.gaf.gz -> GAF_MGI.gaf
+        1.0.0.8_FASTA_R627.fa -> FASTA_R627.fa
+        1.0.0.8_FASTA_GRCm38.fa -> FASTA_GRCm38.fa
     """
     # Remove .gz extension if present
     if filename.endswith('.gz'):
         filename = filename[:-3]
 
+    # Remove version prefix pattern for FASTA files: <semver>_FASTA_ -> FASTA_
+    # Pattern: X.Y.Z.W_FASTA_ where X, Y, Z, W are digits
+    filename = re.sub(r'^\d+\.\d+\.\d+\.\d+_(FASTA_)', r'\1', filename)
+
     # Remove version suffix pattern: _<digit> before extension
     filename = re.sub(r'_\d+\.', '.', filename)
 
     # Check if this matches a required file pattern and use mapped name
-    base_name = re.sub(r'\.(tsv|json|gaf|txt)$', '', filename)
+    base_name = re.sub(r'\.(tsv|json|gaf|txt|fa|fasta|obo)$', '', filename)
 
     # Check for exact match in required files
     if base_name in REQUIRED_FILES:
         return REQUIRED_FILES[base_name]
 
-    # Check for prefix match (like GAF files)
+    # Check for prefix match (like GAF files, FASTA files)
     for prefix in REQUIRED_FILE_PREFIXES:
         if base_name.startswith(prefix):
-            # Keep original name (just remove version suffix)
+            # Keep original name (just remove version suffix/prefix)
             return filename
 
     return filename
