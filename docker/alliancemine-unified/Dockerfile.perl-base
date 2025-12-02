@@ -1,0 +1,38 @@
+# ============================================
+# Perl Base Image for InterMine
+# ============================================
+# Pre-built image with all required Perl modules
+# Push to ECR and reuse across builds to save time
+#
+# Build: docker build -f Dockerfile.perl-base -t <account>.dkr.ecr.us-east-1.amazonaws.com/alliancemine-perl-base:latest .
+# Push:  docker push <account>.dkr.ecr.us-east-1.amazonaws.com/alliancemine-perl-base:latest
+# ============================================
+
+FROM eclipse-temurin:8-jdk-alpine
+
+LABEL maintainer="Alliance of Genome Resources"
+LABEL description="Perl base image with InterMine required modules"
+
+# Install Perl and build dependencies
+RUN apk add --no-cache \
+    perl \
+    perl-dev \
+    perl-app-cpanminus \
+    build-base \
+    wget
+
+# Install Perl modules for InterMine
+# Install in batches and ignore exit codes since --force may still return non-zero
+RUN cpanm --notest --force Ouch LWP URI Module::Find Web::Scraper || true && \
+    cpanm --notest --force Number::Format Perl6::Junction YAML || true && \
+    cpanm --notest --force XML::DOM XML::Simple Text::Glob Log::Handler || true && \
+    cpanm --notest --force XML::Parser::PerlSAX || true && \
+    rm -rf /root/.cpanm /tmp/*
+
+# Download project_build script for full InterMine builds
+RUN wget -q https://raw.githubusercontent.com/intermine/intermine-scripts/master/project_build \
+    -O /usr/local/bin/project_build && \
+    chmod +x /usr/local/bin/project_build
+
+# Verify installations
+RUN perl -e 'use XML::Parser::PerlSAX; use Text::Glob; use LWP; print "Perl modules OK\n"'
