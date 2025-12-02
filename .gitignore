@@ -2,6 +2,16 @@
 .idea/
 /data
 
+# OS files
+.DS_Store
+*.DS_Store
+
+# Large data files and archives
+*.tgz
+*.tar.gz
+docker/*/data/
+docker/wormmine-unified/WS*/
+
 # Python
 __pycache__/
 *.py[cod]
