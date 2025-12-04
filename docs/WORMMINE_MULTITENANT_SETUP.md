@@ -245,8 +245,77 @@ sudo systemctl restart solr
 
 In WormMine source (`/opt/intermine/wormmine/`):
 - `webapp/src/main/webapp/WEB-INF/global.web.properties` - CDN location
+- `webapp/src/main/webapp/footer.jsp` - Footer with local image URLs
 - `dbmodel/resources/keyword_search.properties` - Solr search URL
 - `dbmodel/resources/objectstoresummary.config.properties` - Solr autocomplete URL
 
 In InterMine config (`/opt/intermine/.intermine/`):
 - `wormmine.properties` - All mine configuration
+
+## User Profile Database
+
+The userprofile database was restored from `profile_dump_Dec25.sql`:
+
+```bash
+# Terminate existing connections
+PGPASSWORD='<password>' psql -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com -U postgres \
+  -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'wormmine_userprofile' AND pid <> pg_backend_pid();"
+
+# Drop and recreate
+PGPASSWORD='<password>' psql -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com -U postgres \
+  -c "DROP DATABASE IF EXISTS wormmine_userprofile;"
+PGPASSWORD='<password>' psql -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com -U postgres \
+  -c "CREATE DATABASE wormmine_userprofile;"
+
+# Restore dump
+PGPASSWORD='<password>' psql -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com -U postgres \
+  -d wormmine_userprofile < profile_dump_Dec25.sql
+```
+
+### Superuser Configuration
+In `wormmine.properties`:
+```properties
+superuser.account=staff@wormbase.org
+superuser.password=<contact admin for password>
+```
+
+## Footer Images (CDN)
+
+The WormBase footer images are hosted locally on the CDN since wormbase.org blocks direct access (Cloudflare).
+
+### Image Location
+```
+/data/cdn/img/wormbase/
+├── agr_founding_member_badge.png
+├── caltech_logo.png
+├── embl_ebi_logo_white.svg
+├── global-core-biodata-resources.svg
+└── oicr_logo_white.png
+```
+
+### Footer Image URLs
+In `footer.jsp`, images are referenced as:
+```
+http://172.31.59.87:8888/img/wormbase/<image_file>
+```
+
+### Updating Footer Images
+1. Download images manually (wormbase.org uses Cloudflare protection)
+2. Upload to multi-tenant CDN:
+   ```bash
+   scp -i ~/.ssh/AGR-ssl3.pem <images> ec2-user@172.31.59.87:/data/cdn/img/wormbase/
+   ```
+3. Redeploy if footer.jsp was modified
+
+## Public Access (Future)
+
+To expose WormMine publicly at `alliancegenome.org/wormmine`:
+
+1. Configure Alliance main proxy/load balancer to route:
+   ```
+   https://alliancegenome.org/wormmine → http://172.31.59.87:8081/wormmine
+   ```
+
+2. The `webapp.baseurl` can remain as the internal IP - it only needs to be reachable from the server itself for XML validation.
+
+3. Users will see `https://alliancegenome.org/wormmine` in their browser - the internal IP is never exposed.
