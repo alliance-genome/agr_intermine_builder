@@ -1,39 +1,46 @@
 #!/bin/bash
 
 # Launch multi-tenant InterMine EC2 instance
-# Instance type: c7i.4xlarge (16 vCPUs, 32GB RAM)
-# Purpose: Run multiple InterMine instances (Tomcat containers), Solr, and BlueGenes
+# Solr installed locally, Tomcat containers per mine, Caddy for HTTPS
 
 set -e
 
 # Configuration
 INSTANCE_TYPE="c7i.4xlarge"
-AMI_ID="ami-0c55b159cbfafe1f0"  # Amazon Linux 2023 AMI - UPDATE THIS for your region
 REGION="us-east-1"
-KEY_NAME="your-key-pair"  # UPDATE THIS
-SECURITY_GROUP="sg-xxxxxxxxx"  # UPDATE THIS - needs ports 22, 80, 443, 8080, 8983
-SUBNET_ID="subnet-xxxxxxxxx"  # UPDATE THIS
-IAM_INSTANCE_PROFILE="arn:aws:iam::100225593120:instance-profile/EC2-ECR-Access"  # For ECR access
+KEY_NAME="AGR-ssl3"
+SUBNET_ID="subnet-ff838bd5"
+SECURITY_GROUP_IDS="sg-21ac675b sg-0415cab61ab6b45c5"
+IAM_INSTANCE_PROFILE="S3DataAccess"
 
-# Storage configuration
-ROOT_VOLUME_SIZE=100  # GB - for OS, Docker images, logs
-DATA_VOLUME_SIZE=200  # GB - for mine data, Solr indexes
+# Get latest Amazon Linux 2023 AMI
+AMI_ID=$(aws ec2 describe-images --region "$REGION" --owners amazon \
+    --filters "Name=name,Values=al2023-ami-2023*-x86_64" "Name=state,Values=available" \
+    --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' --output text)
+
+if [ -z "$AMI_ID" ] || [ "$AMI_ID" == "None" ]; then
+    echo "ERROR: Could not find Amazon Linux 2023 AMI"
+    exit 1
+fi
+echo "Using AMI: $AMI_ID"
+
+# Storage - runtime only
+ROOT_VOLUME_SIZE=50
+DATA_VOLUME_SIZE=30
 
 # Tags
 PROJECT="AllianceMine"
 ENVIRONMENT="production"
-TEAM="Alliance Genome Resources"
-COST_CENTER="InterMine"
 
-# User data script for instance initialization
 USER_DATA=$(cat <<'EOF'
 #!/bin/bash
+set -e
 
 # Update system
 yum update -y
+yum install -y docker git wget java-11-amazon-corretto
 
-# Install Docker
-yum install -y docker
+# Start Docker
 systemctl start docker
 systemctl enable docker
 usermod -a -G docker ec2-user
@@ -42,222 +49,234 @@ usermod -a -G docker ec2-user
 curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Install AWS CLI v2
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-./aws/install
-rm -rf aws awscliv2.zip
+# ============================================
+# Install Solr 8.11.2
+# ============================================
+cd /opt
+wget -q https://archive.apache.org/dist/lucene/solr/8.11.2/solr-8.11.2.tgz
+tar xzf solr-8.11.2.tgz
+./solr-8.11.2/bin/install_solr_service.sh solr-8.11.2.tgz
+rm solr-8.11.2.tgz
 
-# Install PostgreSQL client for debugging
-amazon-linux-extras install postgresql14 -y
+# Start Solr
+systemctl enable solr
+systemctl start solr
 
-# Create data directory
-mkdir -p /data/mines
-mkdir -p /data/solr
-mkdir -p /data/bluegenes
+# ============================================
+# Install Caddy
+# ============================================
+yum install -y yum-plugin-copr
+yum copr enable -y @caddy/caddy
+yum install -y caddy
+systemctl enable caddy
+
+# ============================================
+# Create directory structure
+# ============================================
+mkdir -p /data/mines/logs
 chown -R ec2-user:ec2-user /data
 
-# Mount additional EBS volume if attached
-DEVICE="/dev/nvme1n1"
-if [ -b "$DEVICE" ]; then
-    # Check if volume has a filesystem
-    if ! blkid "$DEVICE"; then
-        mkfs -t ext4 "$DEVICE"
-    fi
+# ============================================
+# Build InterMine Tomcat image
+# ============================================
+mkdir -p /opt/intermine-tomcat
+cat > /opt/intermine-tomcat/Dockerfile <<'DOCKERFILE'
+FROM tomcat:9-jdk11
 
-    # Mount to /data
-    mount "$DEVICE" /data
+# Copy manager from webapps.dist to webapps (base image keeps apps in webapps.dist)
+RUN cp -r /usr/local/tomcat/webapps.dist/manager /usr/local/tomcat/webapps/ || true
 
-    # Add to fstab for persistence
-    UUID=$(blkid -s UUID -o value "$DEVICE")
-    echo "UUID=$UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
+# Remove default webapps we dont need
+RUN rm -rf /usr/local/tomcat/webapps/ROOT /usr/local/tomcat/webapps/docs /usr/local/tomcat/webapps/examples /usr/local/tomcat/webapps/host-manager
 
-    # Recreate directories after mount
-    mkdir -p /data/mines /data/solr /data/bluegenes
-    chown -R ec2-user:ec2-user /data
+# Configure tomcat-users.xml
+RUN printf '<?xml version="1.0" encoding="UTF-8"?>\n<tomcat-users>\n  <role rolename="manager-gui"/>\n  <role rolename="manager-script"/>\n  <user username="manager" password="manager" roles="manager-gui,manager-script"/>\n</tomcat-users>' > /usr/local/tomcat/conf/tomcat-users.xml
+
+# Configure context.xml for InterMine
+RUN printf '<?xml version="1.0" encoding="UTF-8"?>\n<Context sessionCookiePath="/" useHttpOnly="false" clearReferencesStopTimerThreads="true">\n  <WatchedResource>WEB-INF/web.xml</WatchedResource>\n</Context>' > /usr/local/tomcat/conf/context.xml
+
+# Allow manager access from any IP
+RUN mkdir -p /usr/local/tomcat/webapps/manager/META-INF && \
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<Context antiResourceLocking="false" privileged="true">\n  <Valve className="org.apache.catalina.valves.RemoteAddrValve" allow=".*"/>\n</Context>' > /usr/local/tomcat/webapps/manager/META-INF/context.xml
+
+# Configure server.xml with UTF-8 encoding
+RUN sed -i 's/Connector port="8080"/Connector port="8080" URIEncoding="UTF-8"/' /usr/local/tomcat/conf/server.xml
+
+# Set JAVA_OPTS for InterMine
+ENV JAVA_OPTS="-Dorg.apache.el.parser.SKIP_IDENTIFIER_CHECK=true -Xmx4g -Xms2g"
+ENV CATALINA_OPTS="-Dorg.apache.el.parser.SKIP_IDENTIFIER_CHECK=true"
+
+# Create .intermine directory
+RUN mkdir -p /root/.intermine
+
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+DOCKERFILE
+
+cd /opt/intermine-tomcat
+docker build -t intermine-tomcat:latest .
+
+# ============================================
+# Create mine management scripts
+# ============================================
+
+# Script to add a new mine
+cat > /usr/local/bin/add-mine <<'ADDMINE'
+#!/bin/bash
+set -e
+
+MINE_NAME=$1
+PORT=$2
+DOMAIN=$3  # Optional - only needed if using Caddy for HTTPS
+
+if [ -z "$MINE_NAME" ] || [ -z "$PORT" ]; then
+    echo "Usage: add-mine <mine_name> <port> [domain]"
+    echo "Example: add-mine wormmine 8081"
+    exit 1
 fi
 
-# Configure Docker daemon for better logging
-cat > /etc/docker/daemon.json <<DOCKER_CONFIG
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  },
-  "storage-driver": "overlay2"
+echo "Adding mine: $MINE_NAME on port $PORT"
+
+# Create Solr cores (InterMine needs search + autocomplete)
+sudo -u solr /opt/solr/bin/solr create_core -c ${MINE_NAME}-search -d /opt/solr/server/solr/configsets/_default || true
+sudo -u solr /opt/solr/bin/solr create_core -c ${MINE_NAME}-autocomplete -d /opt/solr/server/solr/configsets/_default || true
+
+# Create logs directory
+mkdir -p /data/mines/logs/${MINE_NAME}
+
+# Start container (WAR deployed via cargoRedeployRemote from build image)
+docker run -d \
+    --name $MINE_NAME \
+    --restart unless-stopped \
+    -p ${PORT}:8080 \
+    -v /data/mines/logs/${MINE_NAME}:/usr/local/tomcat/logs \
+    -e JAVA_OPTS="-Dorg.apache.el.parser.SKIP_IDENTIFIER_CHECK=true -Xmx4g -Xms2g" \
+    intermine-tomcat:latest
+
+echo "Container $MINE_NAME started on port $PORT"
+echo "Tomcat manager: http://localhost:${PORT}/manager/html (manager/manager)"
+echo ""
+echo "Solr cores created:"
+echo "  Search:       http://localhost:8983/solr/${MINE_NAME}-search"
+echo "  Autocomplete: http://localhost:8983/solr/${MINE_NAME}-autocomplete"
+
+# Add to Caddy config if domain provided
+if [ -n "$DOMAIN" ] && ! grep -q "$DOMAIN" /etc/caddy/Caddyfile 2>/dev/null; then
+    cat >> /etc/caddy/Caddyfile <<CADDY
+
+${DOMAIN} {
+    reverse_proxy localhost:${PORT}
 }
-DOCKER_CONFIG
+CADDY
+    systemctl reload caddy
+    echo "Added Caddy config for $DOMAIN"
+fi
 
-systemctl restart docker
+echo ""
+echo "Done! Deploy WAR via cargoRedeployRemote from build image"
+ADDMINE
+chmod +x /usr/local/bin/add-mine
 
-# ECR login
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
-
-# Create systemd service for docker-compose management
-cat > /etc/systemd/system/intermine-stack.service <<SERVICE
-[Unit]
-Description=InterMine Multi-Tenant Stack
-After=docker.service
-Requires=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/home/ec2-user/intermine
-ExecStart=/usr/local/bin/docker-compose up -d
-ExecStop=/usr/local/bin/docker-compose down
-User=ec2-user
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-
-# Enable CloudWatch agent for monitoring
-wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
-rpm -U ./amazon-cloudwatch-agent.rpm
-rm amazon-cloudwatch-agent.rpm
-
-# Create initial monitoring script
-cat > /home/ec2-user/monitor.sh <<'MONITOR'
+# Script to remove a mine
+cat > /usr/local/bin/remove-mine <<'REMOVEMINE'
 #!/bin/bash
-echo "=== Docker Container Status ==="
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+MINE_NAME=$1
 
-echo -e "\n=== Memory Usage ==="
-free -h
+if [ -z "$MINE_NAME" ]; then
+    echo "Usage: remove-mine <mine_name>"
+    exit 1
+fi
 
-echo -e "\n=== Disk Usage ==="
-df -h /data
+docker stop $MINE_NAME 2>/dev/null || true
+docker rm $MINE_NAME 2>/dev/null || true
+echo "Removed container $MINE_NAME"
+echo "Note: WAR, properties, and Solr core preserved. Delete manually if needed."
+REMOVEMINE
+chmod +x /usr/local/bin/remove-mine
 
-echo -e "\n=== Docker Stats ==="
-docker stats --no-stream
-MONITOR
+# Script to list mines
+cat > /usr/local/bin/list-mines <<'LISTMINES'
+#!/bin/bash
+echo "=== Running Mines ==="
+docker ps --filter "ancestor=intermine-tomcat:latest" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo ""
+echo "=== Solr Cores ==="
+curl -s "http://localhost:8983/solr/admin/cores?action=STATUS" | grep -o '"name":"[^"]*"' | cut -d'"' -f4
+echo ""
+echo "=== Available WARs ==="
+ls -la /data/mines/wars/
+LISTMINES
+chmod +x /usr/local/bin/list-mines
 
-chmod +x /home/ec2-user/monitor.sh
-chown ec2-user:ec2-user /home/ec2-user/monitor.sh
+# ============================================
+# Initialize Caddy config
+# ============================================
+cat > /etc/caddy/Caddyfile <<'CADDYFILE'
+# InterMine Multi-Tenant Caddy Configuration
+# Mines are added automatically by add-mine script
 
-# Signal completion
-echo "EC2 initialization complete" > /tmp/user-data-complete
+# Global options
+{
+    email admin@alliancegenome.org
+}
+CADDYFILE
+
+systemctl start caddy
+
+# ============================================
+# ECR login for pulling images if needed
+# ============================================
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com 2>/dev/null || true
+
+echo "Setup complete!" > /tmp/user-data-complete
 EOF
 )
 
 # Launch instance
-echo "Launching c7i.4xlarge instance for multi-tenant InterMine deployment..."
+echo "Launching multi-tenant InterMine instance..."
 
 INSTANCE_ID=$(aws ec2 run-instances \
     --region "$REGION" \
     --image-id "$AMI_ID" \
     --instance-type "$INSTANCE_TYPE" \
     --key-name "$KEY_NAME" \
-    --security-group-ids "$SECURITY_GROUP" \
+    --security-group-ids $SECURITY_GROUP_IDS \
     --subnet-id "$SUBNET_ID" \
-    --iam-instance-profile "Name=EC2-ECR-Access" \
+    --iam-instance-profile "Name=$IAM_INSTANCE_PROFILE" \
     --block-device-mappings \
-        "DeviceName=/dev/xvda,Ebs={VolumeSize=$ROOT_VOLUME_SIZE,VolumeType=gp3,DeleteOnTermination=true,Iops=3000,Throughput=125}" \
-        "DeviceName=/dev/sdf,Ebs={VolumeSize=$DATA_VOLUME_SIZE,VolumeType=gp3,DeleteOnTermination=false,Iops=3000,Throughput=125}" \
+        "DeviceName=/dev/xvda,Ebs={VolumeSize=$ROOT_VOLUME_SIZE,VolumeType=gp3,DeleteOnTermination=true}" \
+        "DeviceName=/dev/sdf,Ebs={VolumeSize=$DATA_VOLUME_SIZE,VolumeType=gp3,DeleteOnTermination=false}" \
     --tag-specifications \
-        "ResourceType=instance,Tags=[
-            {Key=Name,Value=InterMine-MultiTenant-Production},
-            {Key=Project,Value=$PROJECT},
-            {Key=Environment,Value=$ENVIRONMENT},
-            {Key=Team,Value=$TEAM},
-            {Key=CostCenter,Value=$COST_CENTER},
-            {Key=Purpose,Value=Multi-tenant InterMine deployment},
-            {Key=ManagedBy,Value=agr_intermine_builder}
-        ]" \
-        "ResourceType=volume,Tags=[
-            {Key=Name,Value=InterMine-MultiTenant-Volume},
-            {Key=Project,Value=$PROJECT},
-            {Key=Environment,Value=$ENVIRONMENT},
-            {Key=VolumeType,Value=Root}
-        ]" \
+        "ResourceType=instance,Tags=[{Key=Name,Value=InterMine-MultiTenant},{Key=Project,Value=$PROJECT},{Key=Environment,Value=$ENVIRONMENT}]" \
     --user-data "$USER_DATA" \
-    --monitoring Enabled=true \
     --query 'Instances[0].InstanceId' \
     --output text)
 
-if [ -z "$INSTANCE_ID" ]; then
-    echo "ERROR: Failed to launch instance"
-    exit 1
-fi
-
-echo "✓ Instance launched: $INSTANCE_ID"
-echo "  Waiting for instance to start..."
-
-# Wait for instance to be running
+echo "Instance: $INSTANCE_ID"
 aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE_ID"
 
-# Get instance details
-INSTANCE_INFO=$(aws ec2 describe-instances \
+PUBLIC_IP=$(aws ec2 describe-instances \
     --region "$REGION" \
     --instance-ids "$INSTANCE_ID" \
-    --query 'Reservations[0].Instances[0].[PublicIpAddress,PrivateIpAddress,State.Name]' \
+    --query 'Reservations[0].Instances[0].PublicIpAddress' \
     --output text)
 
-PUBLIC_IP=$(echo "$INSTANCE_INFO" | cut -f1)
-PRIVATE_IP=$(echo "$INSTANCE_INFO" | cut -f2)
-STATE=$(echo "$INSTANCE_INFO" | cut -f3)
-
 echo ""
-echo "================================"
-echo "Instance Details"
-echo "================================"
-echo "Instance ID:    $INSTANCE_ID"
-echo "Instance Type:  $INSTANCE_TYPE"
-echo "State:          $STATE"
-echo "Public IP:      $PUBLIC_IP"
-echo "Private IP:     $PRIVATE_IP"
-echo "Region:         $REGION"
+echo "========================================"
+echo "Instance ready: $INSTANCE_ID"
+echo "Public IP: $PUBLIC_IP"
+echo "========================================"
 echo ""
-echo "Configuration:"
-echo "  - vCPUs:      16"
-echo "  - Memory:     32 GB"
-echo "  - Root Vol:   $ROOT_VOLUME_SIZE GB (gp3)"
-echo "  - Data Vol:   $DATA_VOLUME_SIZE GB (gp3)"
+echo "SSH: ssh -i ~/.ssh/${KEY_NAME}.pem ec2-user@$PUBLIC_IP"
 echo ""
-echo "Memory Allocation Plan:"
-echo "  - Tomcat containers:  ~24 GB (8-12 mines × 2-2.5 GB each)"
-echo "  - Solr:               2-3 GB"
-echo "  - BlueGenes:          1 GB"
-echo "  - System:             3-4 GB"
+echo "Wait ~5 min for setup, then:"
 echo ""
-echo "Tags:"
-echo "  Project:      $PROJECT"
-echo "  Environment:  $ENVIRONMENT"
-echo "  Team:         $TEAM"
+echo "  # Add mine (Solr core + Tomcat container + Caddy)"
+echo "  ssh ec2-user@$PUBLIC_IP 'sudo add-mine wormmine 8081 wormmine.alliancegenome.org'"
 echo ""
-echo "SSH Connection:"
-echo "  ssh -i ~/.ssh/$KEY_NAME.pem ec2-user@$PUBLIC_IP"
+echo "  # Deploy from build image: ./gradlew cargoRedeployRemote"
 echo ""
-echo "Next Steps:"
-echo "  1. Wait 2-3 minutes for user-data script to complete"
-echo "  2. SSH to instance"
-echo "  3. Clone agr_intermine_builder repository"
-echo "  4. Configure docker-compose.yml for multiple mines"
-echo "  5. Pull images from ECR and start services"
+echo "  # Solr URL for mine properties: http://$PUBLIC_IP:8983/solr/<mine>"
 echo ""
-echo "Monitor initialization:"
-echo "  ssh -i ~/.ssh/$KEY_NAME.pem ec2-user@$PUBLIC_IP 'tail -f /var/log/cloud-init-output.log'"
-echo "================================"
-
-# Save instance info to file
-cat > instance-info.txt <<INFO
-Instance ID: $INSTANCE_ID
-Instance Type: $INSTANCE_TYPE
-Public IP: $PUBLIC_IP
-Private IP: $PRIVATE_IP
-Region: $REGION
-Launch Time: $(date)
-
-SSH Command:
-ssh -i ~/.ssh/$KEY_NAME.pem ec2-user@$PUBLIC_IP
-
-Tags:
-  Project: $PROJECT
-  Environment: $ENVIRONMENT
-  Team: $TEAM
-  Cost Center: $COST_CENTER
-INFO
-
-echo "Instance information saved to instance-info.txt"
+echo "  # List mines: ssh ec2-user@$PUBLIC_IP 'list-mines'"
+echo "========================================"
