@@ -393,7 +393,30 @@ Then update BlueGenes config:
 
 ## BlueGenes Deployment
 
-BlueGenes is deployed on AllianceMine and pushed to ECR.
+BlueGenes can be deployed either on the multi-tenant instance (for WormMine) or on AllianceMine (production).
+
+### ECR Image Tags
+
+- `latest` - Production BlueGenes for AllianceMine
+- `wormmine` - WormMine-specific BlueGenes for multi-tenant deployment
+
+### Multi-Tenant Deployment (WormMine)
+
+BlueGenes runs on the multi-tenant instance alongside WormMine:
+
+- **Container Name**: bluegenes
+- **Port**: 5000
+- **Image**: `100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine`
+- **Access URL**: http://44.206.248.213:5000/bluegenes/wormmine
+
+**WormMine Config** (in `config/defaults/config.edn`):
+```clojure
+{:root "http://44.206.248.213:8081/wormmine"
+ :name "WormMine"
+ :namespace "wormmine"}
+```
+
+**Security Group**: Port 5000 opened in `sg-0415cab61ab6b45c5`
 
 ### Build and Deploy Process
 
@@ -406,17 +429,33 @@ cd /path/to/agr_bluegenes
 rm -rf target
 lein uberjar
 
-# 3. Build Docker image
-docker build -t agr_bluegenes .
+# 3. Build Docker image with tag
+docker build -t agr_bluegenes:wormmine .
 
 # 4. Tag and push to ECR
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
+docker tag agr_bluegenes:wormmine 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+docker push 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+
+# 5. Deploy on Multi-Tenant
+ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.59.87 -o ProxyJump=blast
+aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
+sudo docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+sudo docker stop bluegenes && sudo docker rm bluegenes
+sudo docker run -d --name bluegenes -p 5000:5000 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+```
+
+### Production Deployment (AllianceMine)
+
+For production at `https://www.alliancegenome.org/bluegenes`:
+
+```bash
+# Use :latest tag instead of :wormmine
 docker tag agr_bluegenes:latest 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
 docker push 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
 
-# 5. Deploy on AllianceMine
+# Deploy on AllianceMine
 ssh AllianceMine
-aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
 sudo docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
 sudo docker stop bluegenes && sudo docker rm bluegenes
 sudo docker run -d --name bluegenes -p 5000:5000 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
@@ -427,3 +466,24 @@ sudo docker run -d --name bluegenes -p 5000:5000 100225593120.dkr.ecr.us-east-1.
 BlueGenes config is read from `config/defaults/config.edn` which gets bundled into the JAR as `config.edn`. The `config/prod/config.edn` is copied to the Docker image but may not be used at runtime depending on the classpath order.
 
 **Always update `config/defaults/config.edn`** when changing mine configurations.
+
+### Running Services on Multi-Tenant
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Multi-Tenant EC2 Instance                     │
+│                      (172.31.59.87 / 44.206.248.213)            │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
+│  │   Solr       │  │   Caddy      │  │  Tomcat Container    │   │
+│  │   :8983      │  │   :8888 CDN  │  │  (wormmine) :8081    │   │
+│  │              │  │   :443 HTTPS │  │                      │   │
+│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │   BlueGenes Container                                     │   │
+│  │   :5000                                                   │   │
+│  │   http://44.206.248.213:5000/bluegenes/wormmine          │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
