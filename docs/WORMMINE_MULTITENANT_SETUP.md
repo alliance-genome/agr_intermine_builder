@@ -307,15 +307,123 @@ http://172.31.59.87:8888/img/wormbase/<image_file>
    ```
 3. Redeploy if footer.jsp was modified
 
-## Public Access (Future)
+## Public Access
 
-To expose WormMine publicly at `alliancegenome.org/wormmine`:
+### Current Status
 
-1. Configure Alliance main proxy/load balancer to route:
-   ```
-   https://alliancegenome.org/wormmine → http://172.31.59.87:8081/wormmine
-   ```
+WormMine is accessible:
+- **Internal (VPN)**: http://172.31.59.87:8081/wormmine
+- **Public HTTP**: http://44.206.248.213:8081/wormmine (port 8081 opened in security group)
 
-2. The `webapp.baseurl` can remain as the internal IP - it only needs to be reachable from the server itself for XML validation.
+### Security Group Changes
 
-3. Users will see `https://alliancegenome.org/wormmine` in their browser - the internal IP is never exposed.
+Port 8081 was added to security group `sg-0415cab61ab6b45c5` (HTTP/HTTPS):
+```bash
+aws ec2 authorize-security-group-ingress --group-id sg-0415cab61ab6b45c5 --protocol tcp --port 8081 --cidr 0.0.0.0/0
+```
+
+### Caddy HTTPS Proxy Configuration
+
+Caddy is configured to proxy WormMine over HTTPS on port 443:
+
+**/etc/caddy/Caddyfile**:
+```
+# CDN server
+:8888 {
+    root * /data/cdn
+    file_server
+    header Access-Control-Allow-Origin *
+}
+
+# HTTPS proxy for InterMines
+:443 {
+    tls internal
+
+    # WormMine
+    handle /wormmine/* {
+        reverse_proxy localhost:8081
+    }
+
+    # Add more mines here as needed:
+    # handle /flymine/* {
+    #     reverse_proxy localhost:8082
+    # }
+
+    # Default: 404
+    handle {
+        respond "Not Found" 404
+    }
+}
+```
+
+**Note**: The `tls internal` directive uses a self-signed certificate which browsers don't trust. For production HTTPS access, either:
+1. Get a domain name pointing to 44.206.248.213 and use Let's Encrypt
+2. Proxy through alliancegenome.org's infrastructure (recommended)
+
+### BlueGenes Integration Issue
+
+**Problem**: BlueGenes at `https://www.alliancegenome.org/bluegenes` cannot access WormMine directly because:
+1. Mixed content: HTTPS pages cannot load HTTP resources
+2. Self-signed HTTPS cert on multi-tenant is not trusted by browsers
+
+**Current BlueGenes Configuration** (in `agr_bluegenes/config/defaults/config.edn`):
+```clojure
+{:root "https://44.206.248.213/wormmine"
+ :name "WormMine"
+ :namespace "wormmine"}
+```
+
+**Resolution Required**: Work with Alliance team to either:
+1. Set up a proper domain with SSL for the multi-tenant instance
+2. Configure a reverse proxy path at `https://www.alliancegenome.org/wormmine` that routes to `http://172.31.59.87:8081/wormmine`
+
+### To Expose WormMine via Alliance Proxy
+
+Configure Alliance main proxy/load balancer to route:
+```
+https://alliancegenome.org/wormmine → http://172.31.59.87:8081/wormmine
+```
+
+Then update BlueGenes config:
+```clojure
+{:root "https://www.alliancegenome.org/wormmine"
+ :name "WormMine"
+ :namespace "wormmine"}
+```
+
+## BlueGenes Deployment
+
+BlueGenes is deployed on AllianceMine and pushed to ECR.
+
+### Build and Deploy Process
+
+```bash
+# 1. Update config in agr_bluegenes/config/defaults/config.edn
+# (This is the config that gets bundled into the JAR)
+
+# 2. Build JAR
+cd /path/to/agr_bluegenes
+rm -rf target
+lein uberjar
+
+# 3. Build Docker image
+docker build -t agr_bluegenes .
+
+# 4. Tag and push to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
+docker tag agr_bluegenes:latest 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
+docker push 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
+
+# 5. Deploy on AllianceMine
+ssh AllianceMine
+aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 100225593120.dkr.ecr.us-east-1.amazonaws.com
+sudo docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
+sudo docker stop bluegenes && sudo docker rm bluegenes
+sudo docker run -d --name bluegenes -p 5000:5000 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
+```
+
+### Important: Config Location
+
+BlueGenes config is read from `config/defaults/config.edn` which gets bundled into the JAR as `config.edn`. The `config/prod/config.edn` is copied to the Docker image but may not be used at runtime depending on the classpath order.
+
+**Always update `config/defaults/config.edn`** when changing mine configurations.
