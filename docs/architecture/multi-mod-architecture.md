@@ -8,52 +8,53 @@ Based on your architecture diagram, we have:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     PRODUCTION ENVIRONMENT                           │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │  Production EC2 (Multi-Instance Tomcat + Solr)             │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐                   │    │
-│  │  │Alliance  │ │  Fly     │ │  Worm    │  ... + 4 more     │    │
-│  │  │:8080     │ │  :8081   │ │  :8082   │                   │    │
-│  │  └──────────┘ └──────────┘ └──────────┘                   │    │
-│  │                                                             │    │
-│  │  ┌──────────────┐                                          │    │
-│  │  │ Solr Cluster │  (Shared search index)                  │    │
-│  │  └──────────────┘                                          │    │
-│  └────────────────────────────────────────────────────────────┘    │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │  Production EC2 (Multi-Instance Tomcat + Solr)             │     │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐                    │     │
+│  │  │Alliance  │ │  Worm    │ │  (future)│  ... + more        │     │
+│  │  │:8080     │ │  :8081   │ │  :8082+  │                    │     │
+│  │  └──────────┘ └──────────┘ └──────────┘                    │     │
+│  │                                                            │     │
+│  │  ┌──────────────┐                                          │     │
+│  │  │ Solr Cluster │  (Shared search index)                   │     │
+│  │  └──────────────┘                                          │     │
+│  └────────────────────────────────────────────────────────────┘     │
 │                              ↓                                      │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │  RDS PostgreSQL (Multi-tenant)                             │    │
-│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐          │    │
-│  │  │alliancemine │ │  flymine    │ │  wormmine   │ + 4 more │    │
-│  │  │_db          │ │  _db        │ │  _db        │          │    │
-│  │  └─────────────┘ └─────────────┘ └─────────────┘          │    │
-│  └────────────────────────────────────────────────────────────┘    │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │  RDS PostgreSQL (Multi-tenant)                             │     │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │     │
+│  │  │alliancemine │ │  wormmine   │ │  (future)   │ + more    │     │
+│  │  │_db          │ │  _db        │ │  _db        │           │     │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘           │     │
+│  └────────────────────────────────────────────────────────────┘     │
 │                              ↑                                      │
 │                    Reads from (shared)                              │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      BUILD ENVIRONMENT                               │
+│                      BUILD ENVIRONMENT                              │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │  Ephemeral Build EC2 (r6i.2xlarge, 64GB)                   │    │
-│  │  ┌──────────────────────────────────────────────────┐      │    │
-│  │  │ EC2Builder                                       │      │    │
-│  │  │  - Builds one mine at a time                     │      │    │
-│  │  │  - Auto-terminates after completion              │      │    │
-│  │  └──────────────────────────────────────────────────┘      │    │
-│  └────────────────────────────────────────────────────────────┘    │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │  Build EC2 (AllianceMineDev) - 172.31.60.197               │     │
+│  │  ┌──────────────────────────────────────────────────┐      │     │
+│  │  │ Docker Containers (Unified Images)               │      │     │
+│  │  │  - alliancemine-unified (Build + Tomcat + Solr)  │      │     │
+│  │  │  - wormmine-unified (Build + Tomcat + Solr)      │      │     │
+│  │  │  - Persistent instance, manual builds            │      │     │
+│  │  └──────────────────────────────────────────────────┘      │     │
+│  └────────────────────────────────────────────────────────────┘     │
 │                              ↓                                      │
 │                    Writes to (during build)                         │
 │                              ↓                                      │
-│  [Same RDS PostgreSQL - builds directly into production DB]        │
-│                                                                      │
+│  [Same RDS PostgreSQL - builds directly into production DB]         │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         BLUEGENES UI                                 │
+│                         BLUEGENES UI                                │
 │  User-facing interface connected to all mines via API               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -82,12 +83,12 @@ Based on your architecture diagram, we have:
 │   ├── webapps/
 │   │   └── alliancemine.war
 │   └── logs/
-├── flymine/              # Instance 2
+├── wormmine/             # Instance 2
 │   ├── conf/
 │   │   └── server.xml   # Port 8081
 │   └── webapps/
-│       └── flymine.war
-├── wormmine/             # Instance 3
+│       └── wormmine.war
+├── flymine/              # Instance 3 (future)
 │   └── ...              # Port 8082
 ├── mousemine/            # Port 8083
 ├── ratmine/              # Port 8084
@@ -122,8 +123,8 @@ WantedBy=multi-user.target
 **Start all mines:**
 ```bash
 systemctl start tomcat@alliancemine
-systemctl start tomcat@flymine
 systemctl start tomcat@wormmine
+systemctl start tomcat@flymine
 systemctl start tomcat@mousemine
 systemctl start tomcat@ratmine
 systemctl start tomcat@yeastmine
@@ -141,8 +142,12 @@ upstream alliancemine {
     server 127.0.0.1:8080;
 }
 
-upstream flymine {
+upstream wormmine {
     server 127.0.0.1:8081;
+}
+
+upstream flymine {
+    server 127.0.0.1:8082;  # Future
 }
 
 # ... etc for all mines
@@ -158,9 +163,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # FlyMine
-    location /flymine/ {
-        proxy_pass http://flymine/flymine/;
+    # WormMine
+    location /wormmine/ {
+        proxy_pass http://wormmine/wormmine/;
         proxy_set_header Host $host;
     }
 
@@ -170,8 +175,8 @@ server {
 
 **Public URLs:**
 - `https://intermine.alliancegenome.org/alliancemine/`
-- `https://intermine.alliancegenome.org/flymine/`
 - `https://intermine.alliancegenome.org/wormmine/`
+- `https://intermine.alliancegenome.org/flymine/` (future)
 - etc.
 
 #### Solr Configuration
@@ -185,17 +190,17 @@ server {
         ├── alliancemine/
         │   ├── conf/
         │   └── data/
-        ├── flymine/
         ├── wormmine/
-        ├── mousemine/
-        ├── ratmine/
-        ├── yeastmine/
-        └── zebrafishmine/
+        ├── flymine/           # Future
+        ├── mousemine/         # Future
+        ├── ratmine/           # Future
+        ├── yeastmine/         # Future
+        └── zebrafishmine/     # Future
 ```
 
 **Solr endpoints:**
 - `http://localhost:8983/solr/alliancemine`
-- `http://localhost:8983/solr/flymine`
+- `http://localhost:8983/solr/wormmine`
 - etc.
 
 ---
@@ -218,21 +223,21 @@ Name                         | Size
 -----------------------------|-------
 alliancemine_db              | 150 GB
 alliancemine_profiles_db     | 500 MB
-flymine_db                   | 80 GB
-flymine_profiles_db          | 200 MB
 wormmine_db                  | 60 GB
 wormmine_profiles_db         | 150 MB
-mousemine_db                 | 120 GB
-mousemine_profiles_db        | 300 MB
-ratmine_db                   | 50 GB
-ratmine_profiles_db          | 100 MB
-yeastmine_db                 | 30 GB
-yeastmine_profiles_db        | 100 MB
-zebrafishmine_db             | 40 GB
-zebrafishmine_profiles_db    | 100 MB
+flymine_db                   | 80 GB    -- Future
+flymine_profiles_db          | 200 MB   -- Future
+mousemine_db                 | 120 GB   -- Future
+mousemine_profiles_db        | 300 MB   -- Future
+ratmine_db                   | 50 GB    -- Future
+ratmine_profiles_db          | 100 MB   -- Future
+yeastmine_db                 | 30 GB    -- Future
+yeastmine_profiles_db        | 100 MB   -- Future
+zebrafishmine_db             | 40 GB    -- Future
+zebrafishmine_profiles_db    | 100 MB   -- Future
 ```
 
-**Total Storage:** ~530 GB (room for growth to 2TB)
+**Current Storage:** ~210 GB (AllianceMine + WormMine)
 
 #### Connection Management
 
@@ -241,14 +246,15 @@ zebrafishmine_profiles_db    | 100 MB
 ```properties
 # Each mine gets dedicated pool
 alliancemine.pool.size=20
-flymine.pool.size=15
 wormmine.pool.size=15
-mousemine.pool.size=15
-ratmine.pool.size=10
-yeastmine.pool.size=10
-zebrafishmine.pool.size=10
+# Future mines:
+# flymine.pool.size=15
+# mousemine.pool.size=15
+# ratmine.pool.size=10
+# yeastmine.pool.size=10
+# zebrafishmine.pool.size=10
 
-# Total: 95 connections (well below max_connections=200)
+# Current total: 35 connections (well below max_connections=200)
 ```
 
 #### Database Isolation
@@ -266,140 +272,112 @@ zebrafishmine.pool.size=10
 
 ---
 
-### 3. Ephemeral Build EC2
+### 3. Build EC2 (AllianceMineDev)
 
-**Instance Type:** `r6i.2xlarge` (8 vCPU, 64GB RAM)
-**Lifecycle:** Launch → Build → Terminate
-**Cost:** ~$3.53 per build × 7 mines = ~$25 per full rebuild
+**Instance:** AllianceMineDev (172.31.60.197)
+**Lifecycle:** Persistent (always available for builds)
+**Architecture:** Docker unified containers
 
-#### Build Strategy: Sequential Builds
+#### Build Environment
 
-**Why Sequential?**
-1. 64GB RAM sufficient for one mine, not multiple
-2. RDS connection limits (max 200 connections)
-3. Simplifies error handling
-4. Easier to monitor
-
-**Build Queue:**
 ```
-Queue:
-1. alliancemine (7 hours)
-2. flymine (6 hours)
-3. mousemine (5 hours)
-4. wormmine (4 hours)
-5. ratmine (4 hours)
-6. zebrafishmine (4 hours)
-7. yeastmine (3 hours)
-
-Total: ~33 hours sequential
+/home/ec2-user/agr_intermine_builder/
+├── docker/
+│   ├── alliancemine-unified/     # AllianceMine build container
+│   │   ├── Dockerfile
+│   │   ├── docker-compose.yml
+│   │   ├── alliancemine.properties.template
+│   │   ├── set_db_version.py     # Database versioning
+│   │   └── build_mine.py         # Automated build script
+│   └── wormmine-unified/         # WormMine build container
+│       └── ...
+└── src/                          # Python CLI orchestration
+    └── cli/
+        ├── build_mines.py
+        └── set_release.py
 ```
+
+#### Unified Container Architecture
+
+Each mine uses a unified Docker container that includes:
+- **Java 11** (Amazon Corretto) for InterMine
+- **Gradle 7.x** for build system
+- **Apache Tomcat 9.0** for webapp testing
+- **Apache Solr 8.4** (embedded) for search
+- **PostgreSQL client** connecting to RDS
 
 #### Build Process Per Mine
 
-```python
-# Pseudo-code
-for mine_name in ["alliancemine", "flymine", "wormmine", ...]:
-    # 1. Launch ephemeral EC2
-    instance = launch_build_instance()
+```bash
+# 1. SSH to build instance
+ssh ec2-user@172.31.60.197
 
-    # 2. Run build
-    builder = EC2Builder(config)
-    result = builder.build_full(mine_name)
+# 2. Navigate to mine directory
+cd agr_intermine_builder/docker/alliancemine-unified
 
-    # 3. Deploy to production Tomcat
-    deploy_webapp(mine_name, result.war_file)
+# 3. Set database version (creates versioned DB on RDS)
+python3 set_db_version.py -1     # e.g., alliancemine_8_3_0-1
 
-    # 4. Index in Solr
-    index_in_solr(mine_name)
+# 4. Start container and build
+docker-compose up -d
+docker exec -it alliancemine bash
+./gradlew buildDB                # Build database (~4-7 hours)
+./gradlew postProcess            # Run post-processors
+./gradlew cargoDeployRemote      # Deploy to production Tomcat
 
-    # 5. Terminate instance
-    terminate_instance(instance)
+# 5. Verify deployment
+curl https://alliancemine.alliancegenome.org/alliancemine/service/version
 ```
 
 ---
 
-### 4. Build Orchestration Options
+### 4. Build Orchestration
 
-#### Option A: Sequential Build (Simple)
+#### Current Implementation: Docker Container Builds
 
-**Pros:**
-- Simple to implement
-- No resource contention
-- Easy error handling
+**Manual builds via unified Docker containers on AllianceMineDev:**
 
-**Cons:**
-- 33 hours total time
-- Expensive if all mines need rebuilding
+```bash
+# Python CLI for orchestration
+python -m src.cli.build_mines build --mine alliancemine
+python -m src.cli.build_mines build-all
+python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
 
-**Implementation:**
-```python
-# src/lib/builder/multi_mine_builder.py
-
-class MultiMineBuilder:
-    def build_all_mines(self):
-        mines = [
-            "alliancemine",
-            "flymine",
-            "mousemine",
-            "wormmine",
-            "ratmine",
-            "yeastmine",
-            "zebrafishmine"
-        ]
-
-        for mine in mines:
-            self.build_single_mine(mine)
+# Or direct Docker container builds
+cd docker/alliancemine-unified
+docker-compose up -d
+docker exec -it alliancemine ./gradlew buildDB
 ```
 
-#### Option B: Parallel Build (Advanced)
+#### Build Strategies
 
-**Use multiple build instances:**
-- 2-3 EC2 instances running simultaneously
-- Build smaller mines in parallel
-- Larger mines (AllianceMine, FlyMine) get dedicated instance
+**Sequential Builds (Current):**
+- Build one mine at a time
+- Simple, reliable, easy to monitor
+- ~4-7 hours per mine
 
-**Pros:**
-- Faster: 33 hours → ~12 hours
-- Better resource utilization
-
-**Cons:**
-- More complex
-- Higher cost during build
-- RDS connection management needed
-
-**Implementation:**
-```python
-# Run in parallel
-parallel_builds = [
-    ["alliancemine"],  # Instance 1 (large)
-    ["flymine"],       # Instance 2 (large)
-    ["mousemine", "wormmine", "ratmine"]  # Instance 3 (smaller)
-]
-```
-
-#### Option C: Incremental Builds (Optimal)
-
-**Only rebuild changed mines:**
-
-```python
-def should_rebuild_mine(mine_name):
-    # Check if data has changed
-    last_build = get_last_build_date(mine_name)
-    data_version = get_latest_data_version(mine_name)
-
-    return data_version > last_build
-
-# Only build what's needed
-mines_to_build = [
-    mine for mine in ALL_MINES
-    if should_rebuild_mine(mine)
-]
-```
-
-**Typical scenario:**
-- Alliance releases monthly → Rebuild AllianceMine only
-- FlyBase updates quarterly → Rebuild FlyMine
+**Incremental Builds:**
+- Only rebuild changed mines based on data releases
+- Alliance releases monthly → Rebuild AllianceMine
+- WormBase updates periodically → Rebuild WormMine
 - Most mines: Rebuild on-demand
+
+#### Database Versioning Workflow
+
+```bash
+# Set database version before build
+python3 set_db_version.py         # Base version: alliancemine_8_3_0
+python3 set_db_version.py -1      # Iteration: alliancemine_8_3_0-1
+python3 set_db_version.py -test   # Test build: alliancemine_8_3_0-test
+
+# Automated build with versioning
+python3 build_mine.py -1          # Sets version, restarts, runs buildDB
+```
+
+**Typical Build Schedule:**
+- AllianceMine: Monthly (with AGR releases)
+- WormMine: As needed (WormBase updates)
+- Other mines: On-demand
 
 ---
 
@@ -455,26 +433,26 @@ MINE_CONFIGS = {
         ]
     ),
 
+    "wormmine": MineConfig(
+        mine_name="wormmine",
+        organism="Caenorhabditis elegans",
+        description="WormBase InterMine",
+        mine_repo_url="https://github.com/wormbase/wormmine",
+        tomcat_port=8081,
+        estimated_build_hours=4,
+    ),
+
     "flymine": MineConfig(
         mine_name="flymine",
         organism="Drosophila melanogaster",
         description="FlyBase InterMine",
         mine_repo_url="https://github.com/flybase/flymine",
         biosources_repo_url="https://github.com/flybase/flymine-bio-sources",
-        tomcat_port=8081,
+        tomcat_port=8082,
         estimated_build_hours=6,
         data_source_urls=[
             "https://ftp.flybase.org/releases/current/",
         ]
-    ),
-
-    "wormmine": MineConfig(
-        mine_name="wormmine",
-        organism="Caenorhabditis elegans",
-        description="WormBase InterMine",
-        mine_repo_url="https://github.com/wormbase/wormmine",
-        tomcat_port=8082,
-        estimated_build_hours=4,
     ),
 
     "mousemine": MineConfig(
@@ -544,103 +522,110 @@ for mine in alliancemine flymine wormmine ...; do
 done
 ```
 
-#### 2. Build All Mines (Initial)
+#### 2. Build Mines (Docker Container Workflow)
 
 ```bash
-# Option A: Sequential (simple)
-python -m src.main build-all-mines --sequential
+# SSH to build instance
+ssh ec2-user@172.31.60.197
 
-# Option B: Parallel (faster)
-python -m src.main build-all-mines --parallel --workers 3
+# Navigate to mine directory
+cd agr_intermine_builder/docker/alliancemine-unified
 
-# What happens:
-# 1. Launch build EC2(s)
-# 2. For each mine:
-#    a. Run EC2Builder
-#    b. Build completes
-#    c. Deploy WAR to Tomcat
-#    d. Index in Solr
-# 3. Terminate build EC2(s)
+# Set database version
+python3 set_db_version.py -1     # Creates alliancemine_8_3_0-1
+
+# Build via Docker container
+docker-compose up -d
+docker exec -it alliancemine bash
+./gradlew buildDB
+./gradlew cargoDeployRemote      # Deploy to production
+
+# Or use Python CLI
+python -m src.cli.build_mines build --mine alliancemine
+python -m src.cli.build_mines build-all
 ```
 
 #### 3. Ongoing Updates (Incremental)
 
 ```bash
-# Rebuild only changed mines
-python -m src.main build-mine alliancemine
+# Rebuild specific mine when data updates
+cd docker/alliancemine-unified
+python3 build_mine.py -1         # Automated: set version + restart + build
 
-# Or scheduled via EventBridge:
-# - AllianceMine: Monthly (when AGR releases)
-# - FlyMine: Quarterly (when FlyBase releases)
-# - Others: On-demand
+# Build schedule:
+# - AllianceMine: Monthly (with AGR releases)
+# - WormMine: As needed (WormBase updates)
+# - Other mines: On-demand
 ```
 
 ---
 
 ## Cost Analysis
 
-### Monthly Costs
+### Monthly Costs (2024 Pricing)
 
 | Component | Type | Cost | Notes |
 |-----------|------|------|-------|
-| **Production EC2** | m6i.2xlarge (24/7) | $280 | All mines running |
-| **RDS Database** | db.r6g.2xlarge (24/7) | $520 | Multi-tenant |
-| **RDS Storage** | 2TB gp3 | $230 | All mine data |
-| **Build EC2** | r6i.2xlarge (on-demand) | $25 | ~7 builds/month |
+| **Multi-Tenant EC2** | c7i.4xlarge (24/7) | $496 | WormMine + future mines |
+| **AllianceMine EC2** | m6i.2xlarge (24/7) | $280 | Production |
+| **Build EC2** | AllianceMineDev (24/7) | $150 | Persistent build instance |
+| **RDS Database** | db.r6g.xlarge (24/7) | $260 | Multi-tenant |
+| **RDS Storage** | 500GB gp3 | $55 | All mine data |
+| **ALB** | Application Load Balancer | $25 | Request-based |
 | **Data Transfer** | S3, API calls | $20 | Data downloads |
-| **Solr Storage** | EBS gp3 | $30 | Search indexes |
-| **Backups** | RDS snapshots | $50 | Daily backups |
-| **Total** | | **~$1,155/month** | |
+| **EBS Volumes** | gp3 storage | $20 | EC2 attached |
+| **ECR** | Container registry | $10 | Image storage |
+| **Total (on-demand)** | | **~$1,316/month** | |
+| **Total (optimized)** | | **~$1,000/month** | With reserved instances |
 
 **Cost Savings vs Individual Mines:**
 - 7 separate RDS instances: ~$3,640/month
 - 7 separate EC2 instances: ~$1,960/month
 - **Total traditional:** ~$5,600/month
-- **Multi-tenant:** ~$1,155/month
-- **Savings:** ~$4,445/month (79% reduction!)
+- **Multi-tenant:** ~$1,316/month
+- **Savings:** ~$4,284/month (77% reduction!)
 
 ---
 
-## Next Steps: Implementation
+## Implementation Status
 
-### Phase 1: Enhanced Config (Week 1)
+### Phase 1: Infrastructure Setup (Completed)
 
-1. Add `MineConfig` to config.py
-2. Add `MINE_CONFIGS` dictionary
-3. Update EC2Builder to accept MineConfig
+- [x] Create Multi-Tenant EC2 with native Solr (c7i.4xlarge)
+- [x] Configure RDS with versioned database naming
+- [x] Set up ALB with listener rules
+- [x] Configure Route 53 DNS records
+- [x] Deploy Caddy CDN
+- [x] Push images to ECR
+- [x] Set up Build EC2 (AllianceMineDev) with Docker containers
 
-### Phase 2: Multi-Mine Builder (Week 2)
+### Phase 2: Build Process (Completed)
 
-1. Create `MultiMineBuilder` class
-2. Implement sequential build
-3. Add build queue management
+- [x] Create unified Docker containers for each mine
+- [x] Implement Python CLI build system
+- [x] Set up database versioning workflow
+- [x] Configure cargoDeployRemote for production deployments
 
-### Phase 3: Infrastructure as Code (Week 3)
+### Phase 3: Automation (In Progress)
 
-1. Terraform for RDS multi-tenant setup
-2. Terraform for Production EC2
-3. Ansible for Tomcat multi-instance
+- [ ] GitHub Actions CI/CD pipeline
+- [ ] Automated testing before deployment
+- [ ] Blue/green deployment strategy
+- [ ] CloudWatch dashboards and alarms
 
-### Phase 4: Deployment Automation (Week 4)
+### Phase 4: Multi-Mine Scaling
 
-1. WAR deployment to specific Tomcat instance
-2. Solr core creation and indexing
-3. Health checks per mine
-
-### Phase 5: Step Functions Integration (Week 5)
-
-1. State machine for multi-mine builds
-2. Parallel build orchestration
-3. Error handling and notifications
+- [ ] Add remaining MOD mines to multi-tenant
+- [ ] Configure per-mine Solr cores
+- [ ] Set up mine-specific ALB rules
+- [ ] Document runbook for adding new mines
 
 ---
 
-## Questions for You
+## Related Documentation
 
-1. **Build Strategy:** Sequential or Parallel builds?
-2. **Update Frequency:** Monthly? Quarterly? On-demand?
-3. **Dev Environment:** Should DEV use same RDS or separate?
-4. **Bluegenes:** Single Bluegenes for all mines, or one per mine?
-5. **Monitoring:** What metrics are most important?
-
-**Ready to implement? Which phase should we start with?**
+- [EC2 Architecture Design](ec2-step-functions-design.md)
+- [Multi-Tenant Deployment Guide](../MULTITENANT_DEPLOYMENT.md)
+- [WormMine Multi-Tenant Setup](../WORMMINE_MULTITENANT_SETUP.md)
+- [Database Versioning](../../docker/alliancemine-unified/DATABASE_VERSIONING.md)
+- [Docker Architecture](../DOCKER_ARCHITECTURE.md)
