@@ -1,113 +1,247 @@
-# EC2 + Step Functions Architecture
+# InterMine AWS Architecture
 
 ## Overview
 
 This architecture uses:
-1. **Persistent EC2 Tomcat Server** - Hosts all mine webapps (24/7)
-2. **Ephemeral EC2 Build Server** - Spins up only during builds (on-demand)
-3. **AWS Step Functions** - Orchestrates the entire build lifecycle
-4. **Persistent RDS** - Single PostgreSQL instance with all mine databases
+1. **Multi-Tenant Production EC2** - Hosts all mine webapps (24/7) with native Solr and Docker Tomcat containers
+2. **Build EC2 (AllianceMineDev)** - Persistent instance running Docker build containers
+3. **Persistent RDS** - Single PostgreSQL instance with all mine databases
+4. **Application Load Balancer (ALB)** - Routes traffic with TLS termination
+5. **BlueGenes UI** - Modern web interface for all mines
+6. **Integrated CDN** - Caddy serves static assets
 
 ## Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Step Functions Workflow                       │
-│                                                                  │
-│  START → Launch EC2 → Run Build → Deploy → Terminate → END     │
-│            ↓            ↓           ↓         ↓                 │
-│         AMI Ready   SSM Exec    S3 Upload  CloudWatch          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PUBLIC INTERNET                                     │
+└──────────────────────────────────┬──────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Route 53 DNS                                             │
+│  wormmine.alliancegenome.org ─────────────────────────────────────────────┐ │
+│  alliancemine-proxy.alliancegenome.org ───────────────────────────────────┤ │
+│  bluegenes-proxy.alliancegenome.org ──────────────────────────────────────┤ │
+│                                                                       CNAME │
+└──────────────────────────────────┬──────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 Application Load Balancer (alliancemine-lb)                 │
+│                                                                             │
+│  HTTPS :443 (TLS Termination with ACM Certificate)                          │
+│                                                                             │
+│  Listener Rules:                                                            │
+│  ├── Rule 100: Host = "alliancemine-cdn-proxy.*" → alliancemine-cdn :8888   │
+│  ├── Rule 200: Host = "alliancemine-proxy.*" → alliancemine :8080           │
+│  ├── Rule 300: Host = "bluegenes-proxy.*" → bluegenes :5000                 │
+│  ├── Rule 390: Host = "wormmine.*" AND Path = "/cdn/*" → wormmine-cdn :8888 │
+│  ├── Rule 400: Host = "wormmine.*" → wormmine :8081                         │
+│  └── Default: Return 404                                                    │
+└──────────────────────────────────┬──────────────────────────────────────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌───────────────────┐  ┌───────────────────┐  ┌───────────────────────────────┐
+│  AllianceMine EC2 │  │  Build EC2        │  │  Multi-Tenant EC2             │
+│  (Production)     │  │  (AllianceMineDev)│  │  (WormMine + Future Mines)    │
+│                   │  │                   │  │                               │
+│  • Tomcat :8080   │  │  • 172.31.60.197  │  │  • c7i.4xlarge                │
+│  • Solr :8983     │  │  • Docker builds  │  │  • 16 vCPU, 32GB RAM          │
+│  • BlueGenes :5000│  │  • Persistent     │  │  • Native Solr :8983          │
+│  • CDN :8888      │  │  • Unified images │  │  • Docker Tomcat containers   │
+│                   │  │                   │  │  • Caddy CDN :8888            │
+└─────────┬─────────┘  └─────────┬─────────┘  │  • BlueGenes :5000            │
+          │                      │            └───────────────┬───────────────┘
+          │                      │                            │
+          └──────────────────────┼────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AWS RDS PostgreSQL 15                               │
+│                                                                             │
+│  Instance: db.r6g.xlarge (4 vCPU, 32GB RAM)                                 │
+│  Storage: 500GB gp3                                                         │
+│                                                                             │
+│  Databases (versioned naming convention):                                   │
+│  ├── alliancemine_8_3_0, alliancemine_profiles_8_3_0                        │
+│  ├── alliancemine_8_3_0-1, alliancemine_profiles_8_3_0-1 (iteration)        │
+│  ├── wormmine_final, wormmine_userprofile, wormmine_items                   │
+│  ├── flymine_db, flymine_profiles_db                                        │
+│  ├── mousemine_db, mousemine_profiles_db                                    │
+│  └── ... (other mines)                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-## Components
-
-### 1. Persistent Tomcat EC2 Instance
-
-**Purpose**: Host all InterMine webapps (alliancemine, flymine, wormmine, etc.)
-
-**Specifications**:
-- Instance Type: `t3.xlarge` (4 vCPU, 16 GB RAM)
-- OS: Amazon Linux 2023
-- Storage: 200 GB gp3
-- Ports: 8080-8086 (one per mine)
-- Auto-start: Yes
-- Backup: Daily EBS snapshots
-
-**Software Stack**:
-```
-├── Tomcat 9.x (multi-instance)
-│   ├── alliancemine on :8080
-│   ├── flymine on :8081
-│   ├── wormmine on :8082
-│   ├── mousemine on :8083
-│   ├── ratmine on :8084
-│   ├── zebrafish on :8085
-│   └── yeastmine on :8086
-├── Nginx (reverse proxy + SSL)
-├── CloudWatch Agent (metrics/logs)
-└── SSM Agent (remote management)
-```
-
-**Cost**: ~$120/month (reserved instance: ~$85/month)
 
 ---
 
-### 2. Ephemeral Build EC2 Instance
+## Current Implementation Status
 
-**Purpose**: Run InterMine builds, then self-terminate
+### Python Build System
+
+The codebase includes a modern Python-based orchestration system that replaces legacy bash scripts:
+
+```
+src/
+├── intermine_builder/
+│   ├── mine_config.py      # Mine configurations (AllianceMine, WormMine, etc.)
+│   ├── docker_manager.py   # Docker container lifecycle
+│   ├── build_executor.py   # Build stage execution
+│   ├── mine_builder.py     # Main orchestrator
+│   ├── config.py           # Configuration management
+│   └── aws/
+│       └── rds_manager.py  # AWS RDS provisioning
+└── cli/
+    ├── build_mines.py      # Main CLI interface
+    ├── rds_manager.py      # RDS CLI
+    └── set_release.py      # Release version CLI
+```
+
+**CLI Commands:**
+```bash
+# Build a mine
+python -m src.cli.build_mines build --mine alliancemine
+
+# Build all mines
+python -m src.cli.build_mines build-all
+
+# Execute single stage
+python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
+
+# Set Alliance release version
+uv run python -m src.cli.set_release current    # From Alliance API
+uv run python -m src.cli.set_release 8.3.0      # Specific version
+```
+
+### Unified Container Architecture
+
+Each mine uses a unified container with:
+- Build environment (Java 11, Gradle, Perl)
+- Apache Tomcat 9.0
+- Apache Solr 8.4 (embedded or external)
+- Connects to AWS RDS PostgreSQL
+
+Located in:
+- `docker/alliancemine-unified/`
+- `docker/wormmine-unified/`
+
+---
+
+## Components
+
+### 1. Multi-Tenant Production EC2
+
+**Purpose**: Host multiple InterMine webapps with shared infrastructure
 
 **Specifications**:
-- Instance Type: `r6i.2xlarge` (8 vCPU, 64 GB RAM) - **Memory Optimized**
-- OS: Amazon Linux 2023 with custom AMI
-- Storage: 500 GB gp3 (ephemeral, 10,000 IOPS)
-- Lifecycle: Launch → Build → Terminate
-- Cost: ~$0.504/hour × 7 hours = ~$3.53 per build
+- Instance Type: `c7i.4xlarge` (16 vCPU, 32 GB RAM)
+- OS: Amazon Linux 2023
+- Storage: 50 GB root + 30 GB data volume (gp3)
+- Instance ID: i-0e7fbfd5a4440063e
+- Private IP: 172.31.59.87
+- Public IP: 44.206.248.213
 
-**Why 64GB Memory?**
-- PostgreSQL: 16GB shared_buffers + connections
-- Gradle/JVM: 32GB heap for compilation
-- File system cache: 12GB for data files
-- OS + overhead: 4GB
-- Total: Perfect fit for single mine builds
+**Memory Allocation**:
+- 6-10 Tomcat containers × 2-2.5GB = 12-25GB
+- Solr: 2-3GB
+- BlueGenes: 1GB
+- Caddy CDN: ~256MB
+- System: 3-4GB
 
-**Custom AMI Contents** (`agr-intermine-builder-v1`):
+**Services**:
 ```
-├── Java 8 (OpenJDK)
-├── Gradle 7.x
-├── Git
-├── Python 3.11 + dependencies
-│   ├── boto3
-│   ├── psycopg2
-│   └── build scripts
-├── InterMine dependencies pre-cached
-├── Build scripts (/opt/intermine-builder/)
-└── CloudWatch + SSM agents
+/opt/solr/              # Native Solr 8.11.2 (:8983)
+├── wormmine-search         # 6,367,684 documents
+├── wormmine-autocomplete   # 61,344 documents
+├── alliancemine-search
+├── alliancemine-autocomplete
+└── [future-mine cores...]
+
+Docker Containers:
+├── wormmine        (:8081)
+├── alliancemine    (:8080)
+├── bluegenes       (:5000)
+└── [future-mine containers...]
+
+Caddy CDN           (:8888)
+└── /data/cdn/      # Static assets
 ```
 
-**Startup Script** (User Data):
+**Management Scripts**:
 ```bash
-#!/bin/bash
-# Auto-start build when instance launches
+# Add a new mine (creates Solr cores + Tomcat container)
+sudo add-mine <mine_name> <port> [domain]
 
-BUILD_ID="${BUILD_ID}"  # Passed from Step Functions
-MINE_NAME="${MINE_NAME}"
+# Remove a mine
+sudo remove-mine <mine_name>
 
-cd /opt/intermine-builder
-python3 -m src.main build full \
-  --mine "$MINE_NAME" \
-  --build-id "$BUILD_ID" \
-  --rds-endpoint "$RDS_ENDPOINT"
-
-# Upload logs to S3
-aws s3 cp /var/log/intermine-build.log \
-  s3://agr-builds/logs/$BUILD_ID/
-
-# Self-terminate when done
-shutdown -h now
+# List running mines
+list-mines
 ```
 
-**Cost**: Only pay when running (~10 builds/month = $55/month)
+**Cost**: ~$496/month (on-demand), ~$298/month (1-year savings plan)
+
+---
+
+### 2. Build EC2 (AllianceMineDev)
+
+**Purpose**: Persistent instance for running InterMine builds using Docker containers
+
+**Specifications**:
+- Name: AllianceMineDev
+- Private IP: 172.31.60.197
+- OS: Amazon Linux 2023
+- Storage: 500 GB gp3
+- Lifecycle: Persistent (always running for development builds)
+
+**Build Environment**:
+```
+/home/ec2-user/
+├── agr_intermine_builder/           # Main build repository
+│   ├── docker/
+│   │   ├── alliancemine-unified/    # AllianceMine build container
+│   │   └── wormmine-unified/        # WormMine build container
+│   └── src/                         # Python orchestration
+│
+└── Docker containers (unified images):
+    ├── alliancemine-unified         # Build + Tomcat + Solr
+    └── wormmine-unified             # Build + Tomcat + Solr
+```
+
+**Unified Container Architecture**:
+
+Each unified container includes:
+- Java 11 (Amazon Corretto)
+- Gradle 7.x for InterMine builds
+- Apache Tomcat 9.0 for webapp deployment
+- Apache Solr 8.4 (embedded)
+- PostgreSQL client (connects to RDS)
+
+**Build Process**:
+```bash
+# SSH to build instance
+ssh ec2-user@172.31.60.197
+
+# Navigate to mine directory
+cd agr_intermine_builder/docker/alliancemine-unified
+
+# Set database version (creates versioned database on RDS)
+python3 set_db_version.py -1     # e.g., alliancemine_8_3_0-1
+
+# Run build
+docker-compose up -d
+docker exec -it alliancemine bash
+./gradlew buildDB                # Build database
+./gradlew cargoDeployRemote      # Deploy to production
+```
+
+**Build Stages**:
+1. `fetchData` - Download data sources
+2. `buildDB` - Load data into PostgreSQL
+3. `postProcess` - Run post-processors
+4. `cargoDeployRemote` - Deploy WAR to production Tomcat
 
 ---
 
@@ -118,426 +252,414 @@ shutdown -h now
 **Specifications**:
 - Instance: `db.r6g.xlarge` (4 vCPU, 32 GB RAM)
 - Storage: 500 GB gp3 (scalable)
+- Endpoint: `intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com`
 - Multi-AZ: No (cost optimization)
 - Backups: Automated daily snapshots
-- Parameter Group: `intermine-optimized-pg13`
 
-**Databases**:
-```sql
--- Each mine gets 2 databases
-alliancemine_db, alliancemine_profiles_db
-flymine_db, flymine_profiles_db
-wormmine_db, wormmine_profiles_db
-mousemine_db, mousemine_profiles_db
-ratmine_db, ratmine_profiles_db
-zebrafish_db, zebrafish_profiles_db
-yeastmine_db, yeastmine_profiles_db
+**Database Naming Convention**:
+
+Databases follow a versioned naming scheme:
+```
+<mine>_<release><suffix>
+<mine>_profiles_<release><suffix>
 ```
 
-**Cost**: ~$260/month (reserved: ~$180/month)
+Where:
+- `<release>` is the version with dots converted to underscores (e.g., `8_3_0`)
+- `<suffix>` is optional (e.g., `-1`, `-test`, `-patch1`)
+
+**Examples**:
+| Configuration | Main Database | Profile Database |
+|--------------|---------------|------------------|
+| Release 8.3.0 (base) | `alliancemine_8_3_0` | `alliancemine_profiles_8_3_0` |
+| Release 8.3.0, iteration 1 | `alliancemine_8_3_0-1` | `alliancemine_profiles_8_3_0-1` |
+| Release 8.3.0, test | `alliancemine_8_3_0-test` | `alliancemine_profiles_8_3_0-test` |
+| WormMine (legacy) | `wormmine_final` | `wormmine_userprofile` |
+
+**Version Control Scripts**:
+```bash
+# In docker/alliancemine-unified/
+python3 set_db_version.py        # Base version
+python3 set_db_version.py -1     # First iteration
+python3 set_db_version.py -test  # Test build
+
+# Automated build with versioning
+python3 build_mine.py -1         # Sets version, restarts, runs buildDB
+```
+
+**Cost**: ~$260/month (on-demand), ~$180/month (reserved)
 
 ---
 
-### 4. AWS Step Functions State Machine
+### 4. Application Load Balancer (ALB)
 
-**Purpose**: Orchestrate entire build lifecycle with automatic error handling
+**Purpose**: Route traffic to appropriate services with TLS termination
 
-#### State Machine Definition
+**Configuration**:
+- Name: `alliancemine-lb`
+- DNS: `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
+- Certificate: ACM certificate for `*.alliancegenome.org`
 
-```json
-{
-  "Comment": "InterMine Build Orchestration",
-  "StartAt": "ValidateInputs",
-  "States": {
-    "ValidateInputs": {
-      "Type": "Task",
-      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:ValidateBuildInputs",
-      "Next": "LaunchBuilderEC2",
-      "Catch": [{
-        "ErrorEquals": ["States.ALL"],
-        "Next": "NotifyFailure"
-      }]
-    },
+**Listener Rules** (HTTPS :443):
 
-    "LaunchBuilderEC2": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:runInstances",
-      "Parameters": {
-        "ImageId": "ami-XXXXXXXXX",
-        "InstanceType": "c6i.4xlarge",
-        "MinCount": 1,
-        "MaxCount": 1,
-        "IamInstanceProfile": {
-          "Arn": "arn:aws:iam::ACCOUNT:instance-profile/InterMineBuilder"
-        },
-        "TagSpecifications": [{
-          "ResourceType": "instance",
-          "Tags": [
-            {"Key": "Name", "Value.$": "$.mine_name"},
-            {"Key": "BuildId", "Value.$": "$.build_id"},
-            {"Key": "Type", "Value": "EphemeralBuilder"}
-          ]
-        }],
-        "UserData.$": "States.Base64Encode($.user_data_script)"
-      },
-      "ResultPath": "$.ec2_result",
-      "Next": "WaitForEC2Ready"
-    },
+| Priority | Condition | Target Group | Port |
+|----------|-----------|--------------|------|
+| 100 | Host = `alliancemine-cdn-proxy.alliancegenome.org` | alliancemine-cdn | 8888 |
+| 200 | Host = `alliancemine-proxy.alliancegenome.org` | alliancemine | 8080 |
+| 300 | Host = `bluegenes-proxy.alliancegenome.org` | bluegenes | 5000 |
+| 390 | Host = `wormmine.alliancegenome.org` AND Path = `/cdn/*` | wormmine-cdn | 8888 |
+| 400 | Host = `wormmine.alliancegenome.org` | wormmine | 8081 |
+| Default | - | Return 404 | - |
 
-    "WaitForEC2Ready": {
-      "Type": "Wait",
-      "Seconds": 60,
-      "Next": "CheckEC2Status"
-    },
+**Target Groups**:
+```
+wormmine        → 172.31.59.87:8081 (Health: /wormmine/service/version)
+wormmine-cdn    → 172.31.59.87:8888 (Health: /)
+alliancemine    → AllianceMine EC2:8080
+bluegenes       → BlueGenes EC2:5000
+```
 
-    "CheckEC2Status": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstanceStatus",
-      "Parameters": {
-        "InstanceIds.$": "$.ec2_result.Instances[0].InstanceId"
-      },
-      "ResultPath": "$.status_result",
-      "Next": "IsEC2Ready"
-    },
+---
 
-    "IsEC2Ready": {
-      "Type": "Choice",
-      "Choices": [{
-        "Variable": "$.status_result.InstanceStatuses[0].InstanceStatus.Status",
-        "StringEquals": "ok",
-        "Next": "StartBuildProcess"
-      }],
-      "Default": "WaitForEC2Ready"
-    },
+### 5. Route 53 DNS
 
-    "StartBuildProcess": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.ec2_result.Instances[0].InstanceId)",
-        "DocumentName": "AWS-RunShellScript",
-        "Parameters": {
-          "commands": [
-            "cd /opt/intermine-builder",
-            "python3 -m src.main build full --mine $.mine_name"
-          ]
-        }
-      },
-      "ResultPath": "$.ssm_result",
-      "Next": "MonitorBuildProgress"
-    },
+**CNAME Records**:
+```
+wormmine.alliancegenome.org → alliancemine-lb-309443304.us-east-1.elb.amazonaws.com
+alliancemine-proxy.alliancegenome.org → alliancemine-lb-309443304.us-east-1.elb.amazonaws.com
+bluegenes-proxy.alliancegenome.org → alliancemine-lb-309443304.us-east-1.elb.amazonaws.com
+```
 
-    "MonitorBuildProgress": {
-      "Type": "Task",
-      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:MonitorBuildProgress",
-      "Parameters": {
-        "instance_id.$": "$.ec2_result.Instances[0].InstanceId",
-        "command_id.$": "$.ssm_result.Command.CommandId"
-      },
-      "ResultPath": "$.monitor_result",
-      "Next": "IsBuildComplete"
-    },
+---
 
-    "IsBuildComplete": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.monitor_result.status",
-          "StringEquals": "SUCCESS",
-          "Next": "DeployToTomcat"
-        },
-        {
-          "Variable": "$.monitor_result.status",
-          "StringEquals": "FAILED",
-          "Next": "NotifyFailure"
-        },
-        {
-          "Variable": "$.monitor_result.status",
-          "StringEquals": "IN_PROGRESS",
-          "Next": "WaitForBuildProgress"
-        }
-      ]
-    },
+### 6. BlueGenes Integration
 
-    "WaitForBuildProgress": {
-      "Type": "Wait",
-      "Seconds": 300,
-      "Next": "MonitorBuildProgress"
-    },
+**Purpose**: Modern web interface for all InterMine instances
 
-    "DeployToTomcat": {
-      "Type": "Task",
-      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:DeployToTomcat",
-      "Parameters": {
-        "mine_name.$": "$.mine_name",
-        "build_id.$": "$.build_id",
-        "tomcat_instance_id": "i-TOMCATINSTANCEID"
-      },
-      "ResultPath": "$.deploy_result",
-      "Next": "TerminateBuilderEC2"
-    },
+**Deployment Options**:
 
-    "TerminateBuilderEC2": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:terminateInstances",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.ec2_result.Instances[0].InstanceId)"
-      },
-      "ResultPath": "$.terminate_result",
-      "Next": "NotifySuccess"
-    },
+1. **Multi-Tenant Instance** (WormMine):
+   - Container: `bluegenes`
+   - Port: 5000
+   - Image: `100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine`
+   - Access: `http://44.206.248.213:5000/bluegenes/wormmine`
 
-    "NotifySuccess": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::sns:publish",
-      "Parameters": {
-        "TopicArn": "arn:aws:sns:REGION:ACCOUNT:intermine-build-notifications",
-        "Subject": "Build Success",
-        "Message.$": "States.Format('Build {} for {} completed successfully', $.build_id, $.mine_name)"
-      },
-      "End": true
-    },
+2. **AllianceMine Production**:
+   - Image tag: `:latest`
+   - Access: `https://www.alliancegenome.org/bluegenes`
 
-    "NotifyFailure": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::sns:publish",
-      "Parameters": {
-        "TopicArn": "arn:aws:sns:REGION:ACCOUNT:intermine-build-notifications",
-        "Subject": "Build Failure",
-        "Message.$": "States.Format('Build {} for {} failed: {}', $.build_id, $.mine_name, $.error_message)"
-      },
-      "Next": "CleanupFailedBuild"
-    },
+**Configuration** (`config/defaults/config.edn`):
+```clojure
+{:mines
+ {:wormmine
+  {:name "WormMine"
+   :service {:root "https://wormmine.alliancegenome.org/wormmine"}}
 
-    "CleanupFailedBuild": {
-      "Type": "Task",
-      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:CleanupFailedBuild",
-      "Parameters": {
-        "instance_id.$": "$.ec2_result.Instances[0].InstanceId"
-      },
-      "End": true
+  :alliancemine
+  {:name "AllianceMine"
+   :service {:root "https://www.alliancegenome.org/alliancemine"}}}
+
+ :default-mine :alliancemine
+ :bluegenes-deploy-path "/"
+ :server-port 5000}
+```
+
+**Build and Deploy**:
+```bash
+# Build JAR
+cd /path/to/agr_bluegenes
+lein uberjar
+
+# Build and push Docker image
+docker build -t agr_bluegenes:wormmine .
+docker tag agr_bluegenes:wormmine 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+docker push 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+
+# Deploy on Multi-Tenant
+ssh ec2-user@172.31.59.87
+sudo docker pull 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+sudo docker stop bluegenes && sudo docker rm bluegenes
+sudo docker run -d --name bluegenes -p 5000:5000 \
+  100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:wormmine
+```
+
+---
+
+### 7. CDN (Content Delivery Network)
+
+**Purpose**: Serve static JavaScript/CSS assets for InterMine webapps
+
+**Implementation**: Caddy server on port 8888
+
+**Directory Structure**:
+```
+/data/cdn/
+├── js/              # JavaScript libraries (jQuery, D3, etc.)
+├── css/             # Stylesheets
+├── fonts/           # Web fonts
+├── images/          # Shared images
+├── bluegenes/       # BlueGenes static assets
+├── img/
+│   └── wormbase/    # WormBase footer images (local due to Cloudflare)
+└── mines/           # Mine-specific assets
+    ├── alliancemine/
+    ├── wormmine/
+    └── ...
+```
+
+**Caddy Configuration** (`/etc/caddy/Caddyfile`):
+```
+:8888 {
+    # Strip /cdn prefix for ALB routing
+    handle_path /cdn/* {
+        root * /data/cdn
+        file_server
+        header Access-Control-Allow-Origin *
     }
-  }
+
+    # Also serve from root for backward compatibility
+    handle {
+        root * /data/cdn
+        file_server
+        header Access-Control-Allow-Origin *
+    }
 }
 ```
 
+**CDN Management Script**:
+```bash
+./scripts/manage_cdn.sh structure          # Create directory structure
+./scripts/manage_cdn.sh upload <local> <cdn>  # Upload files
+./scripts/manage_cdn.sh sync <dir> <cdn>   # Sync directory
+./scripts/manage_cdn.sh status             # Show statistics
+./scripts/manage_cdn.sh list               # List contents
+```
+
+**CDN URLs**:
+- `https://wormmine.alliancegenome.org/cdn/js/jquery/2.0.3/jquery.min.js`
+- `https://wormmine.alliancegenome.org/cdn/img/wormbase/logo.png`
+
 ---
 
-### 5. Lambda Functions
+### 8. ECR (Elastic Container Registry)
 
-#### `ValidateBuildInputs`
-```python
-def lambda_handler(event, context):
-    """Validate build request before starting."""
-    required = ['mine_name', 'release_version']
-    if not all(k in event for k in required):
-        raise ValueError("Missing required parameters")
+**Purpose**: Store Docker images for all mines
 
-    # Check if mine exists
-    valid_mines = ['alliancemine', 'flymine', 'wormmine', ...]
-    if event['mine_name'] not in valid_mines:
-        raise ValueError(f"Invalid mine: {event['mine_name']}")
+**Repository**: `100225593120.dkr.ecr.us-east-1.amazonaws.com`
 
-    return event
+**Images**:
+| Image | Tag | Description |
+|-------|-----|-------------|
+| `agr_alliancemine` | `latest`, `8.3.0` | AllianceMine unified container |
+| `agr_wormmine` | `latest`, `WS298` | WormMine unified container |
+| `agr_flymine` | `latest` | FlyMine container |
+| `agr_mousemine` | `latest` | MouseMine container |
+| `agr_bluegenes` | `latest`, `wormmine` | BlueGenes UI |
+
+**Push Workflow**:
+```bash
+# Login to ECR
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin \
+  100225593120.dkr.ecr.us-east-1.amazonaws.com
+
+# Build and push
+cd docker/alliancemine-unified
+docker-compose build
+docker tag alliancemine-unified:latest \
+  100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_alliancemine:latest
+docker push 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_alliancemine:latest
 ```
 
-#### `MonitorBuildProgress`
-```python
-import boto3
+---
 
-ssm = boto3.client('ssm')
-cloudwatch = boto3.client('cloudwatch')
+## Build Orchestration
 
-def lambda_handler(event, context):
-    """Monitor SSM command execution and build progress."""
-    command_id = event['command_id']
-    instance_id = event['instance_id']
+**Current Approach**: Manual builds via Docker containers on AllianceMineDev
 
-    # Get command status
-    response = ssm.get_command_invocation(
-        CommandId=command_id,
-        InstanceId=instance_id
-    )
+### Python CLI Build System
 
-    status = response['Status']
+```bash
+# Build a specific mine
+python -m src.cli.build_mines build --mine alliancemine
 
-    if status == 'Success':
-        return {'status': 'SUCCESS'}
-    elif status in ['Failed', 'Cancelled', 'TimedOut']:
-        return {'status': 'FAILED', 'error': response.get('StandardErrorContent')}
-    else:
-        return {'status': 'IN_PROGRESS'}
+# Build all mines
+python -m src.cli.build_mines build-all
+
+# Execute single stage
+python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
+
+# Set release version
+uv run python -m src.cli.set_release 8.3.0
 ```
 
-#### `DeployToTomcat`
-```python
-def lambda_handler(event, context):
-    """Deploy built webapp to Tomcat server."""
-    ssm = boto3.client('ssm')
+### Docker Container Build Workflow
 
-    mine_name = event['mine_name']
-    build_id = event['build_id']
-    tomcat_instance = event['tomcat_instance_id']
+```bash
+# 1. SSH to build instance
+ssh ec2-user@172.31.60.197
 
-    # Download WAR from S3 and deploy
-    commands = [
-        f"aws s3 cp s3://agr-builds/{build_id}/{mine_name}.war /tmp/",
-        f"systemctl stop tomcat@{mine_name}",
-        f"cp /tmp/{mine_name}.war /opt/tomcat/{mine_name}/webapps/",
-        f"systemctl start tomcat@{mine_name}",
-        f"curl -f http://localhost:8080/{mine_name}/service/version"
-    ]
+# 2. Navigate to mine directory
+cd agr_intermine_builder/docker/alliancemine-unified
 
-    response = ssm.send_command(
-        InstanceIds=[tomcat_instance],
-        DocumentName='AWS-RunShellScript',
-        Parameters={'commands': commands}
-    )
+# 3. Set database version (optional suffix for iterations)
+python3 set_db_version.py -1     # Creates alliancemine_8_3_0-1
 
-    return {'command_id': response['Command']['CommandId']}
+# 4. Start container
+docker-compose up -d
+
+# 5. Enter container and build
+docker exec -it alliancemine bash
+./gradlew buildDB                # Full database build
+./gradlew cargoDeployRemote      # Deploy WAR to production
+
+# 6. Monitor build
+tail -f logs/build.log
 ```
+
+### Build Monitoring
+
+```bash
+# Check container status
+docker ps
+
+# View build logs
+docker logs alliancemine --tail 100
+
+# Check Gradle build progress
+docker exec alliancemine cat intermine_log.log
+```
+
+---
+
+## Cost Analysis
+
+### Monthly Costs (2024 Pricing)
+
+| Component | Type | Cost | Notes |
+|-----------|------|------|-------|
+| **Multi-Tenant EC2** | c7i.4xlarge (24/7) | $496 | On-demand |
+| **Multi-Tenant EC2** | c7i.4xlarge (reserved) | $298 | 1-year savings plan |
+| **AllianceMine EC2** | m6i.2xlarge (24/7) | $280 | Production mines |
+| **Build EC2** | AllianceMineDev (24/7) | $150 | Persistent build instance |
+| **RDS Database** | db.r6g.xlarge (24/7) | $260 | Multi-tenant |
+| **RDS Storage** | 500GB gp3 | $55 | All mine data |
+| **Data Transfer** | S3, API calls | $20 | Data downloads |
+| **ALB** | Application Load Balancer | $25 | Request-based |
+| **EBS Volumes** | gp3 storage | $20 | EC2 attached |
+| **ECR** | Container registry | $10 | Image storage |
+| **Total (on-demand)** | | **~$1,316/month** | |
+| **Total (optimized)** | | **~$1,000/month** | With reserved instances |
+
+### Cost Optimization Strategies
+
+1. **Reserved Instances**: 1-year commitment saves 30-40%
+2. **Savings Plans**: EC2 compute savings plan for flexible pricing
+3. **Stop Build EC2 when idle**: Stop AllianceMineDev when not building
+4. **ECR Lifecycle policies**: Auto-delete old images after 30 days
+5. **RDS Right-sizing**: Monitor database usage and adjust instance size
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Infrastructure Setup (Week 1)
+### Phase 1: Infrastructure Setup (Completed)
+- [x] Create Multi-Tenant EC2 with native Solr
+- [x] Configure RDS with versioned database naming
+- [x] Set up ALB with listener rules
+- [x] Configure Route 53 DNS records
+- [x] Deploy Caddy CDN
+- [x] Push images to ECR
+- [x] Set up Build EC2 (AllianceMineDev) with Docker containers
 
-1. **Create Custom AMI**
-   ```bash
-   # Launch base instance
-   aws ec2 run-instances --image-id ami-amazon-linux-2023 ...
+### Phase 2: Build Process (Completed)
+- [x] Create unified Docker containers for each mine
+- [x] Implement Python CLI build system
+- [x] Set up database versioning workflow
+- [x] Configure cargoDeployRemote for production deployments
 
-   # SSH and install dependencies
-   sudo yum install -y java-1.8.0-openjdk git
-   # ... install all InterMine dependencies
+### Phase 3: Automation (In Progress)
+- [ ] GitHub Actions CI/CD pipeline
+- [ ] Automated testing before deployment
+- [ ] Blue/green deployment strategy
+- [ ] CloudWatch dashboards and alarms
 
-   # Create AMI
-   aws ec2 create-image --instance-id i-xxx --name agr-intermine-builder-v1
-   ```
+### Phase 4: Multi-Mine Scaling
+- [ ] Add remaining MOD mines to multi-tenant
+- [ ] Configure per-mine Solr cores
+- [ ] Set up mine-specific ALB rules
+- [ ] Document runbook for adding new mines
 
-2. **Launch Persistent Tomcat EC2**
-   - Use Terraform/CloudFormation
-   - Configure multi-instance Tomcat
-   - Set up Nginx reverse proxy
-   - Configure auto-scaling group (min=1, max=1)
+---
 
-3. **Configure RDS**
-   - Create PostgreSQL 13 instance
-   - Apply InterMine parameter group
-   - Create all mine databases
-   - Set up automated backups
+## Troubleshooting
 
-### Phase 2: Step Functions Implementation (Week 2)
+### Tomcat Container Issues
 
-1. **Create Lambda Functions**
-   - Package Python functions with dependencies
-   - Deploy to Lambda
-   - Configure IAM roles
+```bash
+# Check container logs
+docker logs wormmine --tail 100
 
-2. **Create Step Functions State Machine**
-   - Deploy JSON definition
-   - Test with simple build
-   - Add error handling
+# Check Tomcat catalina.out
+docker exec wormmine tail -f /usr/local/tomcat/logs/catalina.out
 
-3. **Set up Notifications**
-   - Create SNS topic
-   - Subscribe email/Slack
-
-### Phase 3: Python Build Scripts (Week 3-4)
-
-**Update build system to work with Step Functions**
-
-Create `src/lib/builder/ec2_builder.py`:
-
-```python
-"""EC2-based build system for Step Functions integration."""
-
-import boto3
-import subprocess
-from pathlib import Path
-from src.lib.config import Config
-
-class EC2Builder:
-    def __init__(self, config: Config):
-        self.config = config
-        self.ec2 = boto3.client('ec2')
-        self.ssm = boto3.client('ssm')
-        self.s3 = boto3.client('s3')
-
-    def build_full(self, mine_name: str, build_id: str):
-        """Execute full mine build on EC2 instance."""
-        try:
-            # 1. Clone repositories
-            self._clone_repos(mine_name)
-
-            # 2. Build InterMine core
-            self._build_intermine_core()
-
-            # 3. Build biosources
-            self._build_biosources(mine_name)
-
-            # 4. Run project_build
-            self._run_project_build(mine_name)
-
-            # 5. Package webapp
-            war_file = self._package_webapp(mine_name)
-
-            # 6. Upload to S3
-            self._upload_to_s3(war_file, build_id, mine_name)
-
-            return {'status': 'success', 'war_location': f"s3://agr-builds/{build_id}/{mine_name}.war"}
-
-        except Exception as e:
-            return {'status': 'failed', 'error': str(e)}
+# Restart container
+docker restart wormmine
 ```
 
-### Phase 4: Testing & Deployment (Week 5)
+### HTTPS/Mixed Content Issues
 
-1. **Test Build Flow**
-   - Trigger Step Functions manually
-   - Monitor all stages
-   - Verify EC2 termination
+When behind ALB, Tomcat needs `RemoteIpValve` to recognize HTTPS:
 
-2. **Set Up Scheduled Builds**
-   ```json
-   {
-     "schedule": "cron(0 2 * * ? *)",  // 2 AM daily
-     "target": "step-functions-arn",
-     "input": {
-       "mine_name": "alliancemine",
-       "release_version": "8.2.0"
-     }
-   }
-   ```
+```xml
+<!-- In server.xml, before <Host> element -->
+<Valve className="org.apache.catalina.valves.RemoteIpValve"
+       remoteIpHeader="X-Forwarded-For"
+       protocolHeader="X-Forwarded-Proto" />
+```
 
-3. **Create Dashboard**
-   - CloudWatch dashboard showing:
-     - Build duration
-     - Success/failure rate
-     - EC2 costs
-     - Build queue
+### Solr Connection Issues
 
----
+```bash
+# Check Solr status
+curl http://localhost:8983/solr/admin/cores?action=STATUS
 
-## Benefits of This Architecture
+# Check specific core
+curl http://localhost:8983/solr/wormmine-search/admin/ping
 
-✅ **Cost Optimized**: Builder EC2 only runs during builds (~$55/month vs $500/month)
-✅ **Scalable**: Can run multiple builds in parallel if needed
-✅ **Resilient**: Step Functions handles failures and retries
-✅ **Observable**: CloudWatch logs/metrics for everything
-✅ **Maintainable**: All infrastructure as code (Terraform)
-✅ **Flexible**: Easy to add new mines or change instance types
+# Restart Solr
+sudo systemctl restart solr
+```
+
+### Database Connection Issues
+
+```bash
+# Test RDS connectivity
+pg_isready -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com -U postgres
+
+# Check active connections
+psql -h $RDS_HOST -U postgres -c "SELECT count(*), state FROM pg_stat_activity GROUP BY state;"
+```
 
 ---
 
-## Next Steps
+## Security Checklist
 
-**Would you like me to:**
+- [x] SSL certificates via ACM for ALB
+- [x] Security group restricts RDS access to EC2 only
+- [x] Solr admin restricted to internal network
+- [x] IAM roles follow least privilege
+- [x] RDS automated backups enabled
+- [ ] AWS Secrets Manager for database passwords
+- [ ] VPC Flow Logs enabled
+- [ ] CloudTrail for audit logging
 
-1. Create the Terraform/CloudFormation templates for this infrastructure?
-2. Implement the Python EC2Builder class?
-3. Write the Step Functions state machine JSON?
-4. Create the Lambda functions for orchestration?
+---
 
-**Let me know which part you'd like to tackle first!**
+## Related Documentation
+
+- [Multi-Tenant Deployment Guide](../MULTITENANT_DEPLOYMENT.md)
+- [WormMine Multi-Tenant Setup](../WORMMINE_MULTITENANT_SETUP.md)
+- [Database Versioning](../../docker/alliancemine-unified/DATABASE_VERSIONING.md)
+- [Deployment Strategy](../DEPLOYMENT_STRATEGY.md)
+- [Docker Architecture](../DOCKER_ARCHITECTURE.md)

@@ -5,6 +5,26 @@ This document describes the setup of WormMine on the InterMine multi-tenant EC2 
 ## Architecture Overview
 
 ```
+                    ┌──────────────────────────────────────┐
+                    │        Internet / Users              │
+                    └──────────────────┬───────────────────┘
+                                       │
+                                       ▼
+                    ┌──────────────────────────────────────┐
+                    │   wormmine.alliancegenome.org        │
+                    │   (Route 53 CNAME → ALB)             │
+                    └──────────────────┬───────────────────┘
+                                       │
+                                       ▼
+                    ┌──────────────────────────────────────┐
+                    │   alliancemine-lb (ALB)              │
+                    │   HTTPS :443 (TLS termination)       │
+                    │                                      │
+                    │   Rule 390: /cdn/* → :8888           │
+                    │   Rule 400: /* → :8081               │
+                    └────────────────┬─────────────────────┘
+                                     │
+                                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Multi-Tenant EC2 Instance                     │
 │                      (172.31.59.87)                              │
@@ -14,7 +34,7 @@ This document describes the setup of WormMine on the InterMine multi-tenant EC2 
 │  │   :8983      │  │   :8888      │  │  (wormmine) :8081    │   │
 │  │              │  │   (CDN)      │  │                      │   │
 │  │ - wormmine-  │  │              │  │  WormMine WAR        │   │
-│  │   search     │  │  /data/cdn   │  │                      │   │
+│  │   search     │  │  /data/cdn   │  │  + RemoteIpValve     │   │
 │  │ - wormmine-  │  │              │  │                      │   │
 │  │   autocomplete│ │              │  │                      │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
@@ -55,6 +75,19 @@ This document describes the setup of WormMine on the InterMine multi-tenant EC2 
 - **Port**: 8081 (mapped to container 8080)
 - **Manager Credentials**: Stored in `/data/mines/wormmine_credentials.txt`
 
+#### RemoteIpValve Configuration
+
+Since the ALB terminates TLS and forwards requests as HTTP, Tomcat needs the `RemoteIpValve` to properly recognize HTTPS requests via the `X-Forwarded-Proto` header. This is critical for the Struts `<html:base/>` tag to generate correct HTTPS URLs.
+
+In `/usr/local/tomcat/conf/server.xml`, add before the `<Host>` element:
+```xml
+<Valve className="org.apache.catalina.valves.RemoteIpValve"
+       remoteIpHeader="X-Forwarded-For"
+       protocolHeader="X-Forwarded-Proto" />
+```
+
+**Note**: This change is made inside the container and will be lost if the container is recreated. For permanent changes, modify the Dockerfile or use a bind mount for server.xml.
+
 ### 4. CDN (Caddy)
 - **Version**: 2.8.4
 - **Port**: 8888
@@ -79,8 +112,9 @@ Located in container at `/opt/intermine/.intermine/wormmine.properties`:
 db.production.datasource.serverName=intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com
 db.production.datasource.databaseName=wormmine_final
 
-# Webapp
-webapp.baseurl=http://172.31.59.87:8081/wormmine
+# Webapp - HTTPS URL for public access
+webapp.baseurl=https://wormmine.alliancegenome.org/wormmine
+webapp.deploy.url=https://wormmine.alliancegenome.org
 webapp.path=wormmine
 webapp.port=8081
 webapp.hostname=172.31.59.87
@@ -89,8 +123,10 @@ webapp.hostname=172.31.59.87
 index.solrurl=http://172.31.59.87:8983/solr/wormmine-search
 autocomplete.solrurl=http://172.31.59.87:8983/solr/wormmine-autocomplete
 
+# CDN - served via ALB with /cdn/* path routing
+head.cdn.location=https://wormmine.alliancegenome.org/cdn
+
 # Deployment
-webapp.deploy.url=http://172.31.59.87:8081
 webapp.manager=manager
 webapp.password=<see credentials file>
 ```
@@ -99,6 +135,7 @@ webapp.password=<see credentials file>
 Located at `/opt/intermine/wormmine/webapp/src/main/webapp/WEB-INF/global.web.properties`:
 
 ```properties
+# Note: This file is bundled in the WAR but the wormmine.properties setting takes precedence
 head.cdn.location = http://localhost:8888
 ```
 
@@ -228,18 +265,53 @@ sudo /usr/local/bin/caddy start --config /etc/caddy/Caddyfile
 sudo systemctl restart solr
 ```
 
+### Mixed Content / HTTPS Issues
+
+If CSS/JS/images aren't loading on the HTTPS URL:
+
+1. **Check the `<base>` tag** - should be HTTPS:
+   ```bash
+   curl -sL "https://wormmine.alliancegenome.org/wormmine" | grep '<base'
+   # Should show: <base href="https://wormmine.alliancegenome.org/wormmine/...
+   ```
+
+2. **If base tag shows HTTP**, verify RemoteIpValve is configured:
+   ```bash
+   ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.59.87 -o ProxyJump=blast \
+     "docker exec wormmine grep RemoteIpValve /usr/local/tomcat/conf/server.xml"
+   ```
+
+3. **Add RemoteIpValve if missing** (inside container):
+   ```bash
+   docker exec wormmine sed -i 's|<Host name="localhost"|<Valve className="org.apache.catalina.valves.RemoteIpValve" remoteIpHeader="X-Forwarded-For" protocolHeader="X-Forwarded-Proto" />\n        <Host name="localhost"|' /usr/local/tomcat/conf/server.xml
+   docker restart wormmine
+   ```
+
+4. **Check CDN URLs** - should use `https://wormmine.alliancegenome.org/cdn/`:
+   ```bash
+   curl -sL "https://wormmine.alliancegenome.org/wormmine" | grep -oE 'src="[^"]*cdn[^"]*"' | head -3
+   ```
+
+5. **Verify CDN routing**:
+   ```bash
+   curl -sI "https://wormmine.alliancegenome.org/cdn/js/jquery/2.0.3/jquery.min.js" | head -3
+   # Should return HTTP/2 200
+   ```
+
 ## Important Notes
 
-1. **webapp.baseurl**: Must be set to the actual accessible URL (internal IP), not the public-facing URL. Otherwise, XML validation fails.
+1. **webapp.baseurl**: For HTTPS access via ALB, set to `https://wormmine.alliancegenome.org/wormmine`. The RemoteIpValve in Tomcat handles the HTTP→HTTPS translation.
 
-2. **CDN Location**: Set to `http://localhost:8888` since Caddy runs on the same instance as WormMine.
+2. **CDN Location**: Set to `https://wormmine.alliancegenome.org/cdn` for production. The ALB routes `/cdn/*` requests to Caddy on port 8888 with path stripping.
 
-3. **Solr URLs in Properties**: Multiple files need updating:
+3. **RemoteIpValve**: Required in Tomcat server.xml when behind ALB. Without it, the `<html:base/>` Struts tag generates HTTP URLs causing mixed content issues.
+
+4. **Solr URLs in Properties**: Multiple files need updating:
    - `wormmine.properties`
    - `keyword_search.properties`
    - `objectstoresummary.config.properties`
 
-4. **Security Groups**: Port 8081 is not publicly accessible. Use VPN or SSH tunnel for access.
+5. **Security Groups**: Port 8081 is accessible for the ALB health checks. Port 8888 is accessible for CDN routing.
 
 ## Files Modified
 
@@ -294,10 +366,12 @@ The WormBase footer images are hosted locally on the CDN since wormbase.org bloc
 ```
 
 ### Footer Image URLs
-In `footer.jsp`, images are referenced as:
+In `footer.jsp`, images are referenced using the HTTPS CDN URL:
 ```
-http://172.31.59.87:8888/img/wormbase/<image_file>
+https://wormmine.alliancegenome.org/cdn/img/wormbase/<image_file>
 ```
+
+**Important**: Footer images must use HTTPS URLs to avoid mixed content blocking. The images are served via the ALB `/cdn/*` routing rule to Caddy on port 8888.
 
 ### Updating Footer Images
 1. Download images manually (wormbase.org uses Cloudflare protection)
@@ -305,13 +379,67 @@ http://172.31.59.87:8888/img/wormbase/<image_file>
    ```bash
    scp -i ~/.ssh/AGR-ssl3.pem <images> ec2-user@172.31.59.87:/data/cdn/img/wormbase/
    ```
-3. Redeploy if footer.jsp was modified
+3. Redeploy if footer.jsp was modified:
+   ```bash
+   ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@AllianceMineDev \
+     "docker exec wormmine bash -c 'cd /opt/intermine/wormmine && ./gradlew cargoRedeployRemote'"
+   ```
 
 ## Public Access
 
-### Current Status
+### Production HTTPS URL
 
-WormMine is accessible:
+**WormMine is accessible via HTTPS at:**
+```
+https://wormmine.alliancegenome.org/wormmine
+```
+
+This URL is routed through the Alliance load balancer (`alliancemine-lb`) with a valid SSL certificate.
+
+### AWS Infrastructure for wormmine.alliancegenome.org
+
+The HTTPS access is configured using the same pattern as BlueGenes and AllianceMine:
+
+```
+wormmine.alliancegenome.org (Route 53 CNAME)
+    → alliancemine-lb (ALB, port 443 HTTPS)
+        → Rule 400: Host = "wormmine.alliancegenome.org" → wormmine target group
+            → 172.31.59.87:8081 (Multi-tenant EC2)
+```
+
+**Components Created:**
+
+1. **Target Group**: `wormmine`
+   - ARN: `arn:aws:elasticloadbalancing:us-east-1:100225593120:targetgroup/wormmine/d1847ce03cf42970`
+   - Target: 172.31.59.87:8081
+   - Health Check: `/wormmine/service/version`
+
+2. **Target Group**: `wormmine-cdn`
+   - ARN: `arn:aws:elasticloadbalancing:us-east-1:100225593120:targetgroup/wormmine-cdn/...`
+   - Target: 172.31.59.87:8888
+   - Health Check: `/`
+   - Purpose: Routes CDN requests (`/cdn/*`) to Caddy server
+
+3. **ALB Listener Rules**:
+   - Rule 390 (Priority): Path pattern `/cdn/*` AND Host = `wormmine.alliancegenome.org` → `wormmine-cdn` target group
+   - Rule 400 (Priority): Host header = `wormmine.alliancegenome.org` → `wormmine` target group
+
+4. **Route 53 CNAME**:
+   - `wormmine.alliancegenome.org` → `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
+
+**Complete ALB Rules on alliancemine-lb:**
+```
+├── Rule 100: Host = "alliancemine-cdn-proxy.alliancegenome.org" → alliancemine-cdn
+├── Rule 200: Host = "alliancemine-proxy.alliancegenome.org" → alliancemine
+├── Rule 300: Host = "bluegenes-proxy.alliancegenome.org" → bluegenes
+├── Rule 390: Path = "/cdn/*" AND Host = "wormmine.alliancegenome.org" → wormmine-cdn
+├── Rule 400: Host = "wormmine.alliancegenome.org" → wormmine
+└── Default: Return 404
+```
+
+### Other Access Methods
+
+WormMine is also accessible via:
 - **Internal (VPN)**: http://172.31.59.87:8081/wormmine
 - **Public HTTP**: http://44.206.248.213:8081/wormmine (port 8081 opened in security group)
 
@@ -322,74 +450,44 @@ Port 8081 was added to security group `sg-0415cab61ab6b45c5` (HTTP/HTTPS):
 aws ec2 authorize-security-group-ingress --group-id sg-0415cab61ab6b45c5 --protocol tcp --port 8081 --cidr 0.0.0.0/0
 ```
 
-### Caddy HTTPS Proxy Configuration
+### Caddy CDN Configuration
 
-Caddy is configured to proxy WormMine over HTTPS on port 443:
+Caddy serves static CDN files. HTTPS termination is handled by the ALB, so Caddy only needs to serve HTTP on port 8888.
 
 **/etc/caddy/Caddyfile**:
 ```
-# CDN server
+# CDN server - handles both /cdn/* and root paths
 :8888 {
-    root * /data/cdn
-    file_server
-    header Access-Control-Allow-Origin *
-}
-
-# HTTPS proxy for InterMines
-:443 {
-    tls internal
-
-    # WormMine
-    handle /wormmine/* {
-        reverse_proxy localhost:8081
+    # Strip /cdn prefix if present (for ALB routing)
+    handle_path /cdn/* {
+        root * /data/cdn
+        file_server
+        header Access-Control-Allow-Origin *
     }
 
-    # Add more mines here as needed:
-    # handle /flymine/* {
-    #     reverse_proxy localhost:8082
-    # }
-
-    # Default: 404
+    # Also serve from root for backward compatibility
     handle {
-        respond "Not Found" 404
+        root * /data/cdn
+        file_server
+        header Access-Control-Allow-Origin *
     }
 }
 ```
 
-**Note**: The `tls internal` directive uses a self-signed certificate which browsers don't trust. For production HTTPS access, either:
-1. Get a domain name pointing to 44.206.248.213 and use Let's Encrypt
-2. Proxy through alliancegenome.org's infrastructure (recommended)
+**Note**: The ALB routes `https://wormmine.alliancegenome.org/cdn/*` requests to Caddy on port 8888. The `handle_path /cdn/*` directive strips the `/cdn` prefix so files are served from `/data/cdn/` root.
 
-### BlueGenes Integration Issue
+### BlueGenes Integration
 
-**Problem**: BlueGenes at `https://www.alliancegenome.org/bluegenes` cannot access WormMine directly because:
-1. Mixed content: HTTPS pages cannot load HTTP resources
-2. Self-signed HTTPS cert on multi-tenant is not trusted by browsers
+With the new HTTPS URL, BlueGenes can now access WormMine without mixed content issues.
 
-**Current BlueGenes Configuration** (in `agr_bluegenes/config/defaults/config.edn`):
+**Update BlueGenes Configuration** (in `agr_bluegenes/config/defaults/config.edn`):
 ```clojure
-{:root "https://44.206.248.213/wormmine"
+{:root "https://wormmine.alliancegenome.org/wormmine"
  :name "WormMine"
  :namespace "wormmine"}
 ```
 
-**Resolution Required**: Work with Alliance team to either:
-1. Set up a proper domain with SSL for the multi-tenant instance
-2. Configure a reverse proxy path at `https://www.alliancegenome.org/wormmine` that routes to `http://172.31.59.87:8081/wormmine`
-
-### To Expose WormMine via Alliance Proxy
-
-Configure Alliance main proxy/load balancer to route:
-```
-https://alliancegenome.org/wormmine → http://172.31.59.87:8081/wormmine
-```
-
-Then update BlueGenes config:
-```clojure
-{:root "https://www.alliancegenome.org/wormmine"
- :name "WormMine"
- :namespace "wormmine"}
-```
+After updating, rebuild and redeploy BlueGenes (see BlueGenes Deployment section).
 
 ## BlueGenes Deployment
 
