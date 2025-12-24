@@ -1,6 +1,6 @@
-# WormMine Multi-Tenant Deployment
+# InterMine Multi-Tenant Deployment
 
-This document describes the setup of WormMine on the InterMine multi-tenant EC2 instance.
+This document describes the setup of InterMine instances (WormMine, AllianceMine) on the multi-tenant EC2 instance.
 
 ## Architecture Overview
 
@@ -9,47 +9,68 @@ This document describes the setup of WormMine on the InterMine multi-tenant EC2 
                     │        Internet / Users              │
                     └──────────────────┬───────────────────┘
                                        │
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │   wormmine.alliancegenome.org        │
-                    │   (Route 53 CNAME → ALB)             │
-                    └──────────────────┬───────────────────┘
-                                       │
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │   alliancemine-lb (ALB)              │
-                    │   HTTPS :443 (TLS termination)       │
+                    ┌──────────────────┴───────────────────┐
                     │                                      │
-                    │   Rule 390: /cdn/* → :8888           │
-                    │   Rule 400: /* → :8081               │
-                    └────────────────┬─────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Multi-Tenant EC2 Instance                     │
-│                      (172.31.59.87)                              │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │   Solr       │  │   Caddy      │  │  Tomcat Container    │   │
-│  │   :8983      │  │   :8888      │  │  (wormmine) :8081    │   │
-│  │              │  │   (CDN)      │  │                      │   │
-│  │ - wormmine-  │  │              │  │  WormMine WAR        │   │
-│  │   search     │  │  /data/cdn   │  │  + RemoteIpValve     │   │
-│  │ - wormmine-  │  │              │  │                      │   │
-│  │   autocomplete│ │              │  │                      │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌──────────────────┐
-                    │   AWS RDS        │
-                    │   PostgreSQL     │
-                    │                  │
-                    │ - wormmine_final │
-                    │ - wormmine_      │
-                    │   userprofile    │
-                    └──────────────────┘
+                    ▼                                      ▼
+┌──────────────────────────────────┐   ┌──────────────────────────────────┐
+│ wormmine.alliancegenome.org      │   │ Direct IP Access (HTTP)          │
+│ (Route 53 CNAME → ALB)           │   │ 44.206.248.213                   │
+│ HTTPS via ALB                    │   │                                  │
+└──────────────────┬───────────────┘   └──────────────────┬───────────────┘
+                   │                                      │
+                   ▼                                      │
+┌──────────────────────────────────┐                      │
+│   alliancemine-lb (ALB)          │                      │
+│   HTTPS :443 (TLS termination)   │                      │
+│                                  │                      │
+│   Rule 390: /cdn/* → :8888       │                      │
+│   Rule 400: /* → :8081           │                      │
+└──────────────────┬───────────────┘                      │
+                   │                                      │
+                   └──────────────────┬───────────────────┘
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Multi-Tenant EC2 Instance                                 │
+│                    Private: 172.31.59.87  |  Public: 44.206.248.213         │
+│                                                                              │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────────┐ │
+│  │   Solr         │  │   Caddy        │  │  Tomcat Containers             │ │
+│  │   :8983        │  │   :8888 (CDN)  │  │                                │ │
+│  │                │  │                │  │  ┌─────────────────────────┐   │ │
+│  │ Cores:         │  │  /data/cdn     │  │  │ alliancemine :8080      │   │ │
+│  │ - alliancemine-│  │                │  │  │ AllianceMine 8.3.0 WAR  │   │ │
+│  │   search       │  │  Systemd       │  │  └─────────────────────────┘   │ │
+│  │ - alliancemine-│  │  enabled       │  │                                │ │
+│  │   autocomplete │  │                │  │  ┌─────────────────────────┐   │ │
+│  │ - wormmine-    │  │                │  │  │ wormmine :8081          │   │ │
+│  │   search       │  │                │  │  │ WormMine WAR            │   │ │
+│  │ - wormmine-    │  │                │  │  │ + RemoteIpValve         │   │ │
+│  │   autocomplete │  │                │  │  └─────────────────────────┘   │ │
+│  └────────────────┘  └────────────────┘  └────────────────────────────────┘ │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │   BlueGenes Container :5000                                          │   │
+│  │   Default Mine: AllianceMine (http://172.31.59.87:8080/alliancemine) │   │
+│  │   Additional: WormMine (http://44.206.248.213:8081/wormmine)         │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+                    ┌─────────────────────────────────────┐
+                    │   AWS RDS PostgreSQL 15             │
+                    │   intermine-postgres.cmnnhlso7wdi.  │
+                    │   us-east-1.rds.amazonaws.com       │
+                    │                                     │
+                    │   AllianceMine:                     │
+                    │   - alliancemine_8_3_0              │
+                    │   - alliancemine_userprofile        │
+                    │   - alliancemine_items              │
+                    │                                     │
+                    │   WormMine:                         │
+                    │   - wormmine_final                  │
+                    │   - wormmine_userprofile            │
+                    │   - wormmine_items                  │
+                    └─────────────────────────────────────┘
 ```
 
 ## Components
@@ -66,10 +87,22 @@ This document describes the setup of WormMine on the InterMine multi-tenant EC2 
 - **Version**: 8.11.2
 - **Port**: 8983
 - **Cores**:
-  - `wormmine-search` - Main search index (6,367,684 documents)
-  - `wormmine-autocomplete` - Autocomplete index (61,344 documents)
+  - `alliancemine-search` - AllianceMine search index (1.1 GB)
+  - `alliancemine-autocomplete` - AllianceMine autocomplete index (19 MB)
+  - `wormmine-search` - WormMine search index (768 MB)
+  - `wormmine-autocomplete` - WormMine autocomplete index (21 MB)
 
-### 3. Tomcat Container (Docker)
+### 3. Tomcat Containers (Docker)
+
+#### AllianceMine
+- **Container Name**: alliancemine
+- **Image**: intermine-tomcat:latest
+- **Port**: 8080 (mapped to container 8080)
+- **Version**: 8.3.0
+- **Databases**: `alliancemine_8_3_0`, `alliancemine_userprofile`
+- **Access**: http://44.206.248.213:8080/alliancemine
+
+#### WormMine
 - **Container Name**: wormmine
 - **Image**: intermine-tomcat:latest
 - **Port**: 8081 (mapped to container 8080)
@@ -221,17 +254,32 @@ docker exec 9e6d706430da bash -c "cd /opt/intermine/wormmine && ./gradlew postpr
 
 ## Access URLs
 
+### Public HTTP Access (via Public IP)
+| Service | Port | URL |
+|---------|------|-----|
+| AllianceMine | 8080 | http://44.206.248.213:8080/alliancemine/ |
+| WormMine | 8081 | http://44.206.248.213:8081/wormmine/ |
+| BlueGenes | 5000 | http://44.206.248.213:5000/bluegenes/ |
+| CDN | 8888 | http://44.206.248.213:8888/ |
+
 ### Via VPN (Internal)
+- **AllianceMine Webapp**: http://172.31.59.87:8080/alliancemine
 - **WormMine Webapp**: http://172.31.59.87:8081/wormmine
 - **Solr Admin**: http://172.31.59.87:8983/solr
 - **CDN**: http://172.31.59.87:8888
-- **Tomcat Manager**: http://172.31.59.87:8081/manager/html
+- **Tomcat Manager (WormMine)**: http://172.31.59.87:8081/manager/html
 
-### API Endpoints
+### API Endpoints (WormMine)
 - **Search**: http://172.31.59.87:8081/wormmine/service/search?q=<term>
 - **Query**: http://172.31.59.87:8081/wormmine/service/query/results
 - **Model**: http://172.31.59.87:8081/wormmine/service/model
 - **Version**: http://172.31.59.87:8081/wormmine/service/version
+
+### API Endpoints (AllianceMine)
+- **Search**: http://172.31.59.87:8080/alliancemine/service/search?q=<term>
+- **Query**: http://172.31.59.87:8080/alliancemine/service/query/results
+- **Model**: http://172.31.59.87:8080/alliancemine/service/model
+- **Version**: http://172.31.59.87:8080/alliancemine/service/version
 
 ## Troubleshooting
 
@@ -254,12 +302,12 @@ curl -I http://172.31.59.87:8888/
 
 ### Restart Services
 ```bash
-# Restart Tomcat container
+# Restart Tomcat containers
+docker restart alliancemine
 docker restart wormmine
 
-# Restart Caddy
-sudo /usr/local/bin/caddy stop
-sudo /usr/local/bin/caddy start --config /etc/caddy/Caddyfile
+# Restart Caddy (managed by systemd)
+sudo systemctl restart caddy
 
 # Restart Solr
 sudo systemctl restart solr
@@ -568,20 +616,63 @@ BlueGenes config is read from `config/defaults/config.edn` which gets bundled in
 ### Running Services on Multi-Tenant
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Multi-Tenant EC2 Instance                     │
-│                      (172.31.59.87 / 44.206.248.213)            │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │   Solr       │  │   Caddy      │  │  Tomcat Container    │   │
-│  │   :8983      │  │   :8888 CDN  │  │  (wormmine) :8081    │   │
-│  │              │  │   :443 HTTPS │  │                      │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │   BlueGenes Container                                     │   │
-│  │   :5000                                                   │   │
-│  │   http://44.206.248.213:5000/bluegenes/wormmine          │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Multi-Tenant EC2 Instance                                 │
+│                      (172.31.59.87 / 44.206.248.213)                        │
+│                                                                              │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────────┐ │
+│  │   Solr         │  │   Caddy        │  │  Tomcat Containers             │ │
+│  │   :8983        │  │   :8888 (CDN)  │  │                                │ │
+│  │                │  │                │  │  ┌─────────────────────────┐   │ │
+│  │ Cores:         │  │  /data/cdn     │  │  │ alliancemine :8080      │   │ │
+│  │ - alliancemine-│  │                │  │  │ AllianceMine 8.3.0 WAR  │   │ │
+│  │   search       │  │  Systemd       │  │  └─────────────────────────┘   │ │
+│  │ - alliancemine-│  │  enabled       │  │                                │ │
+│  │   autocomplete │  │                │  │  ┌─────────────────────────┐   │ │
+│  │ - wormmine-    │  │                │  │  │ wormmine :8081          │   │ │
+│  │   search       │  │                │  │  │ WormMine WAR            │   │ │
+│  │ - wormmine-    │  │                │  │  │ + RemoteIpValve         │   │ │
+│  │   autocomplete │  │                │  │  └─────────────────────────┘   │ │
+│  └────────────────┘  └────────────────┘  └────────────────────────────────┘ │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │   BlueGenes Container :5000                                          │   │
+│  │   Default Mine: AllianceMine (http://172.31.59.87:8080/alliancemine) │   │
+│  │   Additional: WormMine (http://44.206.248.213:8081/wormmine)         │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Caddy Systemd Service
+
+Caddy is managed by systemd to ensure it starts automatically on boot:
+
+**/etc/systemd/system/caddy.service**:
+```ini
+[Unit]
+Description=Caddy CDN Server
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Commands:**
+```bash
+# Enable on boot
+sudo systemctl enable caddy
+
+# Start/stop/restart
+sudo systemctl start caddy
+sudo systemctl stop caddy
+sudo systemctl restart caddy
+
+# Check status
+sudo systemctl status caddy
 ```
