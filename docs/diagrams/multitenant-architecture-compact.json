@@ -1,0 +1,22 @@
+{
+  "t": "InterMine Multi-Tenant Architecture",
+  "i": [
+    ["Users/Internet", "cloud", "External traffic"],
+    ["CloudFront", "aws-cloudfront", "www.alliancegenome.org CDN"],
+    ["ALB", "aws-elb", "alliancemine-lb HTTPS:443"],
+    ["Multi-Tenant EC2", "aws-ec2", "172.31.59.87 / 44.206.248.213"],
+    ["AllianceMine", "server", "Tomcat container :8080"],
+    ["WormMine", "server", "Tomcat container :8081"],
+    ["BlueGenes", "web", "Container :5000"],
+    ["Solr", "cache", "Native install :8983"],
+    ["Caddy CDN", "cdn", "Container :8888"],
+    ["AWS RDS", "aws-rds", "PostgreSQL 15 multi-tenant"]
+  ],
+  "v": [
+    [
+      [[0, 0, -10], [1, -6, -4], [2, 6, -4], [3, 0, 2], [4, -8, 8], [5, -4, 8], [6, 0, 8], [7, 4, 8], [8, 8, 8], [9, 0, 14]],
+      [[0, 1], [0, 2], [2, 3], [2, 5], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [4, 9], [5, 9]]
+    ]
+  ],
+  "_": { "f": "compact", "v": "1.0" }
+}
