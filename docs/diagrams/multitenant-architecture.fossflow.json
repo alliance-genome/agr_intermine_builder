@@ -1,0 +1,179 @@
+{
+  "version": "",
+  "title": "InterMine Multi-Tenant Architecture",
+  "colors": [
+    {"id": "blue", "value": "#0066cc"},
+    {"id": "green", "value": "#00aa00"},
+    {"id": "red", "value": "#cc0000"},
+    {"id": "orange", "value": "#ff9900"},
+    {"id": "purple", "value": "#9900cc"},
+    {"id": "black", "value": "#000000"},
+    {"id": "gray", "value": "#666666"}
+  ],
+  "icons": [],
+  "items": [],
+  "views": [
+    {
+      "name": "Multi-Tenant Overview",
+      "id": "main-view",
+      "lastUpdated": "2026-01-02T17:00:00.000Z",
+      "items": [
+        {
+          "id": "internet",
+          "icon": "cloud",
+          "position": {"x": 400, "y": 50},
+          "label": "Internet / Users",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "cloudfront",
+          "icon": "cloud",
+          "position": {"x": 200, "y": 150},
+          "label": "CloudFront\nwww.alliancegenome.org",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "alb",
+          "icon": "loadbalancer",
+          "position": {"x": 500, "y": 150},
+          "label": "ALB\nalliancemine-lb\nHTTPS :443",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "ec2-multitenant",
+          "icon": "server",
+          "position": {"x": 400, "y": 350},
+          "label": "Multi-Tenant EC2\n172.31.59.87\n44.206.248.213",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "alliancemine",
+          "icon": "cube",
+          "position": {"x": 250, "y": 450},
+          "label": "AllianceMine\nTomcat :8080",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "wormmine",
+          "icon": "cube",
+          "position": {"x": 350, "y": 450},
+          "label": "WormMine\nTomcat :8081",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "bluegenes",
+          "icon": "cube",
+          "position": {"x": 450, "y": 450},
+          "label": "BlueGenes\n:5000",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "solr",
+          "icon": "cube",
+          "position": {"x": 550, "y": 450},
+          "label": "Solr\n:8983",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "caddy",
+          "icon": "cube",
+          "position": {"x": 650, "y": 450},
+          "label": "Caddy CDN\n:8888",
+          "labelPosition": "bottom"
+        },
+        {
+          "id": "rds",
+          "icon": "server",
+          "position": {"x": 400, "y": 600},
+          "label": "AWS RDS PostgreSQL 15\nintermine-postgres.*.rds.amazonaws.com",
+          "labelPosition": "bottom"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "conn-internet-cloudfront",
+          "from": "internet",
+          "to": "cloudfront",
+          "color": "gray"
+        },
+        {
+          "id": "conn-internet-alb",
+          "from": "internet",
+          "to": "alb",
+          "color": "gray"
+        },
+        {
+          "id": "conn-alb-ec2",
+          "from": "alb",
+          "to": "ec2-multitenant",
+          "color": "blue"
+        },
+        {
+          "id": "conn-ec2-alliancemine",
+          "from": "ec2-multitenant",
+          "to": "alliancemine",
+          "color": "green"
+        },
+        {
+          "id": "conn-ec2-wormmine",
+          "from": "ec2-multitenant",
+          "to": "wormmine",
+          "color": "green"
+        },
+        {
+          "id": "conn-ec2-bluegenes",
+          "from": "ec2-multitenant",
+          "to": "bluegenes",
+          "color": "green"
+        },
+        {
+          "id": "conn-ec2-solr",
+          "from": "ec2-multitenant",
+          "to": "solr",
+          "color": "green"
+        },
+        {
+          "id": "conn-ec2-caddy",
+          "from": "ec2-multitenant",
+          "to": "caddy",
+          "color": "green"
+        },
+        {
+          "id": "conn-alliancemine-rds",
+          "from": "alliancemine",
+          "to": "rds",
+          "color": "orange"
+        },
+        {
+          "id": "conn-wormmine-rds",
+          "from": "wormmine",
+          "to": "rds",
+          "color": "orange"
+        }
+      ],
+      "rectangles": [
+        {
+          "id": "rect-ec2",
+          "position": {"x": 220, "y": 420},
+          "size": {"width": 480, "height": 100},
+          "color": "blue",
+          "label": "Docker Containers"
+        }
+      ],
+      "textBoxes": [
+        {
+          "id": "text-wormmine-url",
+          "position": {"x": 600, "y": 200},
+          "text": "wormmine.alliancegenome.org\n→ :8081",
+          "fontSize": 12
+        },
+        {
+          "id": "text-databases",
+          "position": {"x": 250, "y": 620},
+          "text": "alliancemine_8_3_0\nwormmine_final",
+          "fontSize": 12
+        }
+      ]
+    }
+  ]
+}
