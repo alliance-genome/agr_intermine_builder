@@ -493,9 +493,23 @@ WormMine is also accessible via:
 
 ### Security Group Changes
 
-Port 8081 was added to security group `sg-0415cab61ab6b45c5` (HTTP/HTTPS):
+The following ports were added to security group `sg-0415cab61ab6b45c5` for public HTTP access:
+
+| Port | Service | Purpose |
+|------|---------|---------|
+| 8080 | AllianceMine | Public HTTP access to AllianceMine webapp |
+| 8081 | WormMine | Public HTTP access to WormMine webapp |
+| 5000 | BlueGenes | Public HTTP access to BlueGenes UI |
+
 ```bash
+# AllianceMine (port 8080)
+aws ec2 authorize-security-group-ingress --group-id sg-0415cab61ab6b45c5 --protocol tcp --port 8080 --cidr 0.0.0.0/0
+
+# WormMine (port 8081)
 aws ec2 authorize-security-group-ingress --group-id sg-0415cab61ab6b45c5 --protocol tcp --port 8081 --cidr 0.0.0.0/0
+
+# BlueGenes (port 5000)
+aws ec2 authorize-security-group-ingress --group-id sg-0415cab61ab6b45c5 --protocol tcp --port 5000 --cidr 0.0.0.0/0
 ```
 
 ### Caddy CDN Configuration
