@@ -13,9 +13,11 @@ This document describes the setup of InterMine instances (WormMine, AllianceMine
                     │                                      │
                     ▼                                      ▼
 ┌──────────────────────────────────┐   ┌──────────────────────────────────┐
-│ wormmine.alliancegenome.org      │   │ Direct IP Access (HTTP)          │
-│ (Route 53 CNAME → ALB)           │   │ 44.206.248.213                   │
-│ HTTPS via ALB                    │   │                                  │
+│ HTTPS Access (via ALB)           │   │ Direct IP Access (HTTP)          │
+│ *.alliancegenome.org             │   │ 44.206.248.213                   │
+│                                  │   │                                  │
+│ - alliancemine.alliancegenome.org│   │                                  │
+│ - wormmine.alliancegenome.org    │   │                                  │
 └──────────────────┬───────────────┘   └──────────────────┬───────────────┘
                    │                                      │
                    ▼                                      │
@@ -23,8 +25,10 @@ This document describes the setup of InterMine instances (WormMine, AllianceMine
 │   alliancemine-lb (ALB)          │                      │
 │   HTTPS :443 (TLS termination)   │                      │
 │                                  │                      │
-│   Rule 390: /cdn/* → :8888       │                      │
-│   Rule 400: /* → :8081           │                      │
+│   Rule 150: /cdn/* → :8888 (AM)  │                      │
+│   Rule 250: /* → :8080 (AM)      │                      │
+│   Rule 350: /cdn/* → :8888 (WM)  │                      │
+│   Rule 400: /* → :8081 (WM)      │                      │
 └──────────────────┬───────────────┘                      │
                    │                                      │
                    └──────────────────┬───────────────────┘
@@ -39,13 +43,13 @@ This document describes the setup of InterMine instances (WormMine, AllianceMine
 │  │                │  │                │  │  ┌─────────────────────────┐   │ │
 │  │ Cores:         │  │  /data/cdn     │  │  │ alliancemine :8080      │   │ │
 │  │ - alliancemine-│  │                │  │  │ AllianceMine 8.3.0 WAR  │   │ │
-│  │   search       │  │  Systemd       │  │  └─────────────────────────┘   │ │
-│  │ - alliancemine-│  │  enabled       │  │                                │ │
-│  │   autocomplete │  │                │  │  ┌─────────────────────────┐   │ │
-│  │ - wormmine-    │  │                │  │  │ wormmine :8081          │   │ │
-│  │   search       │  │                │  │  │ WormMine WAR            │   │ │
-│  │ - wormmine-    │  │                │  │  │ + RemoteIpValve         │   │ │
-│  │   autocomplete │  │                │  │  └─────────────────────────┘   │ │
+│  │   search       │  │  Systemd       │  │  │ + RemoteIpValve         │   │ │
+│  │ - alliancemine-│  │  enabled       │  │  └─────────────────────────┘   │ │
+│  │   autocomplete │  │                │  │                                │ │
+│  │ - wormmine-    │  │                │  │  ┌─────────────────────────┐   │ │
+│  │   search       │  │                │  │  │ wormmine :8081          │   │ │
+│  │ - wormmine-    │  │                │  │  │ WormMine WAR            │   │ │
+│  │   autocomplete │  │                │  │  │ + RemoteIpValve         │   │ │
 │  └────────────────┘  └────────────────┘  └────────────────────────────────┘ │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
@@ -100,7 +104,8 @@ This document describes the setup of InterMine instances (WormMine, AllianceMine
 - **Port**: 8080 (mapped to container 8080)
 - **Version**: 8.3.0
 - **Databases**: `alliancemine_8_3_0`, `alliancemine_userprofile`
-- **Access**: http://44.206.248.213:8080/alliancemine
+- **HTTPS Access**: https://alliancemine.alliancegenome.org/alliancemine
+- **HTTP Access**: http://44.206.248.213:8080/alliancemine
 
 #### WormMine
 - **Container Name**: wormmine
@@ -253,6 +258,12 @@ docker exec 9e6d706430da bash -c "cd /opt/intermine/wormmine && ./gradlew postpr
 ```
 
 ## Access URLs
+
+### Production HTTPS Access (via ALB)
+| Service | URL |
+|---------|-----|
+| AllianceMine | https://alliancemine.alliancegenome.org/alliancemine |
+| WormMine | https://wormmine.alliancegenome.org/wormmine |
 
 ### Public HTTP Access (via Public IP)
 | Service | Port | URL |
@@ -435,14 +446,52 @@ https://wormmine.alliancegenome.org/cdn/img/wormbase/<image_file>
 
 ## Public Access
 
-### Production HTTPS URL
+### Production HTTPS URLs
 
-**WormMine is accessible via HTTPS at:**
+**Both mines are accessible via HTTPS:**
 ```
+https://alliancemine.alliancegenome.org/alliancemine
 https://wormmine.alliancegenome.org/wormmine
 ```
 
-This URL is routed through the Alliance load balancer (`alliancemine-lb`) with a valid SSL certificate.
+These URLs are routed through the Alliance load balancer (`alliancemine-lb`) with a valid SSL certificate.
+
+### AWS Infrastructure for alliancemine.alliancegenome.org
+
+```
+alliancemine.alliancegenome.org (Route 53 CNAME)
+    → alliancemine-lb (ALB, port 443 HTTPS)
+        → Rule 150: Path = "/cdn/*" AND Host = "alliancemine.alliancegenome.org" → alliancemine-mt-cdn
+        → Rule 250: Host = "alliancemine.alliancegenome.org" → alliancemine-multitenant
+            → 172.31.59.87:8080 (Multi-tenant EC2)
+```
+
+**Components:**
+
+1. **Target Group**: `alliancemine-multitenant`
+   - ARN: `arn:aws:elasticloadbalancing:us-east-1:100225593120:targetgroup/alliancemine-multitenant/9c6cdef38cbc7e6b`
+   - Target: 172.31.59.87:8080
+   - Health Check: `/alliancemine/service/version`
+
+2. **Target Group**: `alliancemine-mt-cdn`
+   - ARN: `arn:aws:elasticloadbalancing:us-east-1:100225593120:targetgroup/alliancemine-mt-cdn/161152c8ff7b7752`
+   - Target: 172.31.59.87:8888
+   - Health Check: `/`
+   - Purpose: Routes CDN requests (`/cdn/*`) to Caddy server
+
+3. **ALB Listener Rules**:
+   - Rule 150 (Priority): Path pattern `/cdn/*` AND Host = `alliancemine.alliancegenome.org` → `alliancemine-mt-cdn` target group
+   - Rule 250 (Priority): Host header = `alliancemine.alliancegenome.org` → `alliancemine-multitenant` target group
+
+4. **Route 53 CNAME**:
+   - `alliancemine.alliancegenome.org` → `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
+
+**AllianceMine Properties (for HTTPS):**
+```properties
+webapp.hostname=alliancemine.alliancegenome.org
+webapp.baseurl=https://alliancemine.alliancegenome.org/alliancemine
+head.cdn.location=https://alliancemine.alliancegenome.org/cdn
+```
 
 ### AWS Infrastructure for wormmine.alliancegenome.org
 
@@ -477,10 +526,12 @@ wormmine.alliancegenome.org (Route 53 CNAME)
 
 **Complete ALB Rules on alliancemine-lb:**
 ```
-├── Rule 100: Host = "alliancemine-cdn-proxy.alliancegenome.org" → alliancemine-cdn
-├── Rule 200: Host = "alliancemine-proxy.alliancegenome.org" → alliancemine
+├── Rule 100: Host = "alliancemine-cdn-proxy.alliancegenome.org" → alliancemine-cdn (legacy)
+├── Rule 150: Path = "/cdn/*" AND Host = "alliancemine.alliancegenome.org" → alliancemine-mt-cdn
+├── Rule 200: Host = "alliancemine-proxy.alliancegenome.org" → alliancemine (legacy)
+├── Rule 250: Host = "alliancemine.alliancegenome.org" → alliancemine-multitenant
 ├── Rule 300: Host = "bluegenes-proxy.alliancegenome.org" → bluegenes
-├── Rule 390: Path = "/cdn/*" AND Host = "wormmine.alliancegenome.org" → wormmine-cdn
+├── Rule 350: Path = "/cdn/*" AND Host = "wormmine.alliancegenome.org" → wormmine-cdn
 ├── Rule 400: Host = "wormmine.alliancegenome.org" → wormmine
 └── Default: Return 404
 ```
@@ -640,13 +691,13 @@ BlueGenes config is read from `config/defaults/config.edn` which gets bundled in
 │  │                │  │                │  │  ┌─────────────────────────┐   │ │
 │  │ Cores:         │  │  /data/cdn     │  │  │ alliancemine :8080      │   │ │
 │  │ - alliancemine-│  │                │  │  │ AllianceMine 8.3.0 WAR  │   │ │
-│  │   search       │  │  Systemd       │  │  └─────────────────────────┘   │ │
-│  │ - alliancemine-│  │  enabled       │  │                                │ │
-│  │   autocomplete │  │                │  │  ┌─────────────────────────┐   │ │
-│  │ - wormmine-    │  │                │  │  │ wormmine :8081          │   │ │
-│  │   search       │  │                │  │  │ WormMine WAR            │   │ │
-│  │ - wormmine-    │  │                │  │  │ + RemoteIpValve         │   │ │
-│  │   autocomplete │  │                │  │  └─────────────────────────┘   │ │
+│  │   search       │  │  Systemd       │  │  │ + RemoteIpValve         │   │ │
+│  │ - alliancemine-│  │  enabled       │  │  └─────────────────────────┘   │ │
+│  │   autocomplete │  │                │  │                                │ │
+│  │ - wormmine-    │  │                │  │  ┌─────────────────────────┐   │ │
+│  │   search       │  │                │  │  │ wormmine :8081          │   │ │
+│  │ - wormmine-    │  │                │  │  │ WormMine WAR            │   │ │
+│  │   autocomplete │  │                │  │  │ + RemoteIpValve         │   │ │
 │  └────────────────┘  └────────────────┘  └────────────────────────────────┘ │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
