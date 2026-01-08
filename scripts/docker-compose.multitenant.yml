@@ -80,7 +80,13 @@ services:
         reservations:
           memory: 2g
           cpus: '1'
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/alliancemine/service/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
     depends_on:
       - solr
 
@@ -110,7 +116,13 @@ services:
         reservations:
           memory: 2g
           cpus: '1'
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/wormmine/service/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
     depends_on:
       - solr
 
@@ -140,7 +152,13 @@ services:
         reservations:
           memory: 2g
           cpus: '1'
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/flymine/service/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
     depends_on:
       - solr
 
@@ -170,7 +188,13 @@ services:
         reservations:
           memory: 2g
           cpus: '1'
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/zebrafishmine/service/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
     depends_on:
       - solr
 
@@ -200,7 +224,13 @@ services:
         reservations:
           memory: 2g
           cpus: '1'
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/mousemine/service/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
     depends_on:
       - solr
 
@@ -230,7 +260,13 @@ services:
         reservations:
           memory: 2g
           cpus: '1'
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ratmine/service/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
     depends_on:
       - solr
 
