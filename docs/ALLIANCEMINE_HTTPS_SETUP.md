@@ -28,10 +28,18 @@ alliancemine.alliancegenome.org (Route 53 CNAME)
 | alliancemine-mt-cdn | arn:aws:elasticloadbalancing:us-east-1:100225593120:targetgroup/alliancemine-mt-cdn/161152c8ff7b7752 | 172.31.59.87:8888 | / |
 
 ### DNS (Route 53)
+
+**Public Zone** (Z3IZ3D6V94JEC2):
 - **Record**: `alliancemine.alliancegenome.org`
 - **Type**: CNAME
 - **Value**: `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
-- **Hosted Zone**: Z3IZ3D6V94JEC2 (public)
+
+**Private Zone** (Z007692222A6W93AZVSPD):
+- **Record**: `alliancemine.alliancegenome.org`
+- **Type**: CNAME
+- **Value**: `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
+
+**Important**: Both public AND private hosted zones need the CNAME record. Users on VPN/Tailscale use VPC DNS (172.31.0.2) which queries the private zone first.
 
 ## Required Configuration
 
@@ -130,19 +138,47 @@ dig @8.8.8.8 +short alliancemine.alliancegenome.org
 
 ## Troubleshooting
 
-### "Safari Can't Find the Server"
+### "Safari Can't Find the Server" / "Could not resolve host"
 
-DNS cache issue. Flush local DNS:
-
-**macOS**:
+**1. Flush local DNS cache (macOS)**:
 ```bash
 sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 ```
 
-**Verify DNS resolves**:
+**2. Check which DNS servers you're using**:
 ```bash
+scutil --dns | grep nameserver | head -5
+```
+
+If you see `172.31.0.2` (VPC DNS) or `100.100.100.100` (Tailscale), you're using private DNS.
+
+**3. Test DNS resolution**:
+```bash
+# Public DNS (should always work)
 dig @8.8.8.8 +short alliancemine.alliancegenome.org
-# Should return ALB IPs
+
+# VPC DNS (requires private zone record)
+dig @172.31.0.2 +short alliancemine.alliancegenome.org
+```
+
+**4. If VPC DNS fails**, add record to private hosted zone:
+```bash
+aws route53 change-resource-record-sets --hosted-zone-id Z007692222A6W93AZVSPD --change-batch '{
+  "Changes": [{
+    "Action": "CREATE",
+    "ResourceRecordSet": {
+      "Name": "alliancemine.alliancegenome.org",
+      "Type": "CNAME",
+      "TTL": 300,
+      "ResourceRecords": [{"Value": "alliancemine-lb-309443304.us-east-1.elb.amazonaws.com"}]
+    }
+  }]
+}'
+```
+
+**5. Bypass DNS entirely** (for testing):
+```bash
+curl --resolve alliancemine.alliancegenome.org:443:3.226.226.97 https://alliancemine.alliancegenome.org/alliancemine/service/version
 ```
 
 ### Mixed Content (CSS/JS not loading)
