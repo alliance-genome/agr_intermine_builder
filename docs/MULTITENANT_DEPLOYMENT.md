@@ -342,6 +342,44 @@ docker-compose logs --tail=100 alliancemine
 docker exec nginx-proxy tail -f /var/log/nginx/access.log
 ```
 
+### Log Rotation
+
+**CRITICAL**: Tomcat logs can grow to 40GB+ and fill the disk, causing 504 errors. Set up logrotate:
+
+```bash
+sudo tee /etc/logrotate.d/intermine-logs << 'EOF'
+/data/mines/logs/wormmine/*.log
+/data/mines/logs/alliancemine/*.log {
+    daily
+    rotate 7
+    size 100M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+EOF
+```
+
+Verify with: `sudo logrotate -d /etc/logrotate.d/intermine-logs`
+
+If disk is full, emergency cleanup:
+```bash
+# Check disk usage
+df -h /
+
+# Find large log files
+du -sh /data/mines/logs/*
+
+# Truncate logs (keeps file open, no restart needed)
+sudo truncate -s 0 /data/mines/logs/wormmine/*.log
+sudo truncate -s 0 /data/mines/logs/alliancemine/*.log
+
+# Restart affected containers
+docker restart wormmine alliancemine
+```
+
 ### Database Monitoring
 
 From your local machine with pg_top:
@@ -542,6 +580,7 @@ docker image prune -a
 - [ ] Automated backups configured
 - [ ] IAM roles follow least privilege principle
 - [ ] Regular security updates applied
+- [ ] Log rotation configured (prevents disk full outages)
 
 ## Support
 
