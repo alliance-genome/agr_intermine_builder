@@ -392,6 +392,92 @@ PGPASSWORD='your-password' pg_top \
   -d wormmine_final
 ```
 
+### RDS Storage Management
+
+**CRITICAL**: PostgreSQL temporary tables from InterMine queries can fill RDS storage, causing outages.
+
+#### Incident: 2026-01-15 Storage Exhaustion
+
+**Timeline:**
+- 06:17 UTC: CPU alarm - 99% CPU for 15 minutes
+- 08:17 UTC: Storage alarm - Free storage dropped below 10GB (3.2 GB at lowest)
+
+**Root Cause:**
+WormMine queries created large temporary precomputed tables (`temporary_precomp_*`) that exhausted disk:
+```
+ERROR: could not write to file "base/pgsql_tmp/pgsql_tmp5041.6": No space left on device
+STATEMENT: CREATE TABLE temporary_precomp_2575 AS SELECT ...
+```
+
+Complex JOINs across Gene, Organism, GOAnnotation, OntologyTerm, ExpressionCluster tables ran 10-30+ minutes.
+
+**Resolution:**
+1. Increased RDS storage: 400 GB → 500 GB (+100 GB headroom)
+2. Adjusted CPU alarm: 15 min → 30 min sustained (allows nightly batch operations)
+
+**Current State:**
+- Total Storage: 500 GB
+- Free Storage: ~122 GB (24%)
+- Base usage: ~378 GB (AllianceMine + WormMine + MouseMine + FlyMine)
+
+#### Monitoring Storage
+
+Check RDS free storage:
+```bash
+aws rds describe-db-instances \
+  --db-instance-identifier intermine-postgres \
+  --query 'DBInstances[0].[AllocatedStorage,StorageType]'
+```
+
+CloudWatch metrics:
+- `FreeStorageSpace` - Alert if < 50 GB
+- `CPUUtilization` - Alert if sustained > 90% for 30+ minutes
+- `DatabaseConnections` - Monitor for connection leaks
+
+#### Cleaning Up Temp Tables
+
+InterMine creates temporary precomputed tables that may not auto-cleanup:
+
+```bash
+# Connect to RDS
+PGPASSWORD='***REMOVED***' psql \
+  -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com \
+  -U postgres \
+  -d wormmine_db
+
+# Find temp tables
+SELECT tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE tablename LIKE 'temporary_precomp_%'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+# Drop temp tables (run during low-traffic periods)
+DROP TABLE IF EXISTS temporary_precomp_2575;
+```
+
+#### Cleaning Intermediary Databases
+
+Build processes create intermediary databases that should be deleted after successful builds:
+
+```bash
+# List all databases
+PGPASSWORD='***REMOVED***' psql \
+  -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com \
+  -U postgres \
+  -c "\l+" | grep wormmine
+
+# Drop intermediary databases (items-*, old versions)
+PGPASSWORD='***REMOVED***' psql \
+  -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com \
+  -U postgres \
+  -c "DROP DATABASE IF EXISTS items_wormmine;"
+```
+
+**Best Practice:** Only keep:
+- Current production database: `{mine}_db` (e.g., `wormmine_db`)
+- Profile database: `{mine}_profiles_db` (persistent, shared across versions)
+- Latest items database during active builds only
+
 ## Adding More Mines
 
 To add additional mines:
