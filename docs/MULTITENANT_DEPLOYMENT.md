@@ -380,6 +380,51 @@ sudo truncate -s 0 /data/mines/logs/alliancemine/*.log
 docker restart wormmine alliancemine
 ```
 
+### Automated Container Restarts
+
+Tomcat can develop memory leaks and session issues over time. Automated restarts prevent these issues:
+
+```bash
+# Create systemd service
+sudo tee /etc/systemd/system/intermine-restart.service << 'EOF'
+[Unit]
+Description=Restart InterMine containers
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker restart wormmine alliancemine
+StandardOutput=journal
+StandardError=journal
+EOF
+
+# Create timer (runs every 48 hours at midnight ET / 05:00 UTC)
+sudo tee /etc/systemd/system/intermine-restart.timer << 'EOF'
+[Unit]
+Description=Restart InterMine containers every 48 hours at midnight ET
+Requires=intermine-restart.service
+
+[Timer]
+OnCalendar=*-*-1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31 05:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+# Enable and start timer
+sudo systemctl daemon-reload
+sudo systemctl enable intermine-restart.timer
+sudo systemctl start intermine-restart.timer
+
+# Verify timer status
+sudo systemctl list-timers intermine-restart.timer
+
+# View restart logs
+sudo journalctl -u intermine-restart.service -n 20
+```
+
 ### Database Monitoring
 
 From your local machine with pg_top:
