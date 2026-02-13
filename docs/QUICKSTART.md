@@ -18,17 +18,16 @@ cd docker/alliancemine
 cp .env.example .env
 ```
 
-Edit `.env` with your RDS credentials:
+Edit `.env` with your RDS credentials (only required fields):
 
 ```bash
 RDS_HOST=intermine-postgres.xxxxxxx.us-east-1.rds.amazonaws.com
 RDS_PORT=5432
 RDS_USER=postgres
 RDS_PASSWORD=<your-password>
-ALLIANCE_RELEASE=8.3.0
-BUILD_TYPE=test
-RC_NUMBER=1
 ```
+
+Everything else is auto-detected: `ALLIANCE_RELEASE` is fetched from the FMS API, `RC_NUMBER` is auto-incremented from RDS, and `BUILD_TYPE` defaults to `test`. See [ALLIANCEMINE_BUILD_GUIDE.md](ALLIANCEMINE_BUILD_GUIDE.md) for all options.
 
 ### 2. Build the Image
 
