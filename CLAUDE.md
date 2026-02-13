@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AGR InterMine Builder is a Python-based orchestration system for building InterMine bioinformatics data warehouse instances. It builds and manages multiple mines (AllianceMine, WormMine, FlyMine, MouseMine, etc.) that integrate genomic data from Model Organism Databases (MODs) for the Alliance of Genome Resources.
+AGR InterMine Builder is a Python-based orchestration system for building InterMine bioinformatics data warehouse instances. It manages multiple mines (AllianceMine, WormMine, FlyMine, MouseMine) that integrate genomic data from Model Organism Databases (MODs) for the Alliance of Genome Resources.
 
 ## Build Commands
 
@@ -15,179 +15,114 @@ uv pip install -e ".[dev]"    # Install with dev dependencies
 ```
 
 ### Building Mines
-
 ```bash
-# Build a single mine
 python -m src.cli.build_mines build --mine alliancemine
-
-# Build all mines sequentially
 python -m src.cli.build_mines build-all
-
-# Execute a single build stage
 python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
-
-# Check mine status
 python -m src.cli.build_mines status --mine alliancemine
-
-# Cleanup containers
 python -m src.cli.build_mines cleanup --mine alliancemine
+python -m src.cli.build_mines list   # List available mines
 ```
 
 ### RDS Management
 ```bash
-uv run python -m src.cli.rds_manager create   # Provision RDS
-uv run python -m src.cli.rds_manager status   # Check RDS status
-uv run python -m src.cli.rds_manager stop     # Stop RDS (cost saving)
+python -m src.cli.rds_manager create   # Provision RDS (interactive, creates all mine DBs)
+python -m src.cli.rds_manager status   # Check RDS status
+python -m src.cli.rds_manager stop     # Stop RDS (cost saving)
+python -m src.cli.rds_manager start    # Start stopped RDS
+python -m src.cli.rds_manager modify --instance-type db.t3.xlarge --apply-immediately
+python -m src.cli.rds_manager delete   # Requires confirmation
 ```
 
 ### Set Alliance Release Version
 ```bash
-uv run python -m src.cli.set_release current  # From Alliance API
-uv run python -m src.cli.set_release 8.3.0    # Specific version
-uv run python -m src.cli.set_release show     # Show current
+python -m src.cli.set_release current  # From Alliance FMS API
+python -m src.cli.set_release next     # Next release from API
+python -m src.cli.set_release 8.3.0    # Specific version
+python -m src.cli.set_release show     # Show current + available
 ```
 
 ### Docker Commands (Unified Container)
 ```bash
 cd docker/alliancemine-unified
-
-# Build and run webapp
-docker-compose build
-docker-compose up -d
-
-# Run full InterMine build
-docker-compose run --rm alliancemine build
-
-# Manual build steps inside container
-docker-compose exec alliancemine bash
-./gradlew buildDB
-./project_build -b
-./gradlew postprocess
-./gradlew buildUserDB
-./gradlew cargoRedeployRemote
-
-# Automated build with versioning
-python3 build_mine.py       # Base version
+docker-compose build && docker-compose up -d      # Build and run webapp
+docker-compose run --rm alliancemine build         # Full InterMine build
+python3 build_mine.py       # Automated build with base version
 python3 build_mine.py -1    # Build iteration (8.3.0-1)
 ```
 
 ### Testing and Linting
 ```bash
-pytest                            # Run tests
-pytest --cov=src --cov-report=html  # With coverage
-black src/                        # Format code
-ruff check src/                   # Lint
+pytest                            # Run tests (testpaths: tests/)
+pytest --cov=src --cov-report=html
+black src/                        # Format (line-length: 100)
+ruff check src/                   # Lint (line-length: 100, target: py39)
 mypy src/                         # Type checking
 ```
 
 ## Architecture
 
-### Directory Structure
+### Core Module Flow
+
+The system follows a layered orchestration pattern:
+
 ```
-src/
-├── builders/               # Mine build orchestration (legacy path)
-├── intermine_builder/      # Core Python modules
-│   ├── mine_config.py      # Mine configurations (resources, branches)
-│   ├── docker_manager.py   # Docker container lifecycle
-│   ├── build_executor.py   # Build stage execution
-│   ├── mine_builder.py     # Main orchestrator
-│   ├── config.py           # Configuration management
-│   └── aws/
-│       └── rds_manager.py  # AWS RDS provisioning
-├── cli/
-│   ├── build_mines.py      # Main CLI interface
-│   ├── rds_manager.py      # RDS CLI
-│   └── set_release.py      # Release version CLI
-└── lib/
-    └── config.py           # Additional config utilities
-
-docker/
-├── alliancemine-unified/   # Unified container (Tomcat+Solr+Build)
-├── wormmine-unified/       # WormMine unified container
-└── multi_mine_rds/         # Multi-mine RDS configs
-    ├── alliancemine/
-    └── wormmine/
-
-legacy/                     # Deprecated bash-based system (reference only)
+CLI (build_mines.py) → MineBuilder → DockerManager → BuildExecutor
+                          ↓                              ↓
+                     Config.from_env()          execute_command() in container
+                          ↓
+                    mine_config.py (MINE_CONFIGS registry)
 ```
 
-### Build Architecture
+**MineBuilder** (`src/intermine_builder/mine_builder.py`) is the top-level orchestrator. It coordinates the full build lifecycle: creates Docker networks, builds images, creates/starts containers, and delegates stage execution to BuildExecutor. Supports `with` statement for automatic cleanup.
 
-The system uses a **unified container** architecture where each mine runs in a single Docker container containing:
-- Build environment (Java 8/11, Gradle, Perl)
-- Apache Tomcat 9.0 (port 8080)
-- Apache Solr 8.4 (port 8983)
-- Connects to external AWS RDS PostgreSQL 15
+**DockerManager** (`src/intermine_builder/docker_manager.py`) manages Docker container lifecycle using the `docker` Python SDK. Tracks containers and images in memory dicts keyed by `MineType`. Container naming convention: `{mine_type}-builder`.
+
+**BuildExecutor** (`src/intermine_builder/build_executor.py`) runs the 7 sequential build stages inside containers. Most stages use `./gradlew <task>` except `extract_data` (shell script) and `project_build` (uses `project_build` script from intermine-scripts). Workdir is determined by mine type: `/root/{mine_type.value}`.
+
+**Config** (`src/intermine_builder/config.py`) aggregates 6 nested dataclass configs (DatabaseConfig, RDSConfig, DockerConfig, EC2BuildConfig, InterMineConfig, AllianceConfig). Loads from env vars via `Config.from_env()` with dotenv support. Env var priority: `RDS_*` > `POSTGRES_*` > `DB_*` for database config.
+
+**MineConfig** (`src/intermine_builder/mine_config.py`) defines `MineType` enum (4 mines), `BuildStage` enum (7 stages), and predefined `MineConfig` dataclasses in the `MINE_CONFIGS` dict. Each mine has specific resource limits, data sources, and tomcat ports (8080-8083).
+
+### RDS Management (Two Implementations)
+
+There are two RDS management paths:
+- **`src/intermine_builder/rds_provisioner.py`** (`RDSProvisioner`): Used by `src/cli/rds_manager.py` CLI. Creates a single shared RDS instance with all mine databases. Uses PostgreSQL 15, creates `intermine-postgres15` parameter group.
+- **`src/intermine_builder/aws/rds_manager.py`** (`RDSManager`): More advanced. Supports ephemeral build instances, build queues, instance resizing, and cost estimation. Uses PostgreSQL 13 parameter groups. Includes 7 mine configs (adds ratmine, zebrafish, yeastmine beyond the core 4).
 
 ### Build Stages (Sequential)
-1. **buildDB** (5-10 min) - Create PostgreSQL schema
-2. **extract_data** (10-30 min) - Download data from FMS/FTP
-3. **project_build** (2-4 hours) - Data integration (LONGEST)
-4. **postprocess** (30-60 min) - Indexing, summary tables
-5. **buildUserDB** (5-10 min) - User profile database (one-time)
-6. **war** (10-20 min) - Build WAR file
-7. **deploy** (5-10 min) - Deploy to Tomcat
+1. **buildDB** - Create PostgreSQL schema (Gradle)
+2. **extract_data** - Download data from FMS/FTP (shell script)
+3. **project_build** - Data integration, 2-4 hours (intermine-scripts)
+4. **postprocess** - Indexing, summary tables (Gradle)
+5. **buildUserDB** - User profile database, skipped if DB exists (Gradle + psql check)
+6. **war** - Build WAR file (Gradle)
+7. **deploy** / **cargoRedeployRemote** - Deploy to Tomcat, skipped if Tomcat not running (Gradle)
+
+### Docker Configurations
+
+Three Docker setups exist:
+- **`docker/alliancemine-unified/`**: Self-contained AllianceMine (Tomcat+Solr+Build, port 8080)
+- **`docker/wormmine-unified/`**: Self-contained WormMine (port 8081, uses custom_data mount)
+- **`docker/multi_mine_rds/`**: Multi-mine setup with shared base image, connects to external RDS
 
 ### Database Structure (RDS Multi-tenant)
-Each mine uses two databases:
-- Main DB: `{mine}_db` (e.g., `alliancemine_db`)
-- Profile DB: `{mine}_profiles_db` (e.g., `alliancemine_profiles_db`)
-
-Profile databases are persistent across rebuilds and contain user accounts, saved queries, and gene lists.
-
-## Configuration
-
-### Environment Variables (.env in project root)
-```bash
-RDS_HOST=your-rds-endpoint.rds.amazonaws.com
-RDS_PORT=5432
-RDS_USER=postgres
-RDS_PASSWORD=your-password
-RDS_DB_NAME=alliancemine_db
-RDS_PROFILE_DB_NAME=alliancemine_profiles_db
-ALLIANCE_RELEASE=8.2.0
-AUTO_BUILD=false
-```
-
-### Mine Configurations
-Mine-specific settings (memory, CPUs, branches) are in `src/intermine_builder/mine_config.py`:
-- **AllianceMine**: 32GB RAM, 8 CPUs
-- **WormMine**: 24GB RAM, 6 CPUs
-- **MouseMine**: 28GB RAM, 7 CPUs
-- **FlyMine**: 26GB RAM, 6 CPUs
-
-### InterMine Properties
-Generated at runtime from templates using environment variables:
-- `docker/alliancemine-unified/alliancemine.properties.template`
-- `docker/wormmine-unified/wormmine.properties.template`
+Each mine uses two databases on shared RDS: `{mine}_db` (main, rebuilt each time) and `{mine}_profiles_db` (persistent across rebuilds, contains user accounts/saved queries/gene lists). Profile DBs can be imported from production dumps via `BuildExecutor.import_profile_db()`.
 
 ## Key Patterns
 
-### Python API Usage
-```python
-from src.intermine_builder import MineBuilder, MineType
-from src.intermine_builder.config import Config
-
-config = Config.from_env()
-with MineBuilder(config) as builder:
-    summary = builder.build_mine(MineType.ALLIANCEMINE)
-    builder.execute_stage(MineType.WORMMINE, BuildStage.BUILD_DB)
-```
-
-### HikariCP Connection Pooling
-All mines use HikariCP for database connections:
-- Main DB: 15-20 connections per mine
-- Profile DB: 5 connections per mine
-
-### Data Sources
-- **AllianceMine**: Alliance FMS (File Management System) - auto-download
-- **WormMine**: Pre-provided WormBase data mounted to `/root/custom_data`
-- Other mines: MOD-specific FTP/API sources
+- All CLI commands use `argparse` with subparsers; entry points defined in `pyproject.toml` as `build-mines` and `rds-manager`
+- Configuration loads `.env` from project root automatically via `python-dotenv`
+- `MineType` and `BuildStage` are the central enums used across all modules
+- Docker containers get env vars for RDS connection at creation time, not runtime
+- Build progress is reported via optional callbacks (`progress_callback`)
+- Git hooks use `git-secrets` for pre-commit and commit-msg to prevent credential leaks
 
 ## Important Notes
 
-- Build times: 3-6 hours per mine, 12-24 hours for all mines
-- The `project_build` stage is the bottleneck (~53% of build time)
-- Profile databases are one-time creation - skip `buildUserDB` if already exists
-- Use `legacy/` folder for reference only - it contains deprecated bash scripts
-- Docker resource allocation should match mine requirements (see mine_config.py)
+- Build times: 3-6 hours per mine, `project_build` is ~53% of total time
+- Profile databases are one-time creation - `stage_build_user_db` auto-skips if DB exists
+- `legacy/` folder contains deprecated bash scripts (reference only)
+- The `tests/` directory is configured in pyproject.toml but does not yet exist
+- Python target: >=3.9 (black targets py39-py311)
+- `src/builders/` and `src/lib/` directories referenced in older docs no longer exist

@@ -1,0 +1,54 @@
+services:
+  alliancemine-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-master}
+        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-master}
+
+    image: alliancemine-builder:${IMAGE_TAG:-latest}
+    container_name: alliancemine-builder
+
+    environment:
+      # RDS Connection
+      RDS_HOST: ${RDS_HOST}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_USER: ${RDS_USER:-postgres}
+      RDS_PASSWORD: ${RDS_PASSWORD}
+
+      # Build Configuration
+      ALLIANCE_RELEASE: ${ALLIANCE_RELEASE}
+      BUILD_TYPE: ${BUILD_TYPE:-test}
+      RC_NUMBER: ${RC_NUMBER:-1}
+
+      # Deployment (optional)
+      DEPLOY_HOST: ${DEPLOY_HOST:-}
+      DEPLOY_PORT: ${DEPLOY_PORT:-9099}
+      DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
+      DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
+
+      # Solr (external, on EC2)
+      SOLR_INDEX_URL: ${SOLR_INDEX_URL:-}
+      SOLR_AUTOCOMPLETE_URL: ${SOLR_AUTOCOMPLETE_URL:-}
+
+      # Java/Gradle
+      GRADLE_OPTS: >-
+        -Xmx16g -Xms8g
+        -XX:+UseParallelGC
+        -Dorg.gradle.daemon=false
+
+    volumes:
+      - ./data:/root/data
+
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 32G
+        reservations:
+          cpus: '4'
+          memory: 16G
+
+    stdin_open: true
+    tty: true

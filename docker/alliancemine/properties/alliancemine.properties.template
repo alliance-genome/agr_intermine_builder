@@ -1,0 +1,85 @@
+# ============================================
+# AllianceMine Properties
+# Generated from template by entrypoint.sh
+# ============================================
+
+# ============================================
+# Production Database (Main Data)
+# ============================================
+db.production.datasource.serverName=${RDS_HOST}
+db.production.datasource.databaseName=${RDS_DB_NAME}
+db.production.datasource.user=${RDS_USER}
+db.production.datasource.password=${RDS_PASSWORD}
+db.production.driver=org.postgresql.Driver
+db.production.platform=PostgreSQL
+
+# ============================================
+# Common Target Items Database
+# ============================================
+db.common-tgt-items.datasource.serverName=${RDS_HOST}
+db.common-tgt-items.datasource.databaseName=${RDS_ITEMS_DB_NAME}
+db.common-tgt-items.datasource.user=${RDS_USER}
+db.common-tgt-items.datasource.password=${RDS_PASSWORD}
+db.common-tgt-items.driver=org.postgresql.Driver
+db.common-tgt-items.platform=PostgreSQL
+
+# ============================================
+# User Profile Database
+# ============================================
+db.userprofile-production.datasource.serverName=${RDS_HOST}
+db.userprofile-production.datasource.databaseName=${RDS_PROFILE_DB_NAME}
+db.userprofile-production.datasource.user=${RDS_USER}
+db.userprofile-production.datasource.password=${RDS_PASSWORD}
+db.userprofile-production.driver=org.postgresql.Driver
+db.userprofile-production.platform=PostgreSQL
+
+# ============================================
+# Project Configuration
+# ============================================
+project.title=AllianceMine
+project.subTitle=Alliance of Genome Resources
+project.releaseVersion=${ALLIANCE_RELEASE}
+project.sitePrefix=http://localhost:8080
+project.helpLocation=https://www.alliancegenome.org
+
+# ============================================
+# Web Application / Deployment
+# ============================================
+webapp.deploy.url=${DEPLOY_URL:-http://localhost:8080}
+webapp.baseurl=${WEBAPP_BASEURL:-http://localhost:8080}
+webapp.path=alliancemine
+webapp.manager=${DEPLOY_MANAGER:-manager}
+webapp.password=${DEPLOY_PASSWORD:-manager}
+webapp.port=${DEPLOY_PORT:-8080}
+webapp.hostname=${DEPLOY_HOST:-localhost}
+
+tomcat.user=${DEPLOY_MANAGER:-manager}
+tomcat.pwd=${DEPLOY_PASSWORD:-manager}
+
+# ============================================
+# Solr Configuration
+# ============================================
+index.solrurl=${SOLR_INDEX_URL:-http://localhost:8983/solr/alliancemine-search}
+autocomplete.solrurl=${SOLR_AUTOCOMPLETE_URL:-http://localhost:8983/solr/alliancemine-autocomplete}
+
+# ============================================
+# SuperUser Account
+# ============================================
+superuser.account=admin@alliancemine.org
+superuser.password=admin
+
+# ============================================
+# External Links
+# ============================================
+links.mod=https://www.alliancegenome.org
+
+# ============================================
+# Performance Tuning
+# ============================================
+batch.size=1000
+webapp.os.alias=os.production
+webapp.query.cache.size=10000
+webapp.query.cache.timeout=300
+
+# XML Factory
+systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl

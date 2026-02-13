@@ -5,6 +5,7 @@ Defines configuration for each InterMine instance (AllianceMine, WormMine, Mouse
 Includes build parameters, data sources, RDS connection details, and resource requirements.
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from enum import Enum
@@ -87,16 +88,16 @@ class MineConfig:
     def __post_init__(self):
         """Set derived values after initialization."""
         if not self.docker_image:
-            self.docker_image = f"{self.mine_type.value}-rds:latest"
+            self.docker_image = f"{self.mine_type.value}-builder:latest"
         if not self.docker_context:
-            self.docker_context = f"./docker/multi_mine_rds/{self.mine_type.value}"
+            self.docker_context = f"./docker/{self.mine_type.value}"
 
 
 # Predefined configurations for each mine
 ALLIANCEMINE_CONFIG = MineConfig(
     mine_type=MineType.ALLIANCEMINE,
     display_name="AllianceMine",
-    release_version="8.2.0",
+    release_version=os.getenv("ALLIANCE_RELEASE", "8.3.0"),
     repo_url="https://github.com/alliance-genome/alliancemine.git",
     repo_branch="master",
     bio_sources_url="https://github.com/alliance-genome/alliancemine-bio-sources.git",

@@ -9,7 +9,6 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any
-import json
 from dotenv import load_dotenv
 
 # Load .env file from project root
@@ -89,35 +88,6 @@ class DockerConfig:
 
 
 @dataclass
-class EC2BuildConfig:
-    """EC2 builder instance configuration for Step Functions."""
-
-    # Instance sizing
-    instance_type: str = "r6i.2xlarge"  # 8 vCPU, 64 GB RAM
-    storage_gb: int = 500
-    iops: int = 10000
-    throughput_mbps: int = 500
-
-    # Memory allocation (64GB total)
-    gradle_heap_gb: int = 32
-    postgres_shared_buffers_gb: int = 16
-    file_cache_gb: int = 12
-    os_overhead_gb: int = 4
-
-    # AMI
-    ami_id: Optional[str] = None  # Custom AMI with dependencies
-    ami_name: str = "agr-intermine-builder-v1"
-
-    # Lifecycle
-    auto_terminate: bool = True
-    max_build_hours: int = 10  # Safety timeout
-
-    # Cost optimization
-    use_spot_instances: bool = False
-    spot_max_price: float = 0.30  # 60% of on-demand (~$0.504/hr)
-
-
-@dataclass
 class InterMineConfig:
     """InterMine build configuration."""
 
@@ -151,7 +121,7 @@ class InterMineConfig:
 class AllianceConfig:
     """Alliance of Genome Resources specific configuration."""
 
-    release_version: str = "8.2.0"
+    release_version: str = "8.3.0"
 
     # S3 bucket for data and builds
     s3_bucket: str = "agr-intermine-builds"
@@ -187,7 +157,6 @@ class Config:
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     rds: RDSConfig = field(default_factory=RDSConfig)
     docker: DockerConfig = field(default_factory=DockerConfig)
-    ec2_build: EC2BuildConfig = field(default_factory=EC2BuildConfig)
     intermine: InterMineConfig = field(default_factory=InterMineConfig)
     alliance: AllianceConfig = field(default_factory=AllianceConfig)
 
@@ -273,7 +242,7 @@ class Config:
 
         # Alliance config
         alliance = AllianceConfig(
-            release_version=os.getenv("ALLIANCE_RELEASE", "8.2.0"),
+            release_version=os.getenv("ALLIANCE_RELEASE", "8.3.0"),
             s3_bucket=os.getenv("S3_BUCKET", "agr-intermine-builds"),
             s3_path=os.getenv("S3_PATH", "releases"),
         )
@@ -308,55 +277,6 @@ class Config:
                         setattr(section, parts[1], value)
 
         return config
-
-    @classmethod
-    def from_file(cls, filepath: Path) -> "Config":
-        """Load configuration from a JSON or Python file.
-
-        Args:
-            filepath: Path to configuration file (.json or .py)
-
-        Returns:
-            Config instance loaded from file
-        """
-        filepath = Path(filepath)
-
-        if filepath.suffix == '.json':
-            with open(filepath) as f:
-                data = json.load(f)
-                return cls.from_dict(data)
-        else:
-            raise ValueError(f"Unsupported config file format: {filepath.suffix}")
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Config":
-        """Create Config from dictionary.
-
-        Args:
-            data: Dictionary with configuration values
-
-        Returns:
-            Config instance
-        """
-        # Extract nested configs
-        database = DatabaseConfig(**data.get('database', {}))
-        rds = RDSConfig(**data.get('rds', {}))
-        docker = DockerConfig(**data.get('docker', {}))
-        ec2_build = EC2BuildConfig(**data.get('ec2_build', {}))
-        intermine = InterMineConfig(**data.get('intermine', {}))
-        alliance = AllianceConfig(**data.get('alliance', {}))
-
-        return cls(
-            database=database,
-            rds=rds,
-            docker=docker,
-            ec2_build=ec2_build,
-            intermine=intermine,
-            alliance=alliance,
-            environment=data.get('environment', 'stage'),
-            log_level=data.get('log_level', 'INFO'),
-            debug=data.get('debug', False),
-        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary.
