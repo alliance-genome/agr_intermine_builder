@@ -1,263 +1,240 @@
 # Python Build System for InterMine
 
-Modern Python-based orchestration system for building InterMine instances in Docker containers with RDS support.
+Python-based orchestration system for building InterMine instances in Docker containers with AWS RDS.
 
 ## Overview
 
-This system replaces the legacy bash-based build scripts with a comprehensive Python orchestration layer that provides:
+This system replaces the legacy bash-based build scripts with a Python orchestration layer that provides:
 
-- **Automated Docker image building** for each mine type
-- **Container lifecycle management** (create, start, stop, cleanup)
-- **Build stage orchestration** with progress tracking
-- **RDS database integration** with connection pooling
-- **CLI interface** for easy operation
-- **Parallel builds** support
-- **Build history** and status monitoring
+- Automated Docker image building for each mine type
+- Container lifecycle management (create, start, stop, cleanup)
+- Build stage orchestration with progress tracking
+- RDS database integration
+- CLI interface for operation
+- Build status monitoring
 
 ## Architecture
 
 ```
 src/
-├── builders/
-│   ├── mine_config.py      # Mine configurations (AllianceMine, WormMine, etc.)
-│   ├── docker_manager.py   # Docker container lifecycle
-│   ├── build_executor.py   # Build stage execution
-│   └── mine_builder.py     # Main orchestrator
+├── intermine_builder/
+│   ├── config.py           # Aggregated configuration (env vars, dataclasses)
+│   ├── mine_config.py      # MineType/BuildStage enums, MINE_CONFIGS registry
+│   ├── docker_manager.py   # Docker SDK container lifecycle
+│   ├── build_executor.py   # Build stage execution inside containers
+│   ├── mine_builder.py     # Top-level orchestrator
+│   └── rds_provisioner.py  # RDS instance provisioning
 ├── cli/
-│   └── build_mines.py      # CLI interface
-└── lib/
-    └── config.py           # Configuration management
+│   ├── build_mines.py      # Build CLI (build, build-all, stage, status, cleanup)
+│   ├── rds_manager.py      # RDS CLI (create, status, stop, start, delete)
+│   └── set_release.py      # Release version CLI (current, next, show)
+└── tests/
+    ├── conftest.py          # Shared fixtures
+    ├── test_config.py
+    ├── test_mine_config.py
+    ├── test_build_executor.py
+    └── test_docker_manager.py
 ```
+
+### Module Flow
+
+```
+CLI (build_mines.py) --> MineBuilder --> DockerManager --> BuildExecutor
+                            |                                |
+                       Config.from_env()           execute_command() in container
+                            |
+                      mine_config.py (MINE_CONFIGS registry)
+```
+
+- **MineBuilder** (`mine_builder.py`): Top-level orchestrator. Coordinates Docker networks, image builds, container creation, and delegates stage execution to BuildExecutor. Supports `with` statement for automatic cleanup.
+- **DockerManager** (`docker_manager.py`): Manages Docker container lifecycle using the `docker` Python SDK. Containers tracked in-memory by `MineType`. Container naming: `{mine_type}-builder`.
+- **BuildExecutor** (`build_executor.py`): Runs the 7 sequential build stages inside containers. Most stages use `./gradlew <task>` except `extract_data` (Python script) and `project_build` (Perl script from intermine-scripts). Workdir: `/root/{mine_type.value}`.
+- **Config** (`config.py`): Aggregates nested dataclass configs (DatabaseConfig, RDSConfig, DockerConfig, InterMineConfig, AllianceConfig). Loads from env vars via `Config.from_env()` with dotenv support. Env var priority: `RDS_*` > `POSTGRES_*` > `DB_*`.
+- **MineConfig** (`mine_config.py`): Defines `MineType` enum (4 mines), `BuildStage` enum (7 stages), and predefined `MineConfig` dataclasses in the `MINE_CONFIGS` dict.
 
 ## Installation
 
-Using `uv` (recommended):
-
 ```bash
-# Install dependencies
-uv pip install -e .
-
-# Or with development dependencies
-uv pip install -e ".[dev]"
+uv pip install -e .           # Runtime dependencies
+uv pip install -e ".[dev]"    # With dev dependencies (pytest, ruff, mypy, black)
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-Create a `.env` file or set environment variables:
+Create a `.env` file in the project root:
 
 ```bash
-# RDS Configuration
+# RDS Connection (required)
 RDS_HOST=your-rds-endpoint.rds.amazonaws.com
 RDS_PORT=5432
 RDS_USER=postgres
 RDS_PASSWORD=your-password
 
-# Optional: AWS credentials for RDS access
-AWS_ACCESS_KEY_ID=your-key
-AWS_SECRET_ACCESS_KEY=your-secret
-AWS_REGION=us-east-1
+# Alliance release version (default: 8.3.0)
+ALLIANCE_RELEASE=8.3.0
 ```
 
 ### Mine Configurations
 
-Each mine is pre-configured in `src/builders/mine_config.py`:
+Each mine is pre-configured in `src/intermine_builder/mine_config.py`:
 
-- **AllianceMine**: 32GB RAM, 8 CPUs, Alliance Release 8.2.0
-- **WormMine**: 24GB RAM, 6 CPUs, WormBase WS290
-- **MouseMine**: 28GB RAM, 7 CPUs, MGI Release 1.10
-- **FlyMine**: 26GB RAM, 6 CPUs, FlyBase Release 2.0
+| Mine | Memory | CPUs | Heap | Release | Tomcat Port |
+|------|--------|------|------|---------|-------------|
+| AllianceMine | 32 GB | 8 | 16 GB | `ALLIANCE_RELEASE` env var | 8080 |
+| WormMine | 24 GB | 6 | 12 GB | WS290 | 8081 |
+| MouseMine | 28 GB | 7 | 14 GB | 1.10 | 8082 |
+| FlyMine | 26 GB | 6 | 13 GB | 2.0 | 8083 |
 
-## Usage
+## CLI Commands
 
-### CLI Commands
-
-#### Build a Single Mine
+### Build a Single Mine
 
 ```bash
-# Build AllianceMine
 python -m src.cli.build_mines build --mine alliancemine
-
-# Build with image rebuild
-python -m src.cli.build_mines build --mine wormmine --rebuild
-
-# Build and skip certain stages
+python -m src.cli.build_mines build --mine alliancemine --rebuild      # Force image rebuild
 python -m src.cli.build_mines build --mine alliancemine --skip-stages deploy
 ```
 
-#### Build All Mines
+### Build All Mines
 
 ```bash
-# Build all mines in sequence (AllianceMine → WormMine → MouseMine → FlyMine)
 python -m src.cli.build_mines build-all
-
-# Continue on failure
 python -m src.cli.build_mines build-all --continue-on-error
-
-# Force rebuild all images
 python -m src.cli.build_mines build-all --rebuild
 ```
 
-#### Execute Single Stage
+### Execute Single Stage
 
 ```bash
-# Execute just the buildDB stage
 python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
-
-# Extract data only
 python -m src.cli.build_mines stage --mine wormmine --stage extract_data
 ```
 
-#### Check Status
+### Status, Cleanup, List
 
 ```bash
-# Check mine status
 python -m src.cli.build_mines status --mine alliancemine
-```
-
-#### Cleanup
-
-```bash
-# Cleanup specific mine
-python -m src.cli.build_mines cleanup --mine wormmine
-
-# Cleanup all mines
-python -m src.cli.build_mines cleanup
-```
-
-#### List Available Mines
-
-```bash
+python -m src.cli.build_mines cleanup --mine alliancemine
+python -m src.cli.build_mines cleanup              # All mines
 python -m src.cli.build_mines list
+```
+
+### Set Release Version
+
+```bash
+python -m src.cli.set_release current   # From Alliance FMS API
+python -m src.cli.set_release next      # Next release from API
+python -m src.cli.set_release 8.3.0     # Specific version
+python -m src.cli.set_release show      # Show current + available
+```
+
+### RDS Management
+
+```bash
+python -m src.cli.rds_manager create    # Provision RDS instance (creates all mine DBs)
+python -m src.cli.rds_manager status    # Check RDS status
+python -m src.cli.rds_manager stop      # Stop RDS (cost saving)
+python -m src.cli.rds_manager start     # Start stopped RDS
+python -m src.cli.rds_manager delete    # Requires confirmation
 ```
 
 ### Python API
 
-You can also use the Python API directly:
-
 ```python
-from src.builders import MineBuilder, MineType
-from src.lib.config import Config
+from src.intermine_builder.mine_builder import MineBuilder
+from src.intermine_builder.mine_config import MineType, BuildStage
+from src.intermine_builder.config import Config
 
-# Load configuration
 config = Config.from_env()
 
-# Create builder
 with MineBuilder(config) as builder:
-    # Build a single mine
     summary = builder.build_mine(MineType.ALLIANCEMINE)
-
-    # Build all mines
-    summaries = builder.build_all_mines()
-
-    # Execute single stage
-    builder.execute_stage(MineType.WORMMINE, BuildStage.BUILD_DB)
-
-    # Get status
+    builder.execute_stage(MineType.ALLIANCEMINE, BuildStage.BUILD_DB)
     status = builder.get_mine_status(MineType.ALLIANCEMINE)
 ```
 
 ## Build Stages
 
-Each mine goes through 7 build stages:
+Each mine goes through 7 sequential stages. Total time: 3-6 hours.
 
-1. **buildDB** (5-10 minutes)
-   - Creates PostgreSQL database schema
-   - Initializes InterMine tables
-
-2. **extract_data** (10-30 minutes)
-   - Downloads data files from sources (FMS, FTP, etc.)
-   - WormMine uses pre-provided custom data
-
-3. **project_build** (2-4 hours) ⏰ **LONGEST STAGE**
-   - Data integration and loading
-   - Parses and loads biological data into database
-
-4. **postprocess** (30-60 minutes)
-   - Post-processing and indexing
-   - Creates summary tables
-   - Builds search indices
-
-5. **buildUserDB** (5-10 minutes)
-   - Creates user profile database
-   - Initializes user account tables
-
-6. **war** (10-20 minutes)
-   - Builds WAR file for Tomcat deployment
-   - Packages web application
-
-7. **deploy** (5-10 minutes, optional)
-   - Deploys to Tomcat
-   - Skipped if Tomcat not running
-
-**Total build time: 3-6 hours per mine**
+| # | Stage | Tool | Duration | Notes |
+|---|-------|------|----------|-------|
+| 1 | buildDB | `./gradlew buildDB` | 5-10 min | Creates PostgreSQL schema |
+| 2 | extract_data | `python3 /root/scripts/extract_data.py` | 10-30 min | Downloads from Alliance FMS |
+| 3 | project_build | `./project_build -b -T localhost` | 2-4 hours | Data integration (longest) |
+| 4 | postprocess | `./gradlew postprocess` | 30-60 min | Indexing, summary tables |
+| 5 | buildUserDB | `./gradlew buildUserDB` | 5-10 min | Skipped if profile DB exists |
+| 6 | war | `./gradlew war` | 10-20 min | Builds WAR file |
+| 7 | deploy | `./gradlew cargoRedeployRemote` | 5-10 min | Skipped if Tomcat not running |
 
 ## Docker Images
 
-### Image Structure
+### AllianceMine (Primary)
 
-Each mine has its own Dockerfile in `docker/multi_mine_rds/{mine}/`:
+The build-only container lives at `docker/alliancemine/`:
 
 ```
-docker/multi_mine_rds/
-├── alliancemine/
-│   ├── Dockerfile
-│   ├── build_full.sh
-│   └── extract_data.sh
-├── wormmine/
-│   ├── Dockerfile
-│   ├── build_full.sh
-│   └── extract_data.sh
-└── docker-compose.yml
+docker/alliancemine/
+├── Dockerfile                     # Alpine 3.20, OpenJDK 8, build-only (no Tomcat/Solr)
+├── docker-compose.yml             # 8 CPUs, 32 GB limits
+├── .env.example                   # Environment template
+├── entrypoint.sh                  # DB setup, envsubst, command dispatch
+├── properties/
+│   ├── alliancemine.properties.template   # Standard JDBC
+│   └── hikaricp.properties.template       # HikariCP pooling (for testing)
+└── scripts/
+    ├── build_full.py              # 7-stage build pipeline
+    ├── extract_data.py            # FMS data downloader
+    ├── promote_db.py              # RC -> production DB rename
+    └── deploy_war.py              # WAR deployment to EC2 Tomcat
 ```
-
-### Building Images Manually
 
 ```bash
-# Build AllianceMine image
-cd docker/multi_mine_rds
-docker build -t alliancemine-rds:latest ./alliancemine
-
-# Build with custom branch
-docker build \
-  --build-arg ALLIANCEMINE_BRANCH=develop \
-  -t alliancemine-rds:develop \
-  ./alliancemine
+cd docker/alliancemine
+cp .env.example .env               # Fill in RDS credentials
+docker compose build               # Build image (~15 min)
+docker compose run --rm alliancemine-builder build    # Full build
+docker compose run --rm alliancemine-builder bash      # Shell access
 ```
+
+See [ALLIANCEMINE_BUILD_GUIDE.md](ALLIANCEMINE_BUILD_GUIDE.md) for the full operational guide including the release workflow (test RC builds, promotion, production deploy).
+
+### Other Docker Setups
+
+| Directory | Purpose | Status |
+|-----------|---------|--------|
+| `docker/alliancemine/` | Build-only container for AllianceMine | Active |
+| `docker/alliancemine-unified/` | Self-contained AllianceMine (Tomcat + Solr + Build) | Active |
+| `docker/wormmine-unified/` | Self-contained WormMine (port 8081) | Active |
+| `legacy/multi_mine_rds/` | Multi-mine setup with shared base image | Deprecated |
 
 ## RDS Database Structure
 
-Each mine uses two databases on the central RDS instance:
+Each mine uses two databases on the shared RDS instance:
 
-### AllianceMine
-- **Main DB**: `alliancemine_db` (20 connections)
-- **Profile DB**: `alliancemine_profiles_db` (5 connections)
+| Mine | Main DB | Profile DB | Main Connections | Profile Connections |
+|------|---------|------------|-----------------|-------------------|
+| AllianceMine | `alliancemine_db` | `alliancemine_profiles_db` | 20 | 5 |
+| WormMine | `wormmine_db` | `wormmine_profiles_db` | 15 | 5 |
+| MouseMine | `mousemine_db` | `mousemine_profiles_db` | 18 | 5 |
+| FlyMine | `flymine_db` | `flymine_profiles_db` | 16 | 5 |
 
-### WormMine
-- **Main DB**: `wormmine_db` (15 connections)
-- **Profile DB**: `wormmine_profiles_db` (5 connections)
+Profile databases are persistent across rebuilds (contain user accounts, saved queries, gene lists). The `buildUserDB` stage auto-skips if the profile DB already has tables.
 
-### MouseMine
-- **Main DB**: `mousemine_db` (18 connections)
-- **Profile DB**: `mousemine_profiles_db` (5 connections)
-
-### FlyMine
-- **Main DB**: `flymine_db` (16 connections)
-- **Profile DB**: `flymine_profiles_db` (5 connections)
-
-All databases use HikariCP connection pooling for optimal performance.
+For AllianceMine builds using the `docker/alliancemine/` container, databases follow a versioned naming convention instead: `alliancemine_{ver}_rcN` for test builds and `alliancemine_{ver}` for production. See [ALLIANCEMINE_BUILD_GUIDE.md](ALLIANCEMINE_BUILD_GUIDE.md) for details.
 
 ## Data Sources
 
 ### AllianceMine
-Data from Alliance FMS (File Management System):
-- Gene basic information
-- Allele data
-- Disease annotations
-- Phenotype annotations
-- Orthology relationships
-- GO annotations
+Data from Alliance FMS (File Management System) at `fms.alliancegenome.org`:
+- `GENE-BASIC_AGR.json` - Gene basic information
+- `ALLELE_AGR.json` - Allele data
+- `DISEASE-ANNOTATION_AGR.json` - Disease annotations
+- `PHENOTYPE-ANNOTATION_AGR.json` - Phenotype annotations
+- `ORTHOLOGY-ALLIANCE_COMBINED.json` - Orthology relationships
+- `GO-ANNOTATION_AGR.gaf` - GO annotations
 
 ### WormMine
 Pre-provided WormBase data (mount to `/root/custom_data`):
@@ -269,170 +246,52 @@ Pre-provided WormBase data (mount to `/root/custom_data`):
 - `interactions.txt.gz` - Protein interactions
 
 ### MouseMine
-MGI (Mouse Genome Informatics) data:
-- Gene data
-- Phenotype data
-- GO annotations
+MGI (Mouse Genome Informatics) data from `informatics.jax.org`.
 
 ### FlyMine
-FlyBase data:
-- Gene data
-- Allele data
-- GO annotations
-
-## Logging
-
-Logs are written to:
-- **Console**: Real-time build progress
-- **Container logs**: `/tmp/*.log` inside containers
-  - `buildDB.log`
-  - `project_build.log`
-  - `postprocess.log`
-  - `buildUserDB.log`
-  - `war.log`
-  - `deploy.log`
-
-View logs:
-```bash
-# Container logs
-docker logs alliancemine-builder
-
-# Specific stage log
-docker exec alliancemine-builder cat /tmp/project_build.log
-
-# Python CLI with verbose output
-python -m src.cli.build_mines build --mine alliancemine --verbose
-```
-
-## Monitoring
-
-### Build Progress
-
-The system provides real-time progress updates:
-
-```
-2025-01-04 10:30:15 - INFO - Building Docker image for alliancemine...
-2025-01-04 10:35:22 - INFO - Starting Stage 1: Build Database Schema
-2025-01-04 10:40:18 - INFO - ✅ Build Database Schema completed in 295.3s
-2025-01-04 10:41:02 - INFO - Starting Stage 2: Extract Data
-...
-```
-
-### Build Summary
-
-At completion, you'll see a summary:
-
-```
-==============================================================
-AllianceMine build completed successfully!
-==============================================================
-Total time: 3.45 hours
-Completed stages: 7/7
-==============================================================
-```
+FlyBase data from `ftp.flybase.net`.
 
 ## Troubleshooting
 
 ### Container won't start
 ```bash
-# Check Docker status
 docker ps -a
-
-# Check container logs
 docker logs alliancemine-builder
-
-# Check RDS connectivity
 docker exec alliancemine-builder pg_isready -h $RDS_HOST -U $RDS_USER
 ```
 
 ### Build stage fails
 ```bash
-# Check stage-specific log
 docker exec alliancemine-builder cat /tmp/buildDB.log
-
-# Re-run single stage
 python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
 ```
 
 ### Out of memory
-- Increase Docker resource limits
-- Reduce Gradle heap size in mine config
+- Increase Docker resource limits (minimum 32 GB for AllianceMine)
 - Check system memory: `docker stats`
 
 ### Database connection issues
 - Verify RDS credentials in `.env`
-- Check RDS security group allows connections
-- Verify RDS endpoint is accessible: `telnet $RDS_HOST 5432`
+- Check RDS security group allows inbound on port 5432
+- Verify RDS endpoint: `pg_isready -h $RDS_HOST -p 5432`
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Install dev dependencies
 uv pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# With coverage
-pytest --cov=src --cov-report=html
-```
-
-### Code Formatting
-
-```bash
-# Format code
-black src/
-
-# Check formatting
-black --check src/
-
-# Lint
-ruff check src/
-```
-
-### Type Checking
-
-```bash
-mypy src/
-```
-
-## Comparison: Bash vs Python
-
-### Old Bash System
-```bash
-# build.sh - monolithic script
-./build.sh alliancemine
-# - Hard to maintain
-# - No progress tracking
-# - Limited error handling
-# - No status monitoring
-```
-
-### New Python System
-```python
-# Modular, object-oriented
-builder.build_mine(MineType.ALLIANCEMINE)
-# ✅ Easy to extend
-# ✅ Progress tracking
-# ✅ Comprehensive error handling
-# ✅ Status monitoring
-# ✅ Type safety
-# ✅ Testable
+uv run pytest tests/ -v                          # Run tests (65 tests)
+uv run pytest tests/ -v --cov=src --cov-report=html   # With coverage
+uv run ruff check src/                           # Lint
+uv run black src/ --check                        # Format check
+uv run mypy src/                                 # Type check
 ```
 
 ## Contributing
 
 When adding a new mine type:
 
-1. Add configuration to `src/builders/mine_config.py`
-2. Create Dockerfile in `docker/multi_mine_rds/{mine}/`
-3. Add data extraction script
-4. Add build automation script
-5. Update `docker-compose.yml`
-6. Test the build
-
-## License
-
-Alliance of Genome Resources
+1. Add `MineConfig` to `src/intermine_builder/mine_config.py`
+2. Create Dockerfile in `docker/{mine}/`
+3. Add data extraction logic
+4. Add build scripts
+5. Add tests to `tests/`

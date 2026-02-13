@@ -40,7 +40,7 @@ This document explains the evolution of the AllianceMine Docker architecture fro
 
 **Location**: `legacy/old_docker_configs/`
 
-### Phase 2: RDS Integration (Current - Step 1)
+### Phase 2: RDS Integration
 
 **Change**: Moved PostgreSQL to AWS RDS
 
@@ -68,7 +68,7 @@ This document explains the evolution of the AllianceMine Docker architecture fro
 - Simplified backup/restore (RDS snapshots)
 - Better scalability
 
-**Location**: `docker/multi_mine_rds/`
+**Location**: `legacy/multi_mine_rds/` (moved from `docker/multi_mine_rds/`)
 
 **Created**: RDS provisioning tools
 - `src/intermine_builder/rds_provisioner.py`
@@ -76,7 +76,7 @@ This document explains the evolution of the AllianceMine Docker architecture fro
 - InterMine-optimized PostgreSQL settings
 - Shared RDS for 4 mines (8 databases)
 
-### Phase 3: Unified Container (Current - Step 2) ⭐
+### Phase 3: Unified Container
 
 **Change**: Consolidated Builder + Tomcat + Solr into single container
 
@@ -120,7 +120,73 @@ This document explains the evolution of the AllianceMine Docker architecture fro
 3. **Tomcat + Solr communicate frequently**: Localhost is faster than Docker network
 4. **Simpler operations**: One container to build, deploy, monitor, debug
 
+### Phase 4: Build-Only Container (Current) ⭐
+
+**Change**: Separated build concerns from runtime. A dedicated build-only container handles
+compilation and database population, while Tomcat and Solr run natively on EC2.
+
+```
+┌──────────────────────────────────────────┐
+│  alliancemine-builder container          │
+│                                          │
+│  Alpine 3.20 + OpenJDK 8                │
+│  Perl CPAN modules (for project_build)   │
+│  Python 3 (for build scripts)            │
+│  PostgreSQL client (for DB operations)   │         ┌─────────────────────┐
+│                                          │  JDBC   │  AWS RDS            │
+│  /root/alliancemine/     (cloned repo)   │────────>│  PostgreSQL 15      │
+│  /root/scripts/          (build scripts) │         │  500 GB gp3 storage │
+│  /root/data/             (FMS downloads) │         └─────────────────────┘
+│                                          │
+│  Resources: 32 GB RAM, 8 CPUs           │
+│  Image size: ~1.5 GB                    │         ┌─────────────────────┐
+│                                          │  WAR    │  EC2 Instance       │
+│  No Tomcat. No Solr.                    │ deploy  │  Native Tomcat      │
+│  Build-only, exits when done.           │────────>│  Native Solr        │
+│                                          │         │  Caddy reverse proxy│
+└──────────────────────────────────────────┘         └─────────────────────┘
+```
+
+**Benefits over Phase 3**:
+- Smaller image (no Tomcat, no Solr, no multi-stage build)
+- Build scripts are Python (not bash) — testable, with error handling
+- Database naming convention supports RC/test and production builds
+- `promote_db.py` renames RC databases to production names
+- `deploy_war.py` pushes WAR to remote Tomcat via `cargoRedeployRemote`
+- Entrypoint uses `envsubst` for properties (not fragile `sed` substitution)
+
+**Location**: `docker/alliancemine/`
+
+**Build scripts**:
+- `scripts/build_full.py` — 7-stage pipeline with `--skip-stages`, `--start-from`
+- `scripts/extract_data.py` — Downloads from FMS API with S3 fallback
+- `scripts/promote_db.py` — `ALTER DATABASE ... RENAME TO` with dry-run
+- `scripts/deploy_war.py` — Updates properties and runs Gradle deploy
+
+**Database naming**:
+- Test: `alliancemine_8_3_0_rc1` (per RC number)
+- Production: `alliancemine_8_3_0` (promoted from RC)
+- Profile: `alliancemine_userprofile` (persistent, shared)
+
+See [ALLIANCEMINE_BUILD_GUIDE.md](ALLIANCEMINE_BUILD_GUIDE.md) for the full operational guide.
+
 ## Technical Details
+
+### Build-Only Dockerfile (Phase 4)
+
+Single-stage, no multi-stage needed since there's no runtime image to optimize:
+
+```dockerfile
+FROM alpine:3.20
+# System: openjdk8, postgresql-client, perl, python3, gettext
+# Perl CPAN modules for project_build
+# Clone + compile alliancemine and bio-sources
+# Install project_build from intermine-scripts
+# Copy Python build scripts
+# ENTRYPOINT ["/root/entrypoint.sh"]
+```
+
+### Unified Dockerfile (Phase 3)
 
 ### Multi-Stage Dockerfile
 
@@ -206,17 +272,20 @@ docker/alliancemine-unified/
 
 ## Comparison
 
-| Aspect | Multi-Container | RDS Integration | Unified Container |
-|--------|----------------|-----------------|-------------------|
-| Containers | 4 | 3 | 1 |
-| Total Memory | ~40GB | ~36GB | ~32GB |
-| PostgreSQL | Container | AWS RDS | AWS RDS |
-| Tomcat ↔ Solr | Network | Network | Localhost |
-| Deployment | Complex | Medium | Simple |
-| Debugging | Difficult | Medium | Easy |
-| Startup Time | ~5 min | ~3 min | ~1 min |
-| Image Size | ~3GB total | ~2.5GB | ~1.5GB |
-| Maintenance | High | Medium | Low |
+| Aspect | Multi-Container | RDS Integration | Unified Container | Build-Only (Current) |
+|--------|----------------|-----------------|-------------------|---------------------|
+| Containers | 4 | 3 | 1 | 1 (ephemeral) |
+| Total Memory | ~40GB | ~36GB | ~32GB | ~32GB |
+| PostgreSQL | Container | AWS RDS | AWS RDS | AWS RDS |
+| Tomcat/Solr | Containers | Containers | In container | Native on EC2 |
+| Build scripts | Bash | Bash | Bash | Python (testable) |
+| DB naming | Fixed | Fixed | Fixed | Versioned (RC/prod) |
+| DB promotion | Manual | Manual | Manual | `promote_db.py` |
+| Deployment | Complex | Medium | Simple | Build exits, WAR deployed separately |
+| Debugging | Difficult | Medium | Easy | Easy |
+| Image Size | ~3GB total | ~2.5GB | ~1.5GB | ~1.5GB |
+| Maintenance | High | Medium | Low | Low |
+| Location | `legacy/` | `legacy/` | `docker/alliancemine-unified/` | `docker/alliancemine/` |
 
 ## Cost Analysis
 
@@ -340,18 +409,14 @@ docker-compose run alliancemine build
 
 ## Conclusion
 
-The unified container architecture provides the best balance of:
-- **Simplicity**: One container to manage
-- **Performance**: Localhost communication, RDS optimization
-- **Cost**: Reasonable given managed services
-- **Maintainability**: Follows InterMine standards
-- **Scalability**: RDS can scale independently
+The build-only container (`docker/alliancemine/`) is the recommended approach for AllianceMine builds going forward. It separates build concerns from runtime, uses testable Python scripts, and supports a versioned release workflow with RC and production database naming.
 
-This is the **recommended approach** for AllianceMine deployment going forward.
+The unified container (`docker/alliancemine-unified/`) remains available for self-contained deployments where Tomcat and Solr run inside the container.
 
 ## Related Documentation
 
-- [Unified Container README](docker/alliancemine-unified/README.md)
-- [Quick Start Guide](docker/alliancemine-unified/QUICKSTART.md)
+- [AllianceMine Build Guide](ALLIANCEMINE_BUILD_GUIDE.md) — Full operational guide for the build-only container
+- [Build System](BUILD_SYSTEM.md) — Python orchestration layer architecture
+- [Quick Start](QUICKSTART.md) — Getting started with either approach
 - [RDS Setup Guide](RDS_SETUP.md)
 - [RDS Integration Notes](RDS_INTEGRATION_NOTES.md)
