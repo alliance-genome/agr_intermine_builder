@@ -103,7 +103,7 @@ class MineBuilder:
                 mine_config,
                 rds_host=rds_config.host,
                 rds_port=rds_config.port,
-                rds_user=rds_config.username,
+                rds_user=rds_config.user,
                 rds_password=rds_config.password
             )
 
@@ -226,7 +226,7 @@ class MineBuilder:
                 mine_config,
                 rds_host=rds_config.host,
                 rds_port=rds_config.port,
-                rds_user=rds_config.username,
+                rds_user=rds_config.user,
                 rds_password=rds_config.password
             )
             self.docker_manager.start_container(mine_type)

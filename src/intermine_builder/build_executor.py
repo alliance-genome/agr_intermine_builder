@@ -120,7 +120,7 @@ class BuildExecutor:
         # Execute data extraction script
         exit_code, output = self.docker_manager.execute_command(
             self.mine_type,
-            "/root/extract_data.sh",
+            "python3 /root/scripts/extract_data.py",
             workdir="/root",
             stream=True
         )
