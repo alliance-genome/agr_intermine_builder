@@ -4,9 +4,78 @@ set -e
 echo "============================================"
 echo "AllianceMine Build Container"
 echo "============================================"
-echo "Alliance Release: ${ALLIANCE_RELEASE}"
+
+# ============================================
+# Resolve Alliance Release from FMS API
+# ============================================
+resolve_release() {
+    if [ -n "${ALLIANCE_RELEASE}" ]; then
+        echo "Alliance Release: ${ALLIANCE_RELEASE} (from env)"
+        return
+    fi
+
+    # Default to "next" release — that's what we're building toward
+    local release_type="${FMS_RELEASE_TYPE:-next}"
+    local api_url="https://fms.alliancegenome.org/api/releaseversion/${release_type}"
+
+    echo "Fetching ${release_type} release version from FMS API..."
+    local response
+    response=$(wget -qO- "${api_url}" 2>/dev/null) || {
+        echo "ERROR: Could not reach FMS API at ${api_url}"
+        echo "Set ALLIANCE_RELEASE manually or check network connectivity."
+        exit 1
+    }
+
+    # Parse releaseVersion from JSON (no jq in Alpine by default, use python3)
+    export ALLIANCE_RELEASE
+    ALLIANCE_RELEASE=$(echo "${response}" | python3 -c "import sys,json; print(json.load(sys.stdin)['releaseVersion'])")
+
+    if [ -z "${ALLIANCE_RELEASE}" ]; then
+        echo "ERROR: FMS API returned no releaseVersion"
+        exit 1
+    fi
+
+    echo "Alliance Release: ${ALLIANCE_RELEASE} (from FMS API ${release_type})"
+}
+
+# ============================================
+# Auto-detect next RC number from RDS
+# ============================================
+resolve_rc_number() {
+    # Only relevant for test builds
+    if [ "${BUILD_TYPE}" = "production" ]; then
+        return
+    fi
+
+    # If RC_NUMBER is already set, use it
+    if [ -n "${RC_NUMBER}" ]; then
+        echo "RC Number: ${RC_NUMBER} (from env)"
+        return
+    fi
+
+    local ver_sanitized
+    ver_sanitized=$(echo "${ALLIANCE_RELEASE}" | tr '.' '_')
+    local pattern="alliancemine_${ver_sanitized}_rc"
+
+    echo "Auto-detecting next RC number..."
+    export PGPASSWORD="${RDS_PASSWORD}"
+
+    # Query RDS for existing RC databases matching this version
+    local max_rc
+    max_rc=$(psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres -tAc \
+        "SELECT coalesce(max(
+            substring(datname from '${pattern}([0-9]+)$')::int
+        ), 0)
+        FROM pg_database
+        WHERE datname ~ '^${pattern}[0-9]+$'" 2>/dev/null) || max_rc=0
+
+    export RC_NUMBER=$(( ${max_rc:-0} + 1 ))
+    echo "RC Number: ${RC_NUMBER} (auto-incremented, found rc${max_rc:-0} on RDS)"
+}
+
+resolve_release
+
 echo "Build Type:       ${BUILD_TYPE:-test}"
-echo "RC Number:        ${RC_NUMBER:-none}"
 echo "RDS:              ${RDS_HOST}:${RDS_PORT}"
 echo "============================================"
 
@@ -50,8 +119,13 @@ construct_db_names() {
         export RDS_DB_NAME="alliancemine_${RELEASE_SANITIZED}_rc${RC}"
     fi
 
-    # Profile DB is shared across all versions
-    export RDS_PROFILE_DB_NAME="alliancemine_userprofile"
+    # Profile DB: shared by default, or isolated copy for test builds
+    PROFILE_SOURCE="alliancemine_userprofile"
+    if [ "${BUILD_TYPE}" != "production" ] && [ "${COPY_PROFILE_DB}" = "true" ]; then
+        export RDS_PROFILE_DB_NAME="alliancemine_userprofile_rc${RC_NUMBER:-1}"
+    else
+        export RDS_PROFILE_DB_NAME="${PROFILE_SOURCE}"
+    fi
 
     # Items DB (intermediary, can be dropped after build)
     export RDS_ITEMS_DB_NAME="alliancemine_items"
@@ -88,16 +162,52 @@ setup_databases() {
     echo "Checking databases in RDS..."
     export PGPASSWORD="${RDS_PASSWORD}"
 
-    for DB_NAME in "${RDS_DB_NAME}" "${RDS_PROFILE_DB_NAME}" "${RDS_ITEMS_DB_NAME}"; do
-        if ! psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-             -lqt | cut -d \| -f 1 | grep -qw "${DB_NAME}"; then
+    local PSQL="psql -h ${RDS_HOST} -p ${RDS_PORT} -U ${RDS_USER}"
+
+    # Helper: check if a database exists
+    db_exists() {
+        ${PSQL} -d postgres -lqt | cut -d \| -f 1 | grep -qw "$1"
+    }
+
+    # Create main DB and items DB if they don't exist
+    for DB_NAME in "${RDS_DB_NAME}" "${RDS_ITEMS_DB_NAME}"; do
+        if ! db_exists "${DB_NAME}"; then
             echo "  Creating database: ${DB_NAME}"
-            psql -h "${RDS_HOST}" -p "${RDS_PORT}" -U "${RDS_USER}" -d postgres \
-                 -c "CREATE DATABASE \"${DB_NAME}\";"
+            ${PSQL} -d postgres -c "CREATE DATABASE \"${DB_NAME}\";"
         else
             echo "  Database exists: ${DB_NAME}"
         fi
     done
+
+    # Profile DB: if COPY_PROFILE_DB=true and this is a test build,
+    # copy from the shared alliancemine_userprofile as a template
+    if [ "${COPY_PROFILE_DB}" = "true" ] && [ "${BUILD_TYPE}" != "production" ]; then
+        if ! db_exists "${RDS_PROFILE_DB_NAME}"; then
+            if db_exists "alliancemine_userprofile"; then
+                echo "  Copying profile DB: alliancemine_userprofile -> ${RDS_PROFILE_DB_NAME}"
+                # Terminate connections to source DB (required for TEMPLATE)
+                ${PSQL} -d postgres -c \
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='alliancemine_userprofile' AND pid <> pg_backend_pid();" \
+                    2>/dev/null || true
+                ${PSQL} -d postgres -c \
+                    "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\" TEMPLATE \"alliancemine_userprofile\";"
+                echo "  Profile DB copied successfully"
+            else
+                echo "  Source profile DB 'alliancemine_userprofile' not found, creating empty"
+                ${PSQL} -d postgres -c "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\";"
+            fi
+        else
+            echo "  Profile database exists: ${RDS_PROFILE_DB_NAME}"
+        fi
+    else
+        # Shared profile DB (default)
+        if ! db_exists "${RDS_PROFILE_DB_NAME}"; then
+            echo "  Creating database: ${RDS_PROFILE_DB_NAME}"
+            ${PSQL} -d postgres -c "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\";"
+        else
+            echo "  Database exists: ${RDS_PROFILE_DB_NAME}"
+        fi
+    fi
 }
 
 # ============================================
@@ -105,6 +215,7 @@ setup_databases() {
 # ============================================
 
 wait_for_postgres
+resolve_rc_number
 construct_db_names
 configure_properties
 setup_databases

@@ -18,9 +18,15 @@ services:
       RDS_PASSWORD: ${RDS_PASSWORD}
 
       # Build Configuration
-      ALLIANCE_RELEASE: ${ALLIANCE_RELEASE}
+      # ALLIANCE_RELEASE: auto-fetched from FMS API if not set
+      ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-}
+      FMS_RELEASE_TYPE: ${FMS_RELEASE_TYPE:-next}
       BUILD_TYPE: ${BUILD_TYPE:-test}
-      RC_NUMBER: ${RC_NUMBER:-1}
+      # RC_NUMBER: auto-incremented from RDS if not set
+      RC_NUMBER: ${RC_NUMBER:-}
+      # COPY_PROFILE_DB: if true, test builds get an isolated copy of
+      # alliancemine_userprofile instead of sharing the production one
+      COPY_PROFILE_DB: ${COPY_PROFILE_DB:-false}
 
       # Deployment (optional)
       DEPLOY_HOST: ${DEPLOY_HOST:-}

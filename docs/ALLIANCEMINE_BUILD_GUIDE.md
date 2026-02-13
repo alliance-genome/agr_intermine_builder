@@ -7,7 +7,7 @@ Operational guide for building AllianceMine using the build-only Docker containe
 - Docker with at least 32 GB RAM and 8 CPUs allocated
 - Access to the Alliance RDS PostgreSQL instance
 - RDS credentials (`RDS_HOST`, `RDS_USER`, `RDS_PASSWORD`)
-- The Alliance release version you are building (e.g., `8.3.0`)
+- (Optional) The Alliance release version — auto-fetched from FMS API if not set
 
 ## Quick Reference
 
@@ -20,8 +20,11 @@ cp .env.example .env
 # Build the Docker image (~15 minutes)
 docker compose build
 
-# Run a test build (creates alliancemine_8_3_0_rc1)
-BUILD_TYPE=test RC_NUMBER=1 docker compose run --rm alliancemine-builder build
+# Run a test build (release + RC auto-detected)
+docker compose run --rm alliancemine-builder build
+
+# Or with explicit version and RC
+ALLIANCE_RELEASE=8.3.0 RC_NUMBER=1 docker compose run --rm alliancemine-builder build
 
 # Promote RC to production (renames to alliancemine_8_3_0)
 docker compose run --rm alliancemine-builder promote --rc 1
@@ -63,11 +66,14 @@ What is baked into the image at build time:
 - InterMine properties template
 
 What happens at container runtime:
-- Wait for RDS connectivity
-- Construct database names from version + build type
-- Create databases on RDS if they don't exist
-- Generate `alliancemine.properties` from template via `envsubst`
-- Execute the requested command (`build`, `promote`, `deploy`, `extract`, `bash`)
+1. Resolve `ALLIANCE_RELEASE` from FMS API if not set (defaults to `next` release)
+2. Wait for RDS connectivity
+3. Auto-detect next `RC_NUMBER` from RDS if not set (queries existing RC databases)
+4. Construct database names from version + build type
+5. Copy or create profile DB (if `COPY_PROFILE_DB=true`, templates from shared profile)
+6. Create databases on RDS if they don't exist
+7. Generate `alliancemine.properties` from template via `envsubst`
+8. Execute the requested command (`build`, `promote`, `deploy`, `extract`, `bash`)
 
 ---
 
@@ -78,25 +84,34 @@ What happens at container runtime:
 Copy `.env.example` to `.env` and fill in values:
 
 ```bash
-# Required
+# Required — RDS credentials
 RDS_HOST=intermine-postgres.xxxxxxx.us-east-1.rds.amazonaws.com
 RDS_PORT=5432
 RDS_USER=postgres
 RDS_PASSWORD=<your-password>
-ALLIANCE_RELEASE=8.3.0
 
-# Build control
-BUILD_TYPE=test          # "test" or "production"
-RC_NUMBER=1              # RC number for test builds
-
-# Deployment (optional, only needed for WAR deploy to EC2 Tomcat)
-# DEPLOY_HOST=ec2-host.example.com
-# DEPLOY_PORT=9099
-
-# Solr (optional, only needed if external Solr is running)
-# SOLR_INDEX_URL=http://solr-host:8983/solr/alliancemine-search
-# SOLR_AUTOCOMPLETE_URL=http://solr-host:8983/solr/alliancemine-autocomplete
+# Build control (all optional — smart defaults)
+BUILD_TYPE=test          # "test" or "production" (default: test)
 ```
+
+Only `RDS_*` credentials are required. Everything else is auto-detected:
+
+| Variable | Default | How it's resolved |
+|----------|---------|-------------------|
+| `ALLIANCE_RELEASE` | *(auto)* | Fetched from FMS API (`/api/releaseversion/next`) |
+| `FMS_RELEASE_TYPE` | `next` | Which FMS release to fetch: `next` or `current` |
+| `RC_NUMBER` | *(auto)* | Queries RDS for highest existing RC and increments |
+| `BUILD_TYPE` | `test` | `test` creates RC databases, `production` creates final names |
+| `COPY_PROFILE_DB` | `false` | If `true`, test builds get an isolated copy of the profile DB |
+| `DEPLOY_HOST` | *(none)* | EC2 host for WAR deployment (skipped if not set) |
+| `DEPLOY_PORT` | `9099` | Tomcat port on deploy host |
+| `SOLR_INDEX_URL` | *(none)* | External Solr search index URL |
+| `SOLR_AUTOCOMPLETE_URL` | *(none)* | External Solr autocomplete URL |
+
+**Auto-detection examples:**
+- No `ALLIANCE_RELEASE` set → container calls `https://fms.alliancegenome.org/api/releaseversion/next` and gets `9.0.0`
+- No `RC_NUMBER` set → container queries RDS, finds `alliancemine_9_0_0_rc2` is the highest → sets `RC_NUMBER=3`
+- Override either by setting them in `.env` or as inline env vars
 
 ### Properties Templates
 
@@ -129,6 +144,25 @@ Three databases are created per build:
 | `alliancemine_items` | Intermediary integration data | Can be dropped after build |
 
 Version dots are converted to underscores: `8.3.0` becomes `8_3_0`.
+
+### Profile Database Isolation
+
+By default, all builds (test and production) share the single `alliancemine_userprofile` database. This is the production profile DB with real user data.
+
+For pre-release testing, set `COPY_PROFILE_DB=true` to get an isolated copy:
+
+```bash
+COPY_PROFILE_DB=true docker compose run --rm alliancemine-builder build
+```
+
+This creates `alliancemine_userprofile_rcN` (e.g., `alliancemine_userprofile_rc1`) as a PostgreSQL template copy of the shared profile DB. The copy is a full snapshot — test builds can modify it freely without affecting production user data.
+
+| Mode | Profile DB name | Use case |
+|------|----------------|----------|
+| `COPY_PROFILE_DB=false` (default) | `alliancemine_userprofile` | Standard builds, production |
+| `COPY_PROFILE_DB=true` | `alliancemine_userprofile_rcN` | Pre-release testing |
+
+Production builds always use the shared `alliancemine_userprofile` regardless of this setting.
 
 ---
 
@@ -183,26 +217,33 @@ docker compose run --rm alliancemine-builder extract
 Create a release candidate database and optionally deploy the WAR to a test Tomcat.
 
 ```bash
-# .env
-BUILD_TYPE=test
-RC_NUMBER=1
-ALLIANCE_RELEASE=8.3.0
-
-# Run
+# Minimal — everything is auto-detected:
+# - Release version fetched from FMS API (next release)
+# - RC number auto-incremented from RDS
 docker compose run --rm alliancemine-builder build
+
+# Or with explicit overrides:
+ALLIANCE_RELEASE=8.3.0 RC_NUMBER=1 docker compose run --rm alliancemine-builder build
+
+# With isolated profile DB for testing:
+COPY_PROFILE_DB=true docker compose run --rm alliancemine-builder build
 ```
 
-This creates `alliancemine_8_3_0_rc1` on RDS and builds the WAR. If `DEPLOY_HOST` is set, the WAR is deployed to the test Tomcat port automatically.
+This creates `alliancemine_{ver}_rcN` on RDS and builds the WAR. If `DEPLOY_HOST` is set, the WAR is deployed to the test Tomcat port automatically.
 
 ### 2. Iterate on RC
 
-If the test build needs changes, bump `RC_NUMBER` and rebuild:
+Run another build — the RC number auto-increments:
 
 ```bash
-RC_NUMBER=2 docker compose run --rm alliancemine-builder build
+# Auto-detects that rc1 exists, creates rc2
+docker compose run --rm alliancemine-builder build
+
+# Or force a specific RC number
+RC_NUMBER=5 docker compose run --rm alliancemine-builder build
 ```
 
-This creates `alliancemine_8_3_0_rc2`. Previous RC databases remain on RDS until manually dropped.
+Previous RC databases remain on RDS until manually dropped.
 
 ### 3. Promote to Production
 
