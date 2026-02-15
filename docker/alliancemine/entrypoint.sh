@@ -119,12 +119,16 @@ construct_db_names() {
         export RDS_DB_NAME="alliancemine_${RELEASE_SANITIZED}_rc${RC}"
     fi
 
-    # Profile DB: shared by default, or isolated copy for test builds
-    PROFILE_SOURCE="alliancemine_userprofile"
-    if [ "${BUILD_TYPE}" != "production" ] && [ "${COPY_PROFILE_DB}" = "true" ]; then
+    # Profile DB:
+    #   production → alliancemine_userprofile (the real one)
+    #   test       → alliancemine_userprofile_test (safe default)
+    #   test + COPY_PROFILE_DB=true → fresh copy as alliancemine_userprofile_rcN
+    if [ "${BUILD_TYPE}" = "production" ]; then
+        export RDS_PROFILE_DB_NAME="alliancemine_userprofile"
+    elif [ "${COPY_PROFILE_DB}" = "true" ]; then
         export RDS_PROFILE_DB_NAME="alliancemine_userprofile_rc${RC_NUMBER:-1}"
     else
-        export RDS_PROFILE_DB_NAME="${PROFILE_SOURCE}"
+        export RDS_PROFILE_DB_NAME="alliancemine_userprofile_test"
     fi
 
     # Items DB (intermediary, can be dropped after build)
@@ -179,34 +183,24 @@ setup_databases() {
         fi
     done
 
-    # Profile DB: if COPY_PROFILE_DB=true and this is a test build,
-    # copy from the shared alliancemine_userprofile as a template
-    if [ "${COPY_PROFILE_DB}" = "true" ] && [ "${BUILD_TYPE}" != "production" ]; then
-        if ! db_exists "${RDS_PROFILE_DB_NAME}"; then
-            if db_exists "alliancemine_userprofile"; then
-                echo "  Copying profile DB: alliancemine_userprofile -> ${RDS_PROFILE_DB_NAME}"
-                # Terminate connections to source DB (required for TEMPLATE)
-                ${PSQL} -d postgres -c \
-                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='alliancemine_userprofile' AND pid <> pg_backend_pid();" \
-                    2>/dev/null || true
-                ${PSQL} -d postgres -c \
-                    "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\" TEMPLATE \"alliancemine_userprofile\";"
-                echo "  Profile DB copied successfully"
-            else
-                echo "  Source profile DB 'alliancemine_userprofile' not found, creating empty"
-                ${PSQL} -d postgres -c "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\";"
-            fi
+    # Profile DB setup
+    if ! db_exists "${RDS_PROFILE_DB_NAME}"; then
+        if [ "${BUILD_TYPE}" != "production" ] && db_exists "alliancemine_userprofile"; then
+            # Test builds: copy from production profile as template
+            echo "  Copying profile DB: alliancemine_userprofile -> ${RDS_PROFILE_DB_NAME}"
+            ${PSQL} -d postgres -c \
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='alliancemine_userprofile' AND pid <> pg_backend_pid();" \
+                2>/dev/null || true
+            ${PSQL} -d postgres -c \
+                "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\" TEMPLATE \"alliancemine_userprofile\";"
+            echo "  Profile DB copied successfully"
         else
-            echo "  Profile database exists: ${RDS_PROFILE_DB_NAME}"
-        fi
-    else
-        # Shared profile DB (default)
-        if ! db_exists "${RDS_PROFILE_DB_NAME}"; then
+            # Production builds or no source to copy from
             echo "  Creating database: ${RDS_PROFILE_DB_NAME}"
             ${PSQL} -d postgres -c "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\";"
-        else
-            echo "  Database exists: ${RDS_PROFILE_DB_NAME}"
         fi
+    else
+        echo "  Profile database exists: ${RDS_PROFILE_DB_NAME}"
     fi
 }
 

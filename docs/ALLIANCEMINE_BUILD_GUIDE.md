@@ -102,7 +102,7 @@ Only `RDS_*` credentials are required. Everything else is auto-detected:
 | `FMS_RELEASE_TYPE` | `next` | Which FMS release to fetch: `next` or `current` |
 | `RC_NUMBER` | *(auto)* | Queries RDS for highest existing RC and increments |
 | `BUILD_TYPE` | `test` | `test` creates RC databases, `production` creates final names |
-| `COPY_PROFILE_DB` | `false` | If `true`, test builds get an isolated copy of the profile DB |
+| `COPY_PROFILE_DB` | `false` | If `true`, test builds get a fresh per-RC copy of the profile DB |
 | `DEPLOY_HOST` | *(none)* | EC2 host for WAR deployment (skipped if not set) |
 | `DEPLOY_PORT` | `9099` | Tomcat port on deploy host |
 | `SOLR_INDEX_URL` | *(none)* | External Solr search index URL |
@@ -145,24 +145,25 @@ Three databases are created per build:
 
 Version dots are converted to underscores: `8.3.0` becomes `8_3_0`.
 
-### Profile Database Isolation
+### Profile Database
 
-By default, all builds (test and production) share the single `alliancemine_userprofile` database. This is the production profile DB with real user data.
+Test builds and production builds use different profile databases to protect production user data:
 
-For pre-release testing, set `COPY_PROFILE_DB=true` to get an isolated copy:
+| Build type | Profile DB | Notes |
+|------------|-----------|-------|
+| **test** (default) | `alliancemine_userprofile_test` | Safe default — never touches production |
+| **test** + `COPY_PROFILE_DB=true` | `alliancemine_userprofile_rcN` | Fresh copy from production per RC |
+| **production** | `alliancemine_userprofile` | The real production profile DB |
+
+If `alliancemine_userprofile_test` doesn't exist yet, the entrypoint creates it as a PostgreSQL template copy of `alliancemine_userprofile` (the production one). After that, it persists and is reused across test builds.
+
+For a fresh per-RC copy instead:
 
 ```bash
 COPY_PROFILE_DB=true docker compose run --rm alliancemine-builder build
 ```
 
-This creates `alliancemine_userprofile_rcN` (e.g., `alliancemine_userprofile_rc1`) as a PostgreSQL template copy of the shared profile DB. The copy is a full snapshot — test builds can modify it freely without affecting production user data.
-
-| Mode | Profile DB name | Use case |
-|------|----------------|----------|
-| `COPY_PROFILE_DB=false` (default) | `alliancemine_userprofile` | Standard builds, production |
-| `COPY_PROFILE_DB=true` | `alliancemine_userprofile_rcN` | Pre-release testing |
-
-Production builds always use the shared `alliancemine_userprofile` regardless of this setting.
+This creates `alliancemine_userprofile_rc1` (or `_rc2`, etc.) as a new snapshot from production each time.
 
 ---
 
