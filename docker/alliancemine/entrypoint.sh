@@ -6,6 +6,38 @@ echo "AllianceMine Build Container"
 echo "============================================"
 
 # ============================================
+# Compile bio-sources and alliancemine (first run only)
+# ============================================
+compile_if_needed() {
+    if [ ! -f /root/.needs_compile ]; then
+        echo "Already compiled, skipping."
+        return
+    fi
+
+    echo "First run: compiling bio-sources and alliancemine..."
+    echo "This takes ~10-15 minutes with 32 GB RAM."
+
+    echo "  [1/2] Building bio-sources..."
+    cd /root/alliancemine-bio-sources
+    ./gradlew clean --stacktrace
+    ./gradlew install --stacktrace
+
+    echo "  [2/2] Building alliancemine..."
+    cd /root/alliancemine
+    ./gradlew install --stacktrace
+
+    # Cleanup Gradle caches to save space
+    rm -rf /root/.gradle/caches/transforms-* \
+           /root/.gradle/caches/journal-* \
+           /tmp/*
+
+    rm /root/.needs_compile
+    echo "Compilation complete."
+}
+
+compile_if_needed
+
+# ============================================
 # Resolve Alliance Release from FMS API
 # ============================================
 resolve_release() {
