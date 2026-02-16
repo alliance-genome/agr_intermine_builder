@@ -52,8 +52,7 @@ RUN cpanm --notest --force \
 # ============================================
 # InterMine Build Environment
 # ============================================
-# Build-time: conservative memory for docker build (image compilation only)
-# Runtime: GRADLE_OPTS is overridden by docker-compose.yml (-Xmx16g -Xms8g)
+# GRADLE_OPTS is overridden at runtime by docker-compose.yml (-Xmx16g -Xms8g)
 ENV GRADLE_OPTS="-server -Xmx4g -Xms2g -XX:+UseParallelGC -Dorg.gradle.daemon=false -Duser.home=/root"
 ENV GRADLE_USER_HOME="/root/.gradle"
 
@@ -62,6 +61,8 @@ RUN mkdir -p .intermine
 
 # ============================================
 # Clone AllianceMine Repositories
+# Repos are cloned at build time but compiled at runtime (first run)
+# to keep image build lightweight.
 # ============================================
 ARG ALLIANCEMINE_BRANCH=master
 RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
@@ -72,31 +73,6 @@ RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
     https://github.com/alliance-genome/alliancemine-bio-sources.git
 
 # ============================================
-# Build Bio-sources
-# ============================================
-WORKDIR /root/alliancemine-bio-sources
-RUN ./gradlew clean --stacktrace && \
-    ./gradlew install --stacktrace && \
-    rm -rf /root/.gradle/caches/transforms-* \
-           /root/.gradle/caches/journal-* \
-           /tmp/*
-
-# ============================================
-# Build AllianceMine Dependencies
-# ============================================
-WORKDIR /root/alliancemine
-
-# Copy properties templates
-COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.properties.template
-COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.properties
-
-RUN echo "Installing AllianceMine Gradle dependencies..." && \
-    ./gradlew install --stacktrace && \
-    rm -rf /root/.gradle/caches/transforms-* \
-           /root/.gradle/caches/journal-* \
-           /tmp/*
-
-# ============================================
 # Install project_build from intermine-scripts
 # ============================================
 RUN git clone --depth 1 https://github.com/intermine/intermine-scripts.git /root/intermine-scripts && \
@@ -105,8 +81,11 @@ RUN git clone --depth 1 https://github.com/intermine/intermine-scripts.git /root
     rm -rf /root/intermine-scripts
 
 # ============================================
-# Add Build Scripts and Configuration
+# Add Build Scripts, Properties, and Configuration
 # ============================================
+COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.properties.template
+COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.properties
+
 COPY scripts/ /root/scripts/
 RUN chmod +x /root/scripts/*.py
 
@@ -115,6 +94,9 @@ RUN chmod +x /root/entrypoint.sh
 
 # Create data directories
 RUN mkdir -p /root/data/{genes,alleles,disease,phenotype,orthology,expression,variants,go,dump}
+
+# Marker file: entrypoint checks this to know if compilation is needed
+RUN touch /root/.needs_compile
 
 # ============================================
 # Final Setup
