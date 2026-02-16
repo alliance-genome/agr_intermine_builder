@@ -30,7 +30,7 @@ services:
 
       # Deployment (optional)
       DEPLOY_HOST: ${DEPLOY_HOST:-}
-      DEPLOY_PORT: ${DEPLOY_PORT:-9099}
+      DEPLOY_PORT: ${DEPLOY_PORT:-8090}
       DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
       DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
 
