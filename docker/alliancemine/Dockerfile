@@ -25,6 +25,8 @@ RUN apk add --no-cache \
     perl \
     perl-dev \
     perl-app-cpanminus \
+    perl-xml-parser \
+    expat-dev \
     gettext \
     && ln -sf "${JAVA_HOME}/bin/"* "/usr/bin/"
 
@@ -50,8 +52,9 @@ RUN cpanm --notest --force \
 # ============================================
 # InterMine Build Environment
 # ============================================
-ENV MEM_OPTS="-Xmx16g -Xms8g"
-ENV GRADLE_OPTS="-server ${MEM_OPTS} -XX:+UseParallelGC -XX:SoftRefLRUPolicyMSPerMB=1 -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.daemon=false -Duser.home=/root"
+# Build-time: conservative memory for docker build (image compilation only)
+# Runtime: GRADLE_OPTS is overridden by docker-compose.yml (-Xmx16g -Xms8g)
+ENV GRADLE_OPTS="-server -Xmx4g -Xms2g -XX:+UseParallelGC -Dorg.gradle.daemon=false -Duser.home=/root"
 ENV GRADLE_USER_HOME="/root/.gradle"
 
 WORKDIR /root
@@ -73,7 +76,7 @@ RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
 # ============================================
 WORKDIR /root/alliancemine-bio-sources
 RUN ./gradlew clean --stacktrace && \
-    ./gradlew install --parallel --stacktrace && \
+    ./gradlew install --stacktrace && \
     rm -rf /root/.gradle/caches/transforms-* \
            /root/.gradle/caches/journal-* \
            /tmp/*
