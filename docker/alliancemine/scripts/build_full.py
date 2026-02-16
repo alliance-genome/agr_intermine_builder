@@ -58,7 +58,7 @@ class AllianceMineBuildPipeline:
         release: str = "8.3.0",
         rc: Optional[int] = None,
         deploy_host: Optional[str] = None,
-        deploy_port: int = 9099,
+        deploy_port: int = 8090,
         skip_stages: Optional[List[str]] = None,
         start_from: Optional[str] = None,
     ):
@@ -299,7 +299,7 @@ def main():
     parser.add_argument("--release", default=None, help="Alliance release version (e.g., 8.3.0)")
     parser.add_argument("--rc", type=int, default=None, help="RC number for test builds")
     parser.add_argument("--deploy-host", default=None, help="EC2 host for WAR deployment")
-    parser.add_argument("--deploy-port", type=int, default=9099, help="Tomcat port on deploy host")
+    parser.add_argument("--deploy-port", type=int, default=8090, help="Tomcat port on deploy host")
     parser.add_argument(
         "--skip-stages", nargs="+", choices=STAGES, default=[], help="Stages to skip"
     )

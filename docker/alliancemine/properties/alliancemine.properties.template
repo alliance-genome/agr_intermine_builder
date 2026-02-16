@@ -45,22 +45,22 @@ project.helpLocation=https://www.alliancegenome.org
 # ============================================
 # Web Application / Deployment
 # ============================================
-webapp.deploy.url=${DEPLOY_URL:-http://localhost:8080}
-webapp.baseurl=${WEBAPP_BASEURL:-http://localhost:8080}
+webapp.deploy.url=${DEPLOY_URL}
+webapp.baseurl=${WEBAPP_BASEURL}
 webapp.path=alliancemine
-webapp.manager=${DEPLOY_MANAGER:-manager}
-webapp.password=${DEPLOY_PASSWORD:-manager}
-webapp.port=${DEPLOY_PORT:-8080}
-webapp.hostname=${DEPLOY_HOST:-localhost}
+webapp.manager=${DEPLOY_MANAGER}
+webapp.password=${DEPLOY_PASSWORD}
+webapp.port=${DEPLOY_PORT}
+webapp.hostname=${DEPLOY_HOST}
 
-tomcat.user=${DEPLOY_MANAGER:-manager}
-tomcat.pwd=${DEPLOY_PASSWORD:-manager}
+tomcat.user=${DEPLOY_MANAGER}
+tomcat.pwd=${DEPLOY_PASSWORD}
 
 # ============================================
 # Solr Configuration
 # ============================================
-index.solrurl=${SOLR_INDEX_URL:-http://localhost:8983/solr/alliancemine-search}
-autocomplete.solrurl=${SOLR_AUTOCOMPLETE_URL:-http://localhost:8983/solr/alliancemine-autocomplete}
+index.solrurl=${SOLR_INDEX_URL}
+autocomplete.solrurl=${SOLR_AUTOCOMPLETE_URL}
 
 # ============================================
 # SuperUser Account
