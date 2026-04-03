@@ -29,6 +29,29 @@ from urllib.error import HTTPError, URLError
 FMS_API_BASE = "https://fms.alliancegenome.org/api"
 DEFAULT_DATA_DIR = Path("/root/data")
 
+# External ontology/data files not available on FMS
+# These are downloaded directly from their source URLs
+EXTERNAL_FILES = [
+    ("https://purl.obolibrary.org/obo/mi.obo", "intermine/ontology", "psi-mi.obo"),
+    ("https://raw.githubusercontent.com/HUPO-PSI/psi-mi-CV/master/psi-mi.obo", "intermine/ontology", "psi-mi.obo"),
+    ("https://downloads.yeastgenome.org/curation/calculated_protein_info/protein_properties.tab", "intermine/protein-properties", "protein_properties.tab"),
+]
+
+# SGD-specific directories expected by project.xml (created empty if data not available)
+SGD_DIRECTORIES = [
+    "intermine/ontology",
+    "intermine/gff",
+    "intermine/gff-utr",
+    "intermine/db-utr",
+    "intermine/protein-properties",
+    "intermine/protein-ntermini",
+    "intermine/yeast_orthologs/fungidb",
+    "intermine/yeast_orthologs/CGOB",
+    "intermine/yeast_orthologs/C.glabrata",
+    "intermine/yeast_orthologs/pombe",
+    "intermine/yeast_orthologs/homolog_genes",
+]
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -200,8 +223,52 @@ class AllianceDataExtractor:
             logger.warning(f"    FAILED: {e}")
             return False
 
+    def create_sgd_directories(self) -> None:
+        """Create SGD-specific directories expected by project.xml."""
+        logger.info("Creating SGD/InterMine data directories...")
+        for subdir in SGD_DIRECTORIES:
+            path = self.data_dir / subdir
+            path.mkdir(parents=True, exist_ok=True)
+
+    def download_external_files(self) -> Dict[str, int]:
+        """Download external files not available on FMS (ontologies, SGD data)."""
+        stats = {"success": 0, "failed": 0}
+
+        logger.info("Downloading external data files...")
+        for urls, target_dir, target_name in EXTERNAL_FILES:
+            out_dir = self.data_dir / target_dir
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / target_name
+
+            if out_path.exists():
+                logger.info(f"  {target_dir}/{target_name}: already exists")
+                stats["success"] += 1
+                continue
+
+            # urls can be a single string or handled as primary URL
+            url_list = [urls] if isinstance(urls, str) else urls
+            downloaded = False
+            for url in url_list:
+                logger.info(f"  {target_dir}/{target_name} <- {url}")
+                try:
+                    urlretrieve(url, out_path)
+                    size_mb = out_path.stat().st_size / (1024 * 1024)
+                    logger.info(f"    OK ({size_mb:.1f} MB)")
+                    stats["success"] += 1
+                    downloaded = True
+                    break
+                except (HTTPError, URLError, OSError) as e:
+                    logger.warning(f"    FAILED: {e}, trying next URL...")
+
+            if not downloaded:
+                logger.warning(f"  Could not download {target_name} from any source")
+                stats["failed"] += 1
+
+        return stats
+
     def download_all(self) -> Dict[str, int]:
         """Download all configured data files."""
+        self.create_sgd_directories()
         self.load_snapshot()
 
         stats = {"success": 0, "failed": 0, "skipped": 0, "total": len(FILE_MAP)}
@@ -215,13 +282,19 @@ class AllianceDataExtractor:
             else:
                 stats["failed"] += 1
 
+        # Download external files (ontologies, SGD data)
+        ext_stats = self.download_external_files()
+        stats["success"] += ext_stats["success"]
+        stats["failed"] += ext_stats["failed"]
+        stats["total"] += ext_stats["success"] + ext_stats["failed"]
+
         return stats
 
     def verify(self) -> None:
         """Print download summary."""
         total_size = 0
         file_count = 0
-        for subdir in ["fms", "genes"]:
+        for subdir in ["fms", "genes", "intermine"]:
             d = self.data_dir / subdir
             if not d.exists():
                 continue
