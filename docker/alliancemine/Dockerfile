@@ -28,6 +28,7 @@ RUN apk add --no-cache \
     perl-xml-parser \
     expat-dev \
     gettext \
+    aws-cli \
     && ln -sf "${JAVA_HOME}/bin/"* "/usr/bin/"
 
 # Install Perl modules required by InterMine project_build
