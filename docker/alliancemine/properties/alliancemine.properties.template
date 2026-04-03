@@ -34,6 +34,20 @@ db.userprofile-production.driver=org.postgresql.Driver
 db.userprofile-production.platform=PostgreSQL
 
 # ============================================
+# SGD Database (external, read-only)
+# ============================================
+db.sgd.datasource.class=org.postgresql.ds.PGPoolingDataSource
+db.sgd.datasource.dataSourceName=db.sgd
+db.sgd.datasource.serverName=${SGD_DB_HOST}
+db.sgd.datasource.databaseName=${SGD_DB_NAME}
+db.sgd.datasource.user=${SGD_DB_USER}
+db.sgd.datasource.password=${SGD_DB_PASSWORD}
+db.sgd.datasource.maxConnections=10
+db.sgd.datasource.portNumber=${SGD_DB_PORT}
+db.sgd.driver=org.postgresql.Driver
+db.sgd.platform=PostgreSQL
+
+# ============================================
 # Project Configuration
 # ============================================
 project.title=AllianceMine
