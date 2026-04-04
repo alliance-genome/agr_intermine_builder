@@ -142,8 +142,8 @@ class AllianceMineBuildPipeline:
         cmd = ["./project_build", "-b", "-T", "localhost", "/root/data/dump"]
 
         if self.resume:
-            logger.info("Resuming from last dump checkpoint (-r)")
-            cmd.insert(1, "-r")
+            logger.info("Resuming from last dump file (-l)")
+            cmd.insert(1, "-l")
         else:
             logger.info("This will take 2-4 hours...")
 
