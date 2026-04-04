@@ -34,6 +34,13 @@ services:
       DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
       DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
 
+      # SGD Database (external, read-only)
+      SGD_DB_HOST: ${SGD_DB_HOST:-}
+      SGD_DB_NAME: ${SGD_DB_NAME:-sgd}
+      SGD_DB_USER: ${SGD_DB_USER:-}
+      SGD_DB_PASSWORD: ${SGD_DB_PASSWORD:-}
+      SGD_DB_PORT: ${SGD_DB_PORT:-5432}
+
       # Solr (external, on EC2)
       SOLR_INDEX_URL: ${SOLR_INDEX_URL:-}
       SOLR_AUTOCOMPLETE_URL: ${SOLR_AUTOCOMPLETE_URL:-}
