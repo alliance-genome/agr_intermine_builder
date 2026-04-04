@@ -90,6 +90,9 @@ COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.p
 COPY scripts/ /root/scripts/
 RUN chmod +x /root/scripts/*.py
 
+# Override project.xml with dump checkpoints for restartable builds
+COPY project.xml /root/alliancemine/project.xml
+
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
 
