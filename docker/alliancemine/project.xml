@@ -1,0 +1,262 @@
+<project type="bio">
+  <property name="target.model" value="genomic"/>
+  <property name="common.os.prefix" value="common"/>
+  <property name="intermine.properties.file" value="alliancemine.properties"/>
+  <property name="default.intermine.properties.file" location="../default.intermine.integrate.properties"/>
+  <sources>
+
+       <source name="alliance-wb-fasta" type="fasta">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="WB Genome Sequence"/>
+         <property name="fasta.taxonId" value="6239"/>
+         <property name="fasta.includes" value="FASTA_WB.fa"/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+       <source name="alliance-fb-fasta" type="fasta">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="FB Genome Sequence"/>
+         <property name="fasta.taxonId" value="7227"/>
+         <property name="fasta.includes" value="FASTA_R627.fa"/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+       <!--<source name="alliance-sgd-fasta" type="fasta">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="SGD Genome Sequence"/>
+         <property name="fasta.taxonId" value="559292"/>
+         <property name="fasta.includes" value="FASTA_SGDr64.fa"/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>-->
+
+       <source name="alliance-zfin-fasta" type="fasta">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="ZFIN Genome Sequence"/>
+         <property name="fasta.taxonId" value="7955"/>
+         <property name="fasta.includes" value="FASTA_GRCz11.fa"/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+       <source name="alliance-mgi-fasta" type="fasta" dump="true">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="MGI Genome Sequence"/>
+         <property name="fasta.taxonId" value="10090"/>
+         <property name="fasta.includes" value="FASTA_GRCm38.fa"/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+       <source name="alliance-rgd-fasta" type="fasta">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="RGD Genome Sequence"/>
+         <property name="fasta.taxonId" value="10116"/>
+         <property name="fasta.includes" value="FASTA_Rnor60.fa"/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+      <source name="alliance-xtrops-fasta" type="fasta">
+          <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+          <property name="fasta.dataSourceName" value="NCBI"/>
+          <property name="fasta.dataSetTitle" value="XB X.tropicalis Genome Sequence"/>
+          <property name="fasta.taxonId" value="8364"/>
+          <property name="fasta.includes" value="FASTA_XT9.1.fa"/>
+          <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+       <source name="alliance-xlaevis-fasta" type="fasta" dump="true">
+         <property name="fasta.className" value="org.intermine.model.bio.Chromosome"/>
+         <property name="fasta.dataSourceName" value="NCBI"/>
+         <property name="fasta.dataSetTitle" value="XB X.laevis Genome Sequence"/>
+         <property name="fasta.taxonId" value="8355"/>
+         <property name="fasta.includes" value=""/>
+         <property name="src.data.dir" location="/root/data/fms"/>
+       </source>
+
+    <source name="do" type="do">
+      <property name="src.data.file" location="/root/data/fms/ONTOLOGY_DOID.obo"/>
+    </source>
+
+    <source name="go" type="go">
+      <property name="src.data.file" location="/root/data/fms/ONTOLOGY_GO.obo"/>
+    </source>
+
+    <source name="eco" type="eco">
+       <property name="src.data.file" location="/root/data/fms/ONTOLOGY_ECO.obo"/>
+    </source>
+
+   <source name="mmo" type="mmo">
+      <property name="src.data.file" location="/root/data/fms/ONTOLOGY_MMO.obo"/>
+   </source>
+
+   <source name="emapa" type="emapa">
+       <property name="src.data.file" location="/root/data/fms/ONTOLOGY_EMAPA.obo"/>
+   </source>
+
+   <source name="zfa" type="zfa">
+       <property name="src.data.file" location="/root/data/fms/ONTOLOGY_ZFA.obo"/>
+  </source>
+
+  <source name="wbbt" type="wbbt">
+       <property name="src.data.file" location="/root/data/fms/ONTOLOGY_WBBT.obo"/>
+  </source>
+
+     <source name="fbbt" type="fbbt" dump="true">
+       <property name="src.data.file" location="/root/data/fms/ONTOLOGY_FBBT.obo"/>
+     </source>
+
+      <source name="psi-mi-ontology" type="psi-mi-ontology">
+          <property name="src.data.file" location="/root/data/intermine/ontology/psi-mi.obo"/>
+      </source>
+
+      <source name="go-slim" type="go-slim" dump="true">
+          <property name="src.data.file" location="/root/data/intermine/ontology/goslim_yeast.obo"/>
+      </source>
+
+      <source name="sgd" type="sgd">
+          <property name="source.db.name" value="sgd"/>
+          <property name="dataSourceName" value="SGD"/>
+          <property name="converter.class" value="org.intermine.bio.dataconversion.SgdConverter"/>
+      </source>
+
+      <source name="sgd-gff" type="sgd-gff">
+          <property name="gff3.taxonId" value="4932"/>
+          <property name="gff3.dataSourceName" value="SGD Transcriptome v1.0"/>
+          <property name="gff3.seqClsName" value="Chromosome"/>
+          <property name="gff3.dataSetTitle" value="Preliminary Transcripts"/>
+          <property name="src.data.dir" location="/root/data/intermine/gff"/>
+      </source>
+
+      <source name="sgd-gff-utr" type="sgd-gff-utr">
+          <property name="src.data.dir" location="/root/data/intermine/gff-utr"/>
+      </source>
+
+      <source name="sgd-db-utr" type="sgd-db-utr">
+          <property name="src.data.dir" location="/root/data/intermine/db-utr"/>
+      </source>
+
+      <source name="fungi-homologs" type="fungi-homologs">
+          <property name="src.data.dir" location="/root/data/intermine/yeast_orthologs/fungidb"/>
+      </source>
+
+      <source name="cgob-homologs" type="cgob-homologs">
+          <property name="src.data.dir" location="/root/data/intermine/yeast_orthologs/CGOB"/>
+      </source>
+
+      <source name="cglabrata-homologs" type="cglabrata-homologs">
+          <property name="src.data.dir" location="/root/data/intermine/yeast_orthologs/C.glabrata"/>
+      </source>
+
+      <source name="pombe-homologs" type="pombe-homologs">
+          <property name="src.data.dir" location="/root/data/intermine/yeast_orthologs/pombe"/>
+      </source>
+
+     <source name="homolog-genes" type="homolog-genes">
+          <property name="src.data.dir" location="/root/data/intermine/yeast_orthologs/homolog_genes"/>
+      </source>
+
+      <source name="sgd-complementation-db" type="sgd-complementation-db">
+          <property name="source.db.name" value="sgd"/>
+          <property name="dataSourceName" value="SGD"/>
+          <property name="converter.class" value="org.intermine.bio.dataconversion.SgdComplementationDbConverter"/>
+      </source>
+
+      <source name="sgd-complexes" type="sgd-complexes" dump="true">
+          <property name="source.db.name" value="sgd"/>
+          <property name="dataSourceName" value="SGD"/>
+          <property name="converter.class" value="org.intermine.bio.dataconversion.SgdComplexesConverter"/>
+      </source>
+
+      <source name="sgd-protein-properties" type="sgd-protein-properties">
+          <property name="src.data.dir" location="/root/data/intermine/protein-properties"/>
+      </source>
+
+      <source name="sgd-protein-ntermini" type="sgd-protein-ntermini" dump="true">
+          <property name="src.data.dir" location="/root/data/intermine/protein-ntermini"/>
+      </source>
+
+      <source name="alliance-genes" type="alliance-genes">
+          <property name="src.data.dir" location="/root/data/genes"/>
+      </source>
+
+      <source name="go-annotation" type="go-annotation" dump="true">
+          <property name="src.data.dir" location="/root/data/fms"/>
+          <property name="src.data.dir.includes" value="*.gaf"/>
+          <property name="ontologyPrefix" value="GO"/>
+      </source>
+
+      <source name="alliance-disease" type="alliance-disease">
+          <property name="src.data.dir" location="/root/data/fms"/>
+          <property name="src.data.dir.includes" value="DISEASE-ALLIANCE_COMBINED.tsv"/>
+      </source>
+
+      <source name="alliance-orthologs" type="alliance-orthologs">
+          <property name="src.data.dir" location="/root/data/fms"/>
+          <property name="src.data.dir.includes" value="ORTHOLOGY-ALLIANCE_COMBINED.tsv"/>
+      </source>
+
+      <source name="alliance-alleles" type="alliance-alleles">
+          <property name="src.data.dir" location="/root/data/fms"/>
+          <property name="src.data.dir.includes" value="VARIANT-ALLELE_COMBINED.tsv"/>
+      </source>
+
+      <source name="alliance-expression" type="alliance-expression" dump="true">
+          <property name="src.data.dir" location="/root/data/fms"/>
+          <property name="src.data.dir.includes" value="EXPRESSION-ALLIANCE_COMBINED.tsv"/>
+      </source>
+
+      <!--<source name="alliance-genetic-interactions" type="alliance-genetic-interactions">
+          <property name="src.data.dir" location="/root/data/fms"/>
+          <property name="src.data.dir.includes" value="INTERACTION-GEN_COMBINED.tsv"/>
+        </source>
+
+        <source name="alliance-molecular-interactions" type="alliance-molecular-interactions">
+           <property name="src.data.dir" location="/root/data/fms"/>
+           <property name="src.data.dir.includes" value="NTERACTION-MOL_COMBINED.tsv"/>
+         </source>
+       <source name="hpo" type="hpo">
+        <property name="src.data.file" location="/root/data/fms/ONTOLOGY_HP.obo"/>
+      </source>
+
+      <source name="mpo" type="mpo">
+        <property name="src.data.file" location="/root/data/fms/ONTOLOGY_MP.obo"/>
+      </source>
+
+      <source name="pato" type="pato">
+        <property name="src.data.file" location="/root/data/fms/ONTOLOGY_PATO.obo"/>
+      </source>-->
+
+      <source name="update-publications" type="update-publications">
+        <property name="src.data.file" location="publications.xml"/>
+      </source>
+
+    <source name="entrez-organism" type="entrez-organism">
+      <property name="src.data.file" location="organisms.xml"/>
+    </source>
+
+    <source name="so" type="so">
+      <property name="src.data.file" location="/root/data/fms/ONTOLOGY_SO.obo"/>
+    </source>
+
+  </sources>
+
+  <post-processing>
+    <post-process name="create-references"/>
+    <post-process name="do-sources"/>
+    <!--<post-process name="create-intergenic-region-features"/>
+    <post-process name="create-location-overlap-index"/>
+    <post-process name="create-overlap-view"/>
+    <post-process name="create-gene-flanking-features"/>
+    <post-process name="populate-child-features"/>-->
+    <post-process name="transfer-sequences"/>
+    <post-process name="create-attribute-indexes"/>
+    <post-process name="summarise-objectstore"/>
+    <post-process name="create-autocomplete-index"/>
+    <post-process name="create-search-index"/>
+  </post-processing>
+
+</project>
