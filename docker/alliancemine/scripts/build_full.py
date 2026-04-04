@@ -61,6 +61,7 @@ class AllianceMineBuildPipeline:
         deploy_port: int = 8090,
         skip_stages: Optional[List[str]] = None,
         start_from: Optional[str] = None,
+        resume: bool = False,
     ):
         self.build_type = build_type
         self.release = release
@@ -69,6 +70,7 @@ class AllianceMineBuildPipeline:
         self.deploy_port = deploy_port
         self.skip_stages = set(skip_stages or [])
         self.start_from = start_from
+        self.resume = resume
         self.start_time = time.time()
         self.stage_times: dict = {}
 
@@ -132,16 +134,20 @@ class AllianceMineBuildPipeline:
     def stage_project_build(self) -> bool:
         """Stage 3: Project build (data integration) - LONGEST STAGE."""
         self._log_stage(3, "Running project_build (data integration)")
-        logger.info("This will take 2-4 hours...")
 
         if not (ALLIANCEMINE_DIR / "project_build").exists():
             logger.error("project_build script not found in /root/alliancemine/")
             return False
 
-        return self._run(
-            ["./project_build", "-b", "-T", "localhost", "/root/data/dump"],
-            "Data integration (project_build)",
-        )
+        cmd = ["./project_build", "-b", "-T", "localhost", "/root/data/dump"]
+
+        if self.resume:
+            logger.info("Resuming from last dump checkpoint (-r)")
+            cmd.insert(1, "-r")
+        else:
+            logger.info("This will take 2-4 hours...")
+
+        return self._run(cmd, "Data integration (project_build)")
 
     def stage_postprocess(self) -> bool:
         """Stage 4: Post-processing."""
@@ -304,6 +310,7 @@ def main():
         "--skip-stages", nargs="+", choices=STAGES, default=[], help="Stages to skip"
     )
     parser.add_argument("--start-from", choices=STAGES, default=None, help="Resume from stage")
+    parser.add_argument("--resume", action="store_true", help="Resume project_build from last dump checkpoint")
 
     args = parser.parse_args()
 
@@ -318,6 +325,7 @@ def main():
         deploy_port=args.deploy_port,
         skip_stages=args.skip_stages,
         start_from=args.start_from,
+        resume=args.resume,
     )
 
     sys.exit(pipeline.run())
