@@ -96,14 +96,11 @@ COPY project.xml /root/alliancemine/project.xml
 # Patch SgdConverter: re-enable deduplication of child features
 # The SQL query returns duplicate telomeric_repeat rows causing "Duplicate objects for pk" errors.
 # Upstream fix needed in: alliance-genome/alliancemine-bio-sources sgd/src/.../SgdConverter.java ~line 1282
-RUN sed -i \
-    's|// figure out why duplicates in the SQL..???..||' \
+RUN sed -i '1280s|// figure out why duplicates in the SQL..???..||' \
     /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java && \
-    sed -i \
-    's|/\*if (featureMap.get(geneChildFeatureNo) == null) {|if (featureMap.get(geneChildFeatureNo) == null) {|' \
+    sed -i '1281s|/\*if|if|' \
     /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java && \
-    sed -i \
-    's|}\*/|}|' \
+    sed -i '1283s|}\*/|}|' \
     /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java
 
 COPY entrypoint.sh /root/entrypoint.sh
