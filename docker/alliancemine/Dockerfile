@@ -99,8 +99,8 @@ COPY project.xml /root/alliancemine/project.xml
 RUN SGDFILE=/root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java && \
     LINENUM=$(grep -n 'figure out why duplicates in the SQL' "$SGDFILE" | tail -1 | cut -d: -f1) && \
     sed -i "${LINENUM}d" "$SGDFILE" && \
-    sed -i "$((LINENUM))s|/\\*if|if|" "$SGDFILE" && \
-    sed -i "$((LINENUM+2))s|}\\*/|}|" "$SGDFILE"
+    sed -i "${LINENUM}s|/\\*if|if|" "$SGDFILE" && \
+    sed -i "$((LINENUM+4))s|}\\*/|}|" "$SGDFILE"
 
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
