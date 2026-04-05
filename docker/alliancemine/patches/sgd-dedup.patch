@@ -1,0 +1,18 @@
+--- a/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java
++++ b/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java
+@@ -1279,12 +1279,11 @@
+
+ 			String fixed_chromosome_no = getFixedChrName(chromosome_no);
+
+-			// figure out why duplicates in the SQL..???..
+-			/*if (featureMap.get(geneChildFeatureNo) == null) {
++			// Skip duplicate child features from SQL results
++			if (featureMap.get(geneChildFeatureNo) == null) {
+ 				featureMap.put(geneChildFeatureNo, geneFeatureNo);
+ 			} else {
+ 				continue;
+-			}*/
++			}
+
+ 			Item parent = genes.get(geneFeatureNo);
+ 			// create the child Item
