@@ -139,7 +139,7 @@ class AllianceMineBuildPipeline:
             logger.error("project_build script not found in /root/alliancemine/")
             return False
 
-        cmd = ["./project_build", "-b", "-T", "localhost", "/root/data/dump"]
+        cmd = ["./project_build", "-b", "localhost", "/root/data/dump"]
 
         if self.resume:
             logger.info("Resuming from last dump file (-l)")
