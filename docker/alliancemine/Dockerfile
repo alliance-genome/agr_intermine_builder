@@ -95,13 +95,12 @@ COPY project.xml /root/alliancemine/project.xml
 
 # Patch SgdConverter: re-enable deduplication of child features
 # The SQL query returns duplicate telomeric_repeat rows causing "Duplicate objects for pk" errors.
-# Upstream fix needed in: alliance-genome/alliancemine-bio-sources sgd/src/.../SgdConverter.java ~line 1282
-RUN sed -i '1280s|// figure out why duplicates in the SQL..???..||' \
-    /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java && \
-    sed -i '1281s|/\*if|if|' \
-    /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java && \
-    sed -i '1283s|}\*/|}|' \
-    /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java
+# Upstream fix needed in: alliance-genome/alliancemine-bio-sources sgd/src/.../SgdConverter.java
+RUN SGDFILE=/root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java && \
+    LINENUM=$(grep -n 'figure out why duplicates in the SQL' "$SGDFILE" | tail -1 | cut -d: -f1) && \
+    sed -i "${LINENUM}d" "$SGDFILE" && \
+    sed -i "$((LINENUM))s|/\\*if|if|" "$SGDFILE" && \
+    sed -i "$((LINENUM+2))s|}\\*/|}|" "$SGDFILE"
 
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
