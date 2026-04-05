@@ -93,6 +93,14 @@ RUN chmod +x /root/scripts/*.py
 # Override project.xml with dump checkpoints for restartable builds
 COPY project.xml /root/alliancemine/project.xml
 
+# Patch SgdConverter: re-enable deduplication of child features
+# The SQL query in getChildrenFeatureLocationResults returns duplicate rows
+# for telomeric_repeat features. The original code had a dedup check but it
+# was commented out, causing "Duplicate objects found for pk" errors.
+# Upstream fix needed in: alliance-genome/alliancemine-bio-sources sgd/src/main/java/.../SgdConverter.java ~line 1282
+COPY patches/sgd-dedup.patch /tmp/sgd-dedup.patch
+RUN cd /root/alliancemine-bio-sources && patch -p1 < /tmp/sgd-dedup.patch && rm /tmp/sgd-dedup.patch
+
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
 
