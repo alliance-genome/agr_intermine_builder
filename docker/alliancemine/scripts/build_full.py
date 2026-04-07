@@ -2,14 +2,13 @@
 """
 AllianceMine Full Build Script
 
-Executes the complete InterMine build pipeline (7 stages):
+Executes the complete InterMine build pipeline (6 stages):
 1. buildDB       - Create PostgreSQL schema
 2. extract_data  - Download data from FMS
 3. project_build - Data integration (2-4 hours)
 4. postprocess   - Indexing and summary tables
-5. buildUserDB   - User profile database (skipped if exists)
-6. war           - Build WAR file
-7. deploy        - Deploy WAR to EC2 Tomcat via cargoRedeployRemote
+5. war           - Build WAR file
+6. deploy        - Deploy WAR to EC2 Tomcat via cargoRedeployRemote
 
 Usage:
     python3 build_full.py --build-type test --release 8.3.0 --rc 1
@@ -43,7 +42,6 @@ STAGES = [
     "extract_data",
     "project_build",
     "postprocess",
-    "buildUserDB",
     "war",
     "deploy",
 ]
@@ -156,44 +154,6 @@ class AllianceMineBuildPipeline:
             "Post-processing",
         )
 
-    def stage_build_user_db(self) -> bool:
-        """Stage 5: Build user profile database (skip if exists)."""
-        self._log_stage(5, "Building User Profile Database")
-
-        profile_db = os.environ.get("RDS_PROFILE_DB_NAME", "alliancemine_userprofile")
-        rds_host = os.environ.get("RDS_HOST", "localhost")
-        rds_port = os.environ.get("RDS_PORT", "5432")
-        rds_user = os.environ.get("RDS_USER", "postgres")
-
-        # Check if profile DB already has tables (indicating it's been set up)
-        try:
-            check = subprocess.run(
-                [
-                    "psql",
-                    "-h", rds_host,
-                    "-p", rds_port,
-                    "-U", rds_user,
-                    "-d", profile_db,
-                    "-tAc",
-                    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if check.returncode == 0 and check.stdout.strip() not in ("", "0"):
-                logger.info(
-                    f"Profile database '{profile_db}' already has tables, skipping buildUserDB"
-                )
-                return True
-        except (subprocess.TimeoutExpired, Exception) as e:
-            logger.warning(f"Could not check profile DB: {e}, proceeding with buildUserDB")
-
-        return self._run(
-            ["./gradlew", "buildUserDB", "--stacktrace"],
-            "User profile database build",
-        )
-
     def stage_war(self) -> bool:
         """Stage 6: Build WAR file."""
         self._log_stage(6, "Building WAR File")
@@ -248,7 +208,6 @@ class AllianceMineBuildPipeline:
             "extract_data": self.stage_extract_data,
             "project_build": self.stage_project_build,
             "postprocess": self.stage_postprocess,
-            "buildUserDB": self.stage_build_user_db,
             "war": self.stage_war,
             "deploy": self.stage_deploy,
         }
