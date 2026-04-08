@@ -47,7 +47,7 @@ services:
 
       # Java/Gradle
       GRADLE_OPTS: >-
-        -Xmx16g -Xms8g
+        -Xmx48g -Xms24g
         -XX:+UseParallelGC
         -Dorg.gradle.daemon=false
 
@@ -58,10 +58,10 @@ services:
       resources:
         limits:
           cpus: '8'
-          memory: 32G
+          memory: 56G
         reservations:
           cpus: '4'
-          memory: 16G
+          memory: 24G
 
     stdin_open: true
     tty: true
