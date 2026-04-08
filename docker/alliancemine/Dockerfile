@@ -93,6 +93,12 @@ RUN chmod +x /root/scripts/*.py
 # Override project.xml with dump checkpoints for restartable builds
 COPY project.xml /root/alliancemine/project.xml
 
+# Patch alliancemine gradle.properties: hardcoded -Xmx48g overrides GRADLE_OPTS
+# Without this patch, the JVM starts with whatever the file says regardless of compose env.
+# Upstream fix needed in: alliance-genome/alliancemine gradle.properties
+RUN sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx48g -XX:+HeapDumpOnOutOfMemoryError/' \
+    /root/alliancemine/gradle.properties
+
 # Patch SgdConverter: re-enable deduplication of child features
 # The SQL query returns duplicate telomeric_repeat rows causing "Duplicate objects for pk" errors.
 # Upstream fix needed in: alliance-genome/alliancemine-bio-sources sgd/src/.../SgdConverter.java
