@@ -34,3 +34,15 @@ build/
 # Virtual environments
 venv/
 .venv/
+
+# Test/build artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Generated files
+firebase-debug.log
+AllianceMine_Build_Revamp_Plan.pdf
+docs/BUILD_PROCESS_OVERVIEW.pdf
+docs/build_revamp_presentation.html
