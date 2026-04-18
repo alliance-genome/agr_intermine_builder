@@ -308,6 +308,16 @@ case "$1" in
             "$@"
         ;;
 
+    release)
+        echo ""
+        echo "Mode: RELEASE"
+        shift
+        exec python3 /root/scripts/release.py \
+            ${DEPLOY_HOST:+--tomcat-host "${DEPLOY_HOST}"} \
+            ${DEPLOY_PORT:+--tomcat-port "${DEPLOY_PORT}"} \
+            "$@"
+        ;;
+
     bash|sh)
         echo ""
         echo "Mode: SHELL"
