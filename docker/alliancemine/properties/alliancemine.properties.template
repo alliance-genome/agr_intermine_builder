@@ -53,7 +53,7 @@ db.sgd.platform=PostgreSQL
 project.title=AllianceMine
 project.subTitle=Alliance of Genome Resources
 project.releaseVersion=${ALLIANCE_RELEASE}
-project.sitePrefix=http://localhost:8080
+project.sitePrefix=${WEBAPP_BASEURL}
 project.helpLocation=https://www.alliancegenome.org
 
 # ============================================
@@ -79,8 +79,8 @@ autocomplete.solrurl=${SOLR_AUTOCOMPLETE_URL}
 # ============================================
 # SuperUser Account
 # ============================================
-superuser.account=admin@alliancemine.org
-superuser.password=admin
+superuser.account=${SUPERUSER_ACCOUNT}
+superuser.initialPassword=${SUPERUSER_PASSWORD}
 
 # ============================================
 # External Links

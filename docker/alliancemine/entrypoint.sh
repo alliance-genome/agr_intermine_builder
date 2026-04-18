@@ -178,12 +178,14 @@ configure_properties() {
     echo "Configuring InterMine properties..."
 
     # Set defaults for optional env vars (envsubst doesn't support ${VAR:-default})
-    export DEPLOY_URL="${DEPLOY_URL:-http://localhost:${DEPLOY_PORT}}"
-    export WEBAPP_BASEURL="${WEBAPP_BASEURL:-http://localhost:${DEPLOY_PORT}}"
+    export DEPLOY_PORT="${DEPLOY_PORT:-8080}"
+    export DEPLOY_HOST="${DEPLOY_HOST:-localhost}"
+    export DEPLOY_URL="${DEPLOY_URL:-http://${DEPLOY_HOST}:${DEPLOY_PORT}}"
+    export WEBAPP_BASEURL="${WEBAPP_BASEURL:-http://localhost:8080}"
     export DEPLOY_MANAGER="${DEPLOY_MANAGER:-manager}"
     export DEPLOY_PASSWORD="${DEPLOY_PASSWORD:-manager}"
-    export DEPLOY_PORT="${DEPLOY_PORT:-8090}"
-    export DEPLOY_HOST="${DEPLOY_HOST:-localhost}"
+    export SUPERUSER_ACCOUNT="${SUPERUSER_ACCOUNT:-superuser@mail_account}"
+    export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-secret}"
     export SOLR_INDEX_URL="${SOLR_INDEX_URL:-http://localhost:8983/solr/alliancemine-search}"
     export SOLR_AUTOCOMPLETE_URL="${SOLR_AUTOCOMPLETE_URL:-http://localhost:8983/solr/alliancemine-autocomplete}"
 
