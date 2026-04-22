@@ -52,9 +52,10 @@ The `/data` directory inside the container maps to the host at:
 From your local machine, copy files to the host mount:
 ```bash
 # From your machine → host
-scp -i ~/.ssh/AGR-ssl3.pem myfile.gff ec2-user@172.31.60.197:~/agr_mousemine/mousemine_data/
+scp -i ~/.ssh/AGR-ssl3.pem myfile.gff \
+  ec2-user@172.31.60.197:~/agr_mousemine/mousemine_data/
 
-# The file is instantly available inside the container at /data/myfile.gff
+# The file appears inside the container at /data/myfile.gff
 ```
 
 ### Option B: docker cp (for individual files)
