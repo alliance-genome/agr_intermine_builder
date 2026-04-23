@@ -355,11 +355,24 @@ python3 scripts/create_solr_cores.py \
 
 This copies the production core config, clears data, and restarts Solr.
 
-### Known Issue: Hardcoded Solr URLs
+### Known Issue: Hardcoded Solr URLs and Hostname
 
 The alliancemine repo has hardcoded Solr URLs in two files:
 - `dbmodel/resources/keyword_search.properties` → `index.solrurl`
 - `dbmodel/resources/objectstoresummary.config.properties` → `autocomplete.solrurl`
+
+Additionally, the production WAR's `dbmodel.jar` contains `keyword_search.properties` with the old Docker hostname `agr.stage.alliancemine.solr.server`. Since Solr now runs on the host (not in a Docker container), Tomcat containers need a `/etc/hosts` entry or `--add-host` flag to resolve this:
+
+```bash
+# Quick fix (lost on container restart)
+docker exec alliancemine sh -c \
+  'echo "172.17.0.1 agr.stage.alliancemine.solr.server" >> /etc/hosts'
+
+# Permanent fix: recreate container with --add-host
+docker run -d --name alliancemine \
+  --add-host agr.stage.alliancemine.solr.server:host-gateway \
+  -p 8080:8080 intermine-tomcat:latest
+```
 
 These override the properties template. A PR is pending to fix this upstream. Until merged, patch them at runtime inside the build container:
 

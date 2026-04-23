@@ -166,6 +166,40 @@ aws cloudwatch get-metric-statistics \
 
 **Fix**: Usually recovers on its own. If `update-publications` fails with `Premature EOF`, resume from the last checkpoint and try again.
 
+## Solr Hostname Resolution in Production
+
+### Symptom
+`java.lang.NullPointerException` at `SolrKeywordSearchHandler.performSearch` on the production AllianceMine homepage (`layout.jsp`).
+
+### Cause
+The `keyword_search.properties` inside `dbmodel.jar` (baked into the WAR) has:
+```
+index.solrurl=http://agr.stage.alliancemine.solr.server:8983/solr/alliancemine-search
+```
+
+This hostname was a Docker container name from the old setup. Solr now runs on the **host** directly, not in a container. The Tomcat container can't resolve this hostname.
+
+### Quick Fix (survives until container restart)
+```bash
+docker exec alliancemine sh -c \
+  'echo "172.17.0.1 agr.stage.alliancemine.solr.server" >> /etc/hosts'
+```
+
+`172.17.0.1` is the Docker bridge gateway — routes to the host where Solr runs on port 8983.
+
+### Permanent Fix
+Recreate the container with the host mapping:
+```bash
+docker run -d --name alliancemine \
+  --add-host agr.stage.alliancemine.solr.server:host-gateway \
+  -p 8080:8080 \
+  intermine-tomcat:latest
+```
+
+Or fix the `keyword_search.properties` in the alliancemine repo to not hardcode the hostname (upstream PR pending on `fix/build-config-hardcoded-values` branch).
+
+---
+
 ## Compile Caching
 
 ### Problem: Every fresh container recompiles for 10-15 min

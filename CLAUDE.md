@@ -112,7 +112,7 @@ Solr runs directly on the Multitenant host (172.31.59.87), port 8983. Cores:
 - `alliancemine-search` / `alliancemine-autocomplete` — production
 - `alliancemine-search-{version}` / `alliancemine-autocomplete-{version}` — per-release
 
-InterMine does NOT auto-create Solr cores. They must be created by copying production core config before the postprocess step. The Solr URLs are hardcoded in two files in the alliancemine repo (`keyword_search.properties` and `objectstoresummary.config.properties`) and must be patched at runtime.
+InterMine does NOT auto-create Solr cores. They must be created by copying production core config before the postprocess step. The Solr URLs are hardcoded in two files in the alliancemine repo (`keyword_search.properties` and `objectstoresummary.config.properties`) and must be patched at runtime. The production WAR also references the old Docker hostname `agr.stage.alliancemine.solr.server` which must be mapped to `172.17.0.1` (Docker host gateway) via `/etc/hosts` or `--add-host`.
 
 ## Key Patterns
 
