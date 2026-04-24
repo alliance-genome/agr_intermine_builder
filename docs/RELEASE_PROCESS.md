@@ -194,7 +194,10 @@ On the **Multitenant** machine:
 ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.59.87
 
 # Start a new Tomcat container on a free port (e.g. 8082)
-docker run -d --name alliancemine-9.0.0 -p 8082:8080 intermine-tomcat:latest
+# --add-host maps the old Solr hostname to the Docker host where Solr runs
+docker run -d --name alliancemine-9.0.0 \
+  --add-host agr.stage.alliancemine.solr.server:host-gateway \
+  -p 8082:8080 intermine-tomcat:latest
 ```
 
 ## Step 8: Deploy the WAR via cargoRedeployRemote

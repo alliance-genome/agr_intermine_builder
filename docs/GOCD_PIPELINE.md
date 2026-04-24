@@ -236,7 +236,9 @@ cd docker/alliancemine
 
 # Start Tomcat container on multitenant
 ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@${TOMCAT_HOST} \
-  "docker run -d --name alliancemine-${ALLIANCE_RELEASE} -p ${TOMCAT_PORT}:8080 intermine-tomcat:latest"
+  "docker run -d --name alliancemine-${ALLIANCE_RELEASE} \
+    --add-host agr.stage.alliancemine.solr.server:host-gateway \
+    -p ${TOMCAT_PORT}:8080 intermine-tomcat:latest"
 
 # Deploy WAR
 docker compose run --rm alliancemine-builder release \

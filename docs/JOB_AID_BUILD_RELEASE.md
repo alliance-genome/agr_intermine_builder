@@ -115,7 +115,9 @@ docker exec $CNAME sh -c 'cd /root/alliancemine && ./gradlew postprocess -Pproce
 ```bash
 # Start Tomcat container on multitenant
 ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.59.87
-docker run -d --name alliancemine-9.0.0 -p 8082:8080 intermine-tomcat:latest
+docker run -d --name alliancemine-9.0.0 \
+  --add-host agr.stage.alliancemine.solr.server:host-gateway \
+  -p 8082:8080 intermine-tomcat:latest
 
 # Deploy WAR (from AllianceMineDev)
 docker compose run --rm alliancemine-builder release \
