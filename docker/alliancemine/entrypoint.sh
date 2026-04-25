@@ -186,8 +186,20 @@ configure_properties() {
     export DEPLOY_PASSWORD="${DEPLOY_PASSWORD:-manager}"
     export SUPERUSER_ACCOUNT="${SUPERUSER_ACCOUNT:-superuser@mail_account}"
     export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-secret}"
-    export SOLR_INDEX_URL="${SOLR_INDEX_URL:-http://localhost:8983/solr/alliancemine-search}"
-    export SOLR_AUTOCOMPLETE_URL="${SOLR_AUTOCOMPLETE_URL:-http://localhost:8983/solr/alliancemine-autocomplete}"
+    # Derive Solr URLs from release/RC so they line up with the cores the
+    # build_full.py preflight will create (alliancemine-search-{release}[-rc{N}]).
+    # Honor explicit overrides from .env if the operator wants to point at
+    # different cores (e.g. reusing production cores during a candidate test).
+    local solr_host="${SOLR_HOST:-localhost}"
+    local solr_port="${SOLR_PORT:-8983}"
+    local core_suffix
+    if [ "${BUILD_TYPE}" = "production" ]; then
+        core_suffix="${ALLIANCE_RELEASE}"
+    else
+        core_suffix="${ALLIANCE_RELEASE}-rc${RC_NUMBER:-1}"
+    fi
+    export SOLR_INDEX_URL="${SOLR_INDEX_URL:-http://${solr_host}:${solr_port}/solr/alliancemine-search-${core_suffix}}"
+    export SOLR_AUTOCOMPLETE_URL="${SOLR_AUTOCOMPLETE_URL:-http://${solr_host}:${solr_port}/solr/alliancemine-autocomplete-${core_suffix}}"
 
     envsubst < /root/.intermine/alliancemine.properties.template \
              > /root/.intermine/alliancemine.properties

@@ -6,8 +6,18 @@ Copies the schema from existing production cores, clears data,
 and registers them with Solr. Cores must exist before the
 postprocess step runs create-search-index and create-autocomplete-index.
 
+Usually invoked automatically as a preflight step from build_full.py.
+The standalone CLI exists for ops use when a build is half-broken
+and you just need cores created (or recreated) without rerunning
+the entire pipeline.
+
+Naming pattern matches the database side:
+  production:    alliancemine-search-9.0.0,         alliancemine-autocomplete-9.0.0
+  RC builds:     alliancemine-search-9.0.0-rc99,    alliancemine-autocomplete-9.0.0-rc99
+
 Usage:
     python3 create_solr_cores.py --release 9.0.0 --solr-host 172.31.59.87
+    python3 create_solr_cores.py --release 9.0.0 --rc 99 --solr-host 172.31.59.87
     python3 create_solr_cores.py --release 9.0.0 --solr-host 172.31.59.87 --ssh-key ~/.ssh/AGR-ssl3.pem
 """
 
@@ -42,11 +52,24 @@ def run_ssh(host: str, cmd: str, ssh_key: str = None, sudo: bool = False) -> str
     return result.stdout.strip()
 
 
-def create_cores(host: str, release: str, ssh_key: str = None) -> bool:
+def core_suffix(release: str, rc: int = None) -> str:
+    """Build the suffix appended to source core names.
+
+    Mirrors construct_db_names() in entrypoint.sh:
+      production:  alliancemine-search-9.0.0
+      RC build:    alliancemine-search-9.0.0-rc99
+    """
+    return f"{release}-rc{rc}" if rc else release
+
+
+def create_cores(host: str, release: str, rc: int = None, ssh_key: str = None) -> bool:
+    """Create the versioned search + autocomplete cores. Idempotent."""
     success = True
+    suffix = core_suffix(release, rc)
+    created_any = False
 
     for source in SOURCE_CORES:
-        target = f"{source}-{release}"
+        target = f"{source}-{suffix}"
         logger.info(f"Creating core: {target} from {source}")
 
         try:
@@ -70,6 +93,7 @@ def create_cores(host: str, release: str, ssh_key: str = None) -> bool:
             run_ssh(host, f"chown -R solr:solr {SOLR_DATA_DIR}/{target}", ssh_key, sudo=True)
 
             logger.info(f"  Created {target}")
+            created_any = True
 
         except (RuntimeError, subprocess.TimeoutExpired) as e:
             logger.error(f"  Failed to create {target}: {e}")
@@ -77,6 +101,12 @@ def create_cores(host: str, release: str, ssh_key: str = None) -> bool:
 
     if not success:
         return False
+
+    # Skip Solr restart if everything was already in place — saves a multi-second
+    # restart on every build invocation in the common case.
+    if not created_any:
+        logger.info("All target cores already existed; skipping Solr restart.")
+        return True
 
     # Restart Solr to pick up new cores
     logger.info("Restarting Solr...")
@@ -92,7 +122,7 @@ def create_cores(host: str, release: str, ssh_key: str = None) -> bool:
     try:
         output = run_ssh(host, f"python3 -c \"import urllib.request,json; data=json.loads(urllib.request.urlopen('http://localhost:8983/solr/admin/cores?action=STATUS').read()); [print(k) for k in sorted(data['status'])]\"", ssh_key)
         for source in SOURCE_CORES:
-            target = f"{source}-{release}"
+            target = f"{source}-{suffix}"
             if target in output:
                 logger.info(f"  {target}: OK")
             else:
@@ -108,13 +138,17 @@ def create_cores(host: str, release: str, ssh_key: str = None) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Create versioned Solr cores for AllianceMine")
     parser.add_argument("--release", required=True, help="Release version (e.g., 9.0.0)")
+    parser.add_argument("--rc", type=int, default=None,
+                        help="RC number for test builds (e.g., 99 -> alliancemine-search-9.0.0-rc99)")
     parser.add_argument("--solr-host", required=True, help="Solr host IP")
-    parser.add_argument("--ssh-key", default=None, help="SSH key file path")
+    parser.add_argument("--ssh-key", default=None,
+                        help="SSH key file path (omit on hosts where ssh defaults already work)")
     args = parser.parse_args()
 
-    logger.info(f"Creating Solr cores for release {args.release} on {args.solr_host}")
+    label = core_suffix(args.release, args.rc)
+    logger.info(f"Creating Solr cores for {label} on {args.solr_host}")
 
-    if create_cores(args.solr_host, args.release, args.ssh_key):
+    if create_cores(args.solr_host, args.release, args.rc, args.ssh_key):
         logger.info("All cores created successfully")
     else:
         logger.error("Some cores failed")

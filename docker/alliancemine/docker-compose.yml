@@ -46,7 +46,11 @@ services:
       SGD_DB_PASSWORD: ${SGD_DB_PASSWORD:-}
       SGD_DB_PORT: ${SGD_DB_PORT:-5432}
 
-      # Solr (external, on EC2)
+      # Solr (external, on EC2). Host + port feed the preflight that creates
+      # versioned cores; URLs are auto-derived from release+RC if not overridden.
+      SOLR_HOST: ${SOLR_HOST:-172.31.59.87}
+      SOLR_PORT: ${SOLR_PORT:-8983}
+      SOLR_SSH_KEY: ${SOLR_SSH_KEY:-}
       SOLR_INDEX_URL: ${SOLR_INDEX_URL:-}
       SOLR_AUTOCOMPLETE_URL: ${SOLR_AUTOCOMPLETE_URL:-}
 
@@ -58,6 +62,10 @@ services:
 
     volumes:
       - ./data:/root/data
+      # SSH keys for the Solr core preflight. Inside AWS the host's default
+      # ec2-user keys already work against multitenant; from outside AWS the
+      # operator sets SOLR_SSH_KEY=/root/.ssh/AGR-ssl3.pem in .env.
+      - ${SSH_DIR:-~/.ssh}:/root/.ssh:ro
 
     deploy:
       resources:

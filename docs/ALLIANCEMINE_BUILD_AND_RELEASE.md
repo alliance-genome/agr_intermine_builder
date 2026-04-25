@@ -47,7 +47,7 @@ AllianceMine is an InterMine data warehouse that integrates genomic data from al
 │   │ (Tomcat)    │  │ (Tomcat)    │  │          │  │             │ │
 │   └─────────────┘  └─────────────┘  └──────────┘  └─────────────┘ │
 │                                                                     │
-│   Caddy reverse proxy → https://alliancemine.alliancegenome.org    │
+│   Caddy reverse proxy -> https://alliancemine.alliancegenome.org    │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.59.87
 | Instance | c7i.4xlarge |
 | Containers | alliancemine (:8080), wormmine (:8081), bluegenes (:5000) |
 | Solr | Running on host, port 8983 |
-| Proxy | Caddy → HTTPS |
+| Proxy | Caddy -> HTTPS |
 | Purpose | Serves production at alliancemine.alliancegenome.org |
 
 ### RDS PostgreSQL
@@ -285,8 +285,8 @@ The alliancemine repo hardcodes `org.gradle.jvmargs=-Xmx48g` in `gradle.properti
 ### FMS Snapshot API
 
 ```
-GET https://fms.alliancegenome.org/api/releaseversion/current  → release version
-GET https://fms.alliancegenome.org/api/snapshot/release/{version}  → snapshot with S3 URLs
+GET https://fms.alliancegenome.org/api/releaseversion/current  -> release version
+GET https://fms.alliancegenome.org/api/snapshot/release/{version}  -> snapshot with S3 URLs
 ```
 
 The `extract_data.py` script runs three passes in order:
@@ -322,7 +322,7 @@ This downloads ~200 MB of SGD-specific files (ontologies, protein data, yeast or
 | test | `alliancemine_{ver}_rc{N}` | `alliancemine_userprofile_test` |
 | production | `alliancemine_{ver}` | `alliancemine_userprofile` |
 
-Version is sanitized: `9.0.0` → `9_0_0`. RC number is auto-incremented by querying RDS for existing databases.
+Version is sanitized: `9.0.0` -> `9_0_0`. RC number is auto-incremented by querying RDS for existing databases.
 
 ### Checkpoint Databases
 
@@ -377,22 +377,46 @@ Solr runs directly on the Multitenant host (not in a container), port 8983.
 
 ### Creating Cores for a New Release
 
-InterMine does **NOT** auto-create Solr cores. They must exist before the postprocess step.
+InterMine does **NOT** auto-create Solr cores. The build container does
+it for you as a preflight step in `build_full.py` — no separate command
+needed for normal use. Naming mirrors the database side:
+
+| Build type | Cores |
+|---|---|
+| Production (`BUILD_TYPE=production`) | `alliancemine-search-9.0.0`, `alliancemine-autocomplete-9.0.0` |
+| RC build (default) | `alliancemine-search-9.0.0-rc99`, `alliancemine-autocomplete-9.0.0-rc99` |
+
+`entrypoint.sh` derives `SOLR_INDEX_URL` and `SOLR_AUTOCOMPLETE_URL`
+from `SOLR_HOST` + release + RC so the URLs always line up with the
+cores the preflight creates. SSH uses the host's default keys when run
+from inside AWS; from a laptop, set `SOLR_SSH_KEY=/root/.ssh/AGR-ssl3.pem`
+in `.env` (and the compose file mounts `~/.ssh` read-only into the
+container).
+
+Preflight failure is non-fatal — postprocess will surface a clearer
+"core not found" later, and you can recreate cores manually and resume:
 
 ```bash
+# Manual creation (also useful when a build is half-broken)
 python3 scripts/create_solr_cores.py \
-  --release 9.0.0 \
-  --solr-host 172.31.59.87 \
-  --ssh-key ~/.ssh/AGR-ssl3.pem
+  --release 9.0.0 --rc 99 \
+  --solr-host 172.31.59.87
+# Inside AWS: --ssh-key omitted, defaults work
+# From a laptop: add --ssh-key ~/.ssh/AGR-ssl3.pem
+
+# Then resume the build
+docker compose run --rm -e RC_NUMBER=99 alliancemine-builder build \
+  --start-from postprocess --resume
 ```
 
-This copies the production core config, clears data, and restarts Solr.
+Skip the preflight entirely with `build_full.py --skip-solr-setup` if
+you want to manage cores out-of-band.
 
 ### Known Issue: Hardcoded Solr URLs and Hostname
 
 The alliancemine repo has hardcoded Solr URLs in two files:
-- `dbmodel/resources/keyword_search.properties` → `index.solrurl`
-- `dbmodel/resources/objectstoresummary.config.properties` → `autocomplete.solrurl`
+- `dbmodel/resources/keyword_search.properties` -> `index.solrurl`
+- `dbmodel/resources/objectstoresummary.config.properties` -> `autocomplete.solrurl`
 
 Additionally, the production WAR's `dbmodel.jar` contains `keyword_search.properties` with the old Docker hostname `agr.stage.alliancemine.solr.server`. Since Solr now runs on the host (not in a Docker container), Tomcat containers need a `/etc/hosts` entry or `--add-host` flag to resolve this:
 

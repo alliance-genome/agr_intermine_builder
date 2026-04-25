@@ -61,6 +61,7 @@ class AllianceMineBuildPipeline:
         skip_stages: Optional[List[str]] = None,
         start_from: Optional[str] = None,
         resume: bool = False,
+        skip_solr_setup: bool = False,
     ):
         self.build_type = build_type
         self.release = release
@@ -70,6 +71,7 @@ class AllianceMineBuildPipeline:
         self.skip_stages = set(skip_stages or [])
         self.start_from = start_from
         self.resume = resume
+        self.skip_solr_setup = skip_solr_setup
         self.start_time = time.time()
         self.stage_times: dict = {}
 
@@ -105,6 +107,52 @@ class AllianceMineBuildPipeline:
                 logger.info(f"Skipping stage: {stage} (before --start-from {self.start_from})")
                 return False
         return True
+
+    def preflight_solr(self) -> bool:
+        """Ensure versioned Solr cores exist before postprocess needs them.
+
+        Idempotent — skips cores that already exist. Naming mirrors the DB
+        side (alliancemine-search-{release}[-rc{N}], same for autocomplete).
+        Failure is non-fatal: postprocess will fail later with a clearer
+        'core not found' error, and the operator can recreate cores manually
+        and resume with --start-from postprocess.
+        """
+        if self.skip_solr_setup:
+            logger.info("Skipping Solr core setup (--skip-solr-setup)")
+            return True
+
+        solr_host = os.environ.get("SOLR_HOST")
+        if not solr_host:
+            logger.warning("SOLR_HOST not set — skipping Solr core preflight. "
+                           "Cores must already exist before postprocess.")
+            return True
+
+        ssh_key = os.environ.get("SOLR_SSH_KEY") or None  # empty string -> None
+        logger.info("=" * 60)
+        logger.info("PREFLIGHT: Solr core setup")
+        logger.info("=" * 60)
+
+        # Local import: the standalone CLI is the canonical entry point;
+        # importing here keeps the standalone script self-contained.
+        sys.path.insert(0, str(SCRIPTS_DIR))
+        try:
+            from create_solr_cores import create_cores  # type: ignore
+        except ImportError as e:
+            logger.warning(f"Could not import create_solr_cores ({e}); skipping preflight")
+            return True
+
+        try:
+            ok = create_cores(solr_host, self.release, self.rc, ssh_key)
+        except Exception as e:  # network blip, SSH timeout, etc.
+            logger.warning(f"Solr core preflight raised {type(e).__name__}: {e}")
+            ok = False
+
+        if not ok:
+            logger.warning("Solr core preflight reported failures. Continuing — "
+                           "if postprocess fails on missing cores, run "
+                           "create_solr_cores.py manually and re-run with "
+                           "--start-from postprocess --resume.")
+        return True  # always continue
 
     def stage_build_db(self) -> bool:
         """Stage 1: Create database schema."""
@@ -217,6 +265,11 @@ class AllianceMineBuildPipeline:
             "deploy": self.stage_deploy,
         }
 
+        # Preflight: ensure Solr cores exist. Always non-fatal — postprocess
+        # surfaces the real failure if cores are missing.
+        if not self.start_from or STAGES.index(self.start_from) <= STAGES.index("postprocess"):
+            self.preflight_solr()
+
         completed = []
         failed_stage = None
 
@@ -274,6 +327,8 @@ def main():
     )
     parser.add_argument("--start-from", choices=STAGES, default=None, help="Resume from stage")
     parser.add_argument("--resume", action="store_true", help="Resume project_build from last dump checkpoint")
+    parser.add_argument("--skip-solr-setup", action="store_true",
+                        help="Skip the Solr core preflight (use when cores already exist or you'll create them later)")
 
     args = parser.parse_args()
 
@@ -293,6 +348,7 @@ def main():
         skip_stages=args.skip_stages,
         start_from=args.start_from,
         resume=args.resume,
+        skip_solr_setup=args.skip_solr_setup,
     )
 
     sys.exit(pipeline.run())

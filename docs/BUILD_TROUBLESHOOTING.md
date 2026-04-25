@@ -85,9 +85,42 @@ docker exec <container> sed -i \
 
 ### Symptom: Solr cores don't exist before postprocess
 
-**Cause**: InterMine does NOT auto-create Solr cores. They must exist first.
+**Cause**: InterMine does NOT auto-create Solr cores. The build's
+preflight step normally creates them (`build_full.py` calls
+`create_solr_cores.py` before stage 1), but the preflight is
+warn-only — if it failed, the build continued and postprocess is now
+hitting the missing cores.
 
-**Fix**: See `RELEASE_PROCESS.md` Step 2. Copy production core config, clear data, restart Solr.
+**Fix**: Re-run the preflight manually, then resume:
+
+```bash
+# Inside the build container shell:
+python3 /root/scripts/create_solr_cores.py \
+    --release "${ALLIANCE_RELEASE}" \
+    --rc "${RC_NUMBER}" \
+    --solr-host "${SOLR_HOST}"
+# Add --ssh-key /root/.ssh/AGR-ssl3.pem if running from outside AWS
+```
+
+Then restart the build with `--start-from postprocess --resume`.
+
+### Symptom: Solr preflight warns "Permission denied (publickey)" or "Connection refused"
+
+**Cause**: The build container can't SSH to the multitenant host.
+Inside AWS this is usually a security-group / VPC issue; from outside
+AWS it's a missing or wrong `SOLR_SSH_KEY`.
+
+**Fix**:
+- **Inside AWS**: confirm the multitenant host's `~ec2-user/.ssh/authorized_keys`
+  contains the AllianceMineDev key. The compose file mounts `~/.ssh`
+  read-only; check it actually contains usable keys
+  (`docker compose run --rm alliancemine-builder bash -c 'ls /root/.ssh'`).
+- **From a laptop**: set `SOLR_SSH_KEY=/root/.ssh/AGR-ssl3.pem` in `.env`
+  and confirm `~/.ssh/AGR-ssl3.pem` is `chmod 600` on the host.
+
+The build will continue regardless — the preflight is non-fatal.
+Postprocess will fail later with "core not found" if you don't
+fix it before then.
 
 ## Webapp Errors
 

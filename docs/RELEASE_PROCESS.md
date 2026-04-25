@@ -5,7 +5,7 @@ End-to-end process for building and releasing a new AllianceMine version.
 ## Overview
 
 ```
-[Build on AllianceMineDev]  →  [Tomcat container on Multitenant]  →  [Cutover]
+[Build on AllianceMineDev]  ->  [Tomcat container on Multitenant]  ->  [Cutover]
 ```
 
 The build runs on **AllianceMineDev** (`172.31.60.197`), produces a versioned database on RDS, populates versioned Solr cores on the Multitenant, and the WAR is deployed to a parallel Tomcat container on the **Multitenant** (`172.31.59.87`). The release is then a port swap or proxy update.
@@ -80,38 +80,7 @@ aws cloudwatch get-metric-statistics \
 
 Need at least **250 GB free** (build is ~57 GB, plus 4-6 checkpoint copies).
 
-## Step 2: Create Solr Cores (one-time per release)
-
-InterMine does NOT auto-create cores. Create them by copying the production core config:
-
-```bash
-ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.59.87
-
-# Copy production cores to versioned names
-sudo cp -r /var/solr/data/alliancemine-search /var/solr/data/alliancemine-search-9.0.0
-sudo cp -r /var/solr/data/alliancemine-autocomplete /var/solr/data/alliancemine-autocomplete-9.0.0
-
-# Update core.properties name field
-sudo sh -c 'echo "name=alliancemine-search-9.0.0" > /var/solr/data/alliancemine-search-9.0.0/core.properties'
-sudo sh -c 'echo "name=alliancemine-autocomplete-9.0.0" > /var/solr/data/alliancemine-autocomplete-9.0.0/core.properties'
-
-# Clear copied data, leave only schema
-sudo rm -rf /var/solr/data/alliancemine-search-9.0.0/data
-sudo rm -rf /var/solr/data/alliancemine-autocomplete-9.0.0/data
-sudo mkdir /var/solr/data/alliancemine-search-9.0.0/data
-sudo mkdir /var/solr/data/alliancemine-autocomplete-9.0.0/data
-sudo chown -R solr:solr /var/solr/data/alliancemine-search-9.0.0 /var/solr/data/alliancemine-autocomplete-9.0.0
-
-# Restart Solr (must run as solr user, not root)
-sudo -u solr /opt/solr/bin/solr restart
-```
-
-Verify both cores show up:
-```bash
-docker exec alliancemine sh -c 'curl -s "http://172.31.59.87:8983/solr/admin/cores?action=STATUS"' | python3 -c 'import sys,json; [print(k) for k in json.load(sys.stdin)["status"]]'
-```
-
-## Step 3: Build the Image and Compile
+## Step 2: Build the Image and Compile
 
 ```bash
 ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.60.197
@@ -134,7 +103,7 @@ docker stop $CNAME
 
 The compiled image saves ~15 minutes per subsequent run.
 
-## Step 4: Run the Full Build
+## Step 3: Run the Full Build
 
 Edit `docker-compose.yml` to use the compiled image:
 
@@ -154,15 +123,22 @@ tail -f /tmp/alliancemine-9.0.0-build.log
 ```
 
 Expected duration: **5-8 hours** total
+- preflight (Solr cores): seconds (idempotent — skips if cores exist)
 - buildDB: ~30 sec
-- extract_data: ~5 min
+- extract_data: ~5 min (warm cache) / ~25 min (cold; includes API fetchers)
 - project_build: 4-7 hours (xlaevis-fasta and fbbt are the bottlenecks)
 - postprocess: ~1 hour
 - war: ~5 min
 
+The preflight creates `alliancemine-search-{release}[-rc{N}]` and the
+matching autocomplete core on the multitenant host via SSH. Failure is
+non-fatal — postprocess will surface a clearer "core not found" later,
+and you can recreate cores manually with `create_solr_cores.py` and
+resume with `--start-from postprocess`.
+
 The build creates checkpoint databases at each `dump="true"` stage in `project.xml`. These are full DB copies via `CREATE DATABASE ... WITH TEMPLATE`. They use disk space (~30-60 GB each) but enable resume.
 
-## Step 5: Resume from a Checkpoint (if needed)
+## Step 4: Resume from a Checkpoint (if needed)
 
 If the build fails midway:
 
@@ -176,7 +152,7 @@ docker compose run --rm -e RC_NUMBER=N alliancemine-builder build --start-from p
 
 `--resume` uses `project_build -l` which loads the last checkpoint database and continues. Do **NOT** add `-b` (it would drop all checkpoints).
 
-## Step 6: Manage Checkpoints During Build
+## Step 5: Manage Checkpoints During Build
 
 Checkpoints accumulate fast. Drop older ones once newer ones exist:
 
@@ -186,7 +162,7 @@ psql -h ... -d postgres -c 'DROP DATABASE "alliancemine_X_X_X_rcN:checkpoint-nam
 
 Quote the name with double quotes (the `:` requires quoting).
 
-## Step 7: Start the New Tomcat Container
+## Step 6: Start the New Tomcat Container
 
 On the **Multitenant** machine:
 
@@ -200,7 +176,7 @@ docker run -d --name alliancemine-9.0.0 \
   -p 8082:8080 intermine-tomcat:latest
 ```
 
-## Step 8: Deploy the WAR via cargoRedeployRemote
+## Step 7: Deploy the WAR via cargoRedeployRemote
 
 On AllianceMineDev, point the build container at the new Tomcat and deploy:
 
@@ -220,7 +196,7 @@ docker exec $CNAME sh -c '
 docker exec $CNAME sh -c 'cd /root/alliancemine && ./gradlew cargoRedeployRemote --stacktrace'
 ```
 
-## Step 9: Fix Runtime Properties on the Deployed Webapp
+## Step 8: Fix Runtime Properties on the Deployed Webapp
 
 The WAR has build-time properties baked in. Several need fixing post-deploy:
 
@@ -253,7 +229,7 @@ docker exec alliancemine-9.0.0 sh -c \
   'curl -s -m 180 -u manager:manager http://localhost:8080/manager/text/start?path=/alliancemine'
 ```
 
-## Step 10: Verify
+## Step 9: Verify
 
 ```bash
 # Service version endpoint
@@ -267,12 +243,12 @@ docker exec alliancemine sh -c 'curl -s "http://172.31.59.87:8983/solr/alliancem
 
 Bag upgrade thread will run on first start (upgrading user gene lists from old DB IDs). This blocks queries for ~10-30 min depending on list count. Be patient.
 
-## Step 11: Cutover
+## Step 10: Cutover
 
 To switch from old to new on production:
 
 1. Verify the new Tomcat is healthy and queries work
-2. Update Caddy proxy config to route from `https://alliancemine.alliancegenome.org` → port 8082
+2. Update Caddy proxy config to route from `https://alliancemine.alliancegenome.org` -> port 8082
 3. Or stop the old container and rename ports
 
 The `bluegenes` and `caddy` containers don't need changes — they connect to `alliancemine` by container name.
@@ -292,7 +268,7 @@ If the new release has issues:
 |---------|----------|-------|
 | RDS credentials | `.env` on dev | Never commit |
 | SGD DB credentials | `.env` on dev | Never commit |
-| Solr URLs | `.env` on dev → docker-compose → properties template | Versioned per release |
+| Solr URLs | `.env` on dev -> docker-compose -> properties template | Versioned per release |
 | Database name | Auto-derived from `ALLIANCE_RELEASE` and `RC_NUMBER` | `alliancemine_X_X_X_rcN` |
 | Profile DB | `alliancemine_userprofile` (production) or `alliancemine_userprofile_test` | Production for releases |
 | Superuser account | `superuser@mail_account` (in production profile DB) | Don't use the template default |

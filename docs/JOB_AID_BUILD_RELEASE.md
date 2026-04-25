@@ -24,29 +24,22 @@ PGPASSWORD='...' psql -h intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws
 
 ---
 
-## Step 1: Create Solr Cores (once per release)
-
-```bash
-python3 scripts/create_solr_cores.py \
-  --release 9.0.0 \
-  --solr-host 172.31.59.87 \
-  --ssh-key ~/.ssh/AGR-ssl3.pem
-```
-
----
-
-## Step 2: Configure
+## Step 1: Configure
 
 ```bash
 ssh -i ~/.ssh/AGR-ssl3.pem ec2-user@172.31.60.197
 cd ~/agr_intermine_builder/docker/alliancemine
 ```
 
-Edit `.env` — set `ALLIANCE_RELEASE`, Solr URLs, credentials.
+Edit `.env` — set `ALLIANCE_RELEASE`, RDS + SGD credentials. Solr URLs
+are auto-derived from `SOLR_HOST` + release + RC; the build will create
+`alliancemine-search-{release}-rc{N}` and the matching autocomplete
+core as a preflight step. Override `SOLR_INDEX_URL` /
+`SOLR_AUTOCOMPLETE_URL` only if you want to point at custom cores.
 
 ---
 
-## Step 3: Build Image + Compile
+## Step 2: Build Image + Compile
 
 ```bash
 docker compose build                                    # ~5 min
@@ -58,11 +51,11 @@ docker commit $CNAME alliancemine-builder:9.0.0-compiled # save compiled image
 docker stop $CNAME
 ```
 
-Update `docker-compose.yml` → `image: alliancemine-builder:9.0.0-compiled`
+Update `docker-compose.yml` -> `image: alliancemine-builder:9.0.0-compiled`
 
 ---
 
-## Step 4: Run Build
+## Step 3: Run Build
 
 ```bash
 tmux new-session -s build
@@ -75,7 +68,7 @@ Detach tmux: `Ctrl+B D` — Reattach: `tmux attach -t build`
 
 ---
 
-## Step 5: During Build — Manage Checkpoints
+## Step 4: During Build — Manage Checkpoints
 
 ```bash
 # List checkpoint databases
@@ -89,7 +82,7 @@ psql -h ... -d postgres -c 'DROP DATABASE "alliancemine_9_0_0_rcN:old-checkpoint
 
 ---
 
-## Step 6: Fix Solr URLs + Rerun Indexes (if needed)
+## Step 5: Fix Solr URLs + Rerun Indexes (if needed)
 
 ```bash
 CNAME=$(docker ps --format '{{.Names}}' | grep builder)
@@ -110,7 +103,7 @@ docker exec $CNAME sh -c 'cd /root/alliancemine && ./gradlew postprocess -Pproce
 
 ---
 
-## Step 7: Deploy
+## Step 6: Deploy
 
 ```bash
 # Start Tomcat container on multitenant
@@ -126,7 +119,7 @@ docker compose run --rm alliancemine-builder release \
 
 ---
 
-## Step 8: Verify
+## Step 7: Verify
 
 ```bash
 # Version endpoint
