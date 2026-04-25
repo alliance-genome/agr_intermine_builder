@@ -165,6 +165,31 @@ Three InterMine sources read directly from SGD's database:
 - `sgd-complementation-db` — complementation data
 - `sgd-complexes` — protein complex data
 
+### Alliance API (replaces FMS feeds)
+
+Nine TSVs produced by Python fetchers in `alliancemine-bio-sources/scripts/`,
+calling `https://www.alliancegenome.org/api/` directly. Land in `/root/data/api/`.
+
+| TSV | Source endpoint | Bio-source module |
+|-----|----------------|------------------|
+| alliance-genes.tsv | /gene/{id} | alliance-genes (enriched) |
+| genetic-interactions.tsv | /gene/{id}/genetic-interactions | alliance-genetic-interactions |
+| molecular-interactions.tsv | /gene/{id}/molecular-interactions | alliance-molecular-interactions |
+| paralogs.tsv | /gene/{id}/paralogs | alliance-paralogs |
+| phenotypes.tsv | /gene/{id}/phenotypes | alliance-phenotypes |
+| disease-models.tsv | /gene/{id}/models (non-yeast MODs) | alliance-disease-models |
+| allele-detail.tsv | /allele/{id} | alliance-allele-detail |
+| orthologs.tsv | /gene/{id}/orthologs | alliance-ortholog-detail |
+| disease-annotations-detail.tsv | /disease/{id}/genes | alliance-disease-detail |
+
+The fetchers cache responses in a SQLite store at `/root/data/api-cache/`
+(via `ALLIANCE_FETCH_CACHE`). Cold cache ~20 min for yeast-only, hours
+for multi-MOD; warm reruns ~2 min. The cache survives container
+recreation since it lives under the `./data:/root/data` bind-mount.
+
+See `docs/API_FETCHER_INTEGRATION.md` for orchestration, failure modes,
+and verification checks.
+
 ---
 
 ## 4. Build Pipeline
@@ -207,7 +232,7 @@ WEBAPP_BASEURL=http://localhost:8080
 | # | Stage | Tool | Duration | Description |
 |---|-------|------|----------|-------------|
 | 1 | buildDB | Gradle | ~30s | Creates PostgreSQL schema from merged InterMine model |
-| 2 | extract_data | Python | ~5 min | Downloads 49 FMS files + S3 SGD data |
+| 2 | extract_data | Python | ~5 min (warm cache) / ~25 min (cold) | S3 sync + 49 FMS files + Alliance API fetchers |
 | 3 | project_build | Perl (project_build) | 4-7 hours | Integrates all data sources sequentially. Creates DB checkpoints at dump points. |
 | 4 | postprocess | Gradle | ~1 hour | create-references, do-sources, transfer-sequences, indexes, Solr search/autocomplete |
 | 5 | war | Gradle | ~5 min | Builds webapp WAR file |
@@ -264,11 +289,19 @@ GET https://fms.alliancegenome.org/api/releaseversion/current  → release versi
 GET https://fms.alliancegenome.org/api/snapshot/release/{version}  → snapshot with S3 URLs
 ```
 
-The `extract_data.py` script:
-1. Fetches the snapshot for the release version
-2. Maps FMS dataType/dataSubType to local filenames (FILE_MAP)
-3. Downloads and decompresses gzipped files
-4. Syncs SGD data from S3
+The `extract_data.py` script runs three passes in order:
+1. S3 sync of SGD/external data into `/root/data/intermine/`
+2. FMS snapshot download — fetches the snapshot, maps
+   dataType/dataSubType to local filenames (FILE_MAP), downloads and
+   decompresses gzipped files into `/root/data/fms/` and `/root/data/genes/`
+3. Alliance API fetch — invokes
+   `/root/alliancemine-bio-sources/scripts/fetch_all.py --out-dir /root/data/api/`
+   with `ALLIANCE_FETCH_CACHE=/root/data/api-cache` so the SQLite cache
+   survives container recreation
+
+Use `--skip-fms` or `--skip-api` to re-run only one half during incidents.
+FMS runs first because some fetchers reuse FMS artefacts (BGI seeds,
+expression files, allele/disease seeds).
 
 ### S3 SGD Data
 

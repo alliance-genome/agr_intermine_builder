@@ -1,20 +1,22 @@
-# Wiring the alliancemine-bio-sources API fetchers into the Docker pipeline
+# Alliance API Fetcher Integration
 
 ## Status
 
-**Pending implementation.** This doc captures what the Docker build pipeline
-in `docker/alliancemine/` needs in order to consume the new API-backed
-data feeds added to `alliancemine-bio-sources` over Phase 1-5
-(commits `488b423` … `27eafa8` on the `wire-api-sources` branch of
-that repo) and wired into `alliancemine/project.xml` (`18e4808` and
-`4d87628` on this same branch in the `alliancemine` repo).
+**Implemented.** The `extract_data` stage now runs the
+`alliancemine-bio-sources/scripts/fetch_all.py` orchestrator after the
+S3 sync and FMS download. Outputs land in `/root/data/api/` — the
+location `alliancemine/project.xml` references for the nine API-backed
+bio-source modules added on the `wire-api-sources` branches of the
+`alliancemine` and `alliancemine-bio-sources` repos.
 
-## Why
+## Background
 
-FMS is being wound down. The Phase 1-5 work landed nine API-backed
-bio-source modules in `alliancemine-bio-sources`:
+FMS is being wound down. Phase 1-5 of the Alliance API migration landed
+nine API-backed bio-source modules in `alliancemine-bio-sources` that
+read TSVs produced by Python fetchers calling the Alliance REST API
+directly:
 
-| Module | Reads | Source |
+| Module | TSV | Source endpoint |
 |---|---|---|
 | `alliance-genes` (enriched) | `alliance-genes.tsv` | `/gene/{id}` |
 | `alliance-genetic-interactions` | `genetic-interactions.tsv` | `/gene/{id}/genetic-interactions` |
@@ -26,122 +28,105 @@ bio-source modules in `alliancemine-bio-sources`:
 | `alliance-ortholog-detail` | `orthologs.tsv` | `/gene/{id}/orthologs` |
 | `alliance-disease-detail` | `disease-annotations-detail.tsv` | `/disease/{id}/genes` |
 
-`alliancemine/project.xml` now points all nine sources at
-`/root/data/api/`. That directory needs to exist with the listed
-TSVs in it before `project_build` runs in the InterMine pipeline.
+## How it's wired
 
-The TSVs are produced by Python fetchers under
-`alliancemine-bio-sources/scripts/`, orchestrated by
-`scripts/fetch_all.py`. The Docker pipeline needs to call that
-orchestrator after `extract_data` (which still pulls FMS data the
-fetchers reuse — BGI gene seeds, expression per-MOD files) and
-before `project_build`.
+### 1. Image clones bio-sources at build time
 
-## What to change in `docker/alliancemine/`
+The Dockerfile already clones `alliancemine-bio-sources` into
+`/root/alliancemine-bio-sources/` via the `BIO_SOURCES_BRANCH` build
+arg. The fetcher scripts (`scripts/fetch_*.py`, `scripts/fetch_all.py`,
+`scripts/common.py`) ride along with that clone — no separate
+checkout step needed.
 
-### 1. Mount or clone `alliancemine-bio-sources` into the build container
-
-The fetchers live in that repo's `scripts/` directory and import a
-shared `common.py`. The container needs the repo accessible at a
-known path (e.g. `/root/alliancemine-bio-sources/`).
-
-Two reasonable approaches:
-
-- **Bind-mount** the host clone in `docker-compose.yml`:
-  ```yaml
-  services:
-    alliancemine-builder:
-      volumes:
-        - ../../../alliancemine-bio-sources:/root/alliancemine-bio-sources:ro
-  ```
-- **`git clone`** at container start — add a step in `entrypoint.sh`
-  before the new `fetch_api` stage:
-  ```bash
-  git clone --depth 1 --branch wire-api-sources \
-      https://github.com/alliance-genome/alliancemine-bio-sources.git \
-      /root/alliancemine-bio-sources
-  ```
-
-Pick one based on the deployment context (CI vs local dev). The
-clone version is more portable; the bind mount is faster for local
-iteration.
-
-### 2. Add a new `fetch_api` pipeline stage
-
-Insert between `extract_data` and `project_build` in
-`entrypoint.sh`. Roughly:
+To test fetcher changes from a feature branch before merge:
 
 ```bash
-fetch_api_stage() {
-    log "=== Stage: fetch_api ==="
-    mkdir -p /root/data/api
-    python3 /root/alliancemine-bio-sources/scripts/fetch_all.py \
-        --out-dir /root/data/api \
-        --verbose
-    # On any fetcher failure the orchestrator exits non-zero.
-}
+cd docker/alliancemine
+echo 'BIO_SOURCES_BRANCH=wire-api-sources' >> .env
+docker compose build --no-cache alliancemine-builder
 ```
 
-The orchestrator (`scripts/fetch_all.py`) already runs all eight
-fetchers in dependency order and exits non-zero on any failure.
-It supports `--only` / `--skip` / `--limit` for partial runs and
-smoke tests. SQLite caches under `scripts/.cache/` so reruns are
-fast — preserve that directory across container invocations if
-possible (volume mount).
+Once the feature branch merges to upstream `master`, drop that line.
 
-### 3. Update the `extract_data` stage's "complete" criteria
+### 2. extract_data runs the orchestrator after FMS
 
-Some fetchers reuse FMS artefacts (BGI gene-list seed JSONs, the
-per-MOD `EXPRESSION-ALLIANCE_*.tsv` files, the
-`VARIANT-ALLELE_COMBINED.tsv` for allele seeds, the
-`DISEASE-ALLIANCE_COMBINED.tsv` for disease seeds). The existing
-extract_data step already pulls these as part of the 49-file FMS
-snapshot, so no change is required there *yet*. Once FMS is fully
-deprecated upstream, the fetchers will need a non-FMS seed source
-(SGD-direct, or paginated `/gene` from the API itself).
+`docker/alliancemine/scripts/extract_data.py` now does three passes
+in `download_all`:
 
-### 4. Resource considerations
+1. S3 sync of SGD/external data → `/root/data/intermine/`
+2. FMS snapshot download of 49 MOD files → `/root/data/fms/` and `/root/data/genes/`
+3. `python3 /root/alliancemine-bio-sources/scripts/fetch_all.py --out-dir /root/data/api/`
 
-For a yeast-dominant build the fetchers add ~20 minutes to a cold
-run (≈6k SGD genes × multiple endpoints, plus disease-side and
-allele-detail expansions). With cache warm reruns are ~2 minutes.
-For a multi-MOD build (mouse + rat + zebrafish + …) expect a few
-hours on first pass; the SQLite cache dominates from the second
-build onward.
+Order matters: FMS runs first because some fetchers reuse FMS artefacts
+(BGI gene seeds, `EXPRESSION-ALLIANCE_*.tsv`, the
+`VARIANT-ALLELE_COMBINED.tsv` allele seed, the
+`DISEASE-ALLIANCE_COMBINED.tsv` disease seed).
 
-The fetchers run sequentially today. If wall time becomes a
-bottleneck, the orchestrator is a small file
-(`scripts/fetch_all.py`) and could be parallelised with a thread
-pool over fetcher subprocesses — none of them depend on each
-other's output.
+### 3. SQLite cache lives under data/
 
-## Verification checklist before committing the Docker change
+`fetch_all.py` and the per-fetcher modules read a cache directory from
+the `ALLIANCE_FETCH_CACHE` env var (defaulting to `scripts/.cache/`
+inside the bio-sources repo). `extract_data.py` sets it to
+`/root/data/api-cache/`, which is part of the existing
+`./data:/root/data` bind-mount in `docker-compose.yml`. The cache
+survives container recreation and is inspectable from the host.
 
-- [ ] Container has read access to a clone or bind-mount of
-      `alliancemine-bio-sources` on the `wire-api-sources` branch (or
-      whatever branch lands in upstream).
-- [ ] `python3 /root/alliancemine-bio-sources/scripts/fetch_all.py
-      --limit 10 --out-dir /tmp/api-smoke` runs to completion in
-      under a minute and emits 8 TSV files.
-- [ ] After `fetch_api_stage`, `/root/data/api/` contains:
+Cold cache: ~20 min for a yeast-only build, longer for multi-MOD.
+Warm reruns: ~2 min.
+
+### 4. Granular re-runs
+
+`extract_data.py` accepts `--skip-fms` and `--skip-api` so an operator
+can re-run only one half during an incident:
+
+```bash
+# Just the API fetchers (e.g. after fetcher fix, FMS data still good)
+docker compose run --rm alliancemine-builder extract --skip-fms
+
+# Just FMS + S3 (e.g. legacy behaviour or if API is down)
+docker compose run --rm alliancemine-builder extract --skip-api
+```
+
+Both flags together is rejected (nothing left to do).
+
+The combined `extract_data` stage as a whole is also re-runnable via
+`build_full.py --start-from extract_data` — this re-does both halves.
+
+## Failure modes
+
+| Failure | Behaviour |
+|---|---|
+| Single fetcher fails | `fetch_all.py` continues, exits non-zero in summary. `extract_data.py` marks API as `failed` and exits 1 unless `--stop-on-error` was passed (it isn't, by default). |
+| All fetchers succeed but produce empty TSVs | Not detected here — surfaces during `project_build` when the bio-source modules read empty inputs. Fetchers themselves log `0 rows` clearly in their per-run summary. |
+| `/root/alliancemine-bio-sources/scripts/fetch_all.py` missing | Image was built from a `BIO_SOURCES_BRANCH` that predates the Phase-5 work. `extract_data.py` logs the path and exits 1. Rebuild the image with a branch that includes `scripts/fetch_all.py`. |
+| Network blip during a fetch | Per-fetcher retries with exponential backoff (`common.py`). Cache hits unaffected. Persistent failures bubble up to the orchestrator. |
+
+## Verification checklist
+
+After running `extract_data` on a fresh container:
+
+- [ ] `/root/data/api/` contains nine TSVs:
       `alliance-genes.tsv`, `genetic-interactions.tsv`,
       `molecular-interactions.tsv`, `orthologs.tsv`, `paralogs.tsv`,
       `allele-detail.tsv`, `disease-annotations-detail.tsv`,
-      `disease-models.tsv`, `phenotypes.tsv`.
-- [ ] `gradlew :bio-source-alliance-paralogs:build` (and the other
-      eight new modules) runs cleanly with the produced TSVs.
-- [ ] Full `project_build` completes; spot-check that
-      `Paralogue`, `PhenotypeAnnotation`, and `DiseaseModel`
-      objects are present in the resulting database.
+      `disease-models.tsv`, `phenotypes.tsv`
+- [ ] `/root/data/api-cache/` contains one `.sqlite` file per fetcher
+      (genes, interactions, orthologs, paralogs, allele_detail,
+      disease_annotations, disease_models, phenotypes)
+- [ ] `./gradlew :bio-source-alliance-paralogs:build` (and the other
+      eight new modules) runs cleanly against the produced TSVs
+- [ ] Full `project_build` completes; spot-check that `Paralogue`,
+      `PhenotypeAnnotation`, and `DiseaseModel` objects are present
+      in the resulting database
 
-## Reference
+## References
 
 - Per-fetcher details, schemas, and run options:
-  `alliancemine-bio-sources/scripts/README.md`.
-- Architecture rationale (why Python-then-Java, why
-  integration-key merge for the `*-detail` modules):
-  `alliancemine-bio-sources/CLAUDE.md`, "API-backed sources" section.
-- The `scripts/fetch_all.py` orchestrator's `FETCHERS` list defines
-  the canonical run order: genes → interactions → orthologs →
+  `alliancemine-bio-sources/scripts/README.md`
+- Architecture rationale (why Python-then-Java, why integration-key
+  merge for the `*-detail` modules):
+  `alliancemine-bio-sources/CLAUDE.md`, "API-backed sources" section
+- Canonical fetcher run order is defined in
+  `scripts/fetch_all.py::FETCHERS`: genes → interactions → orthologs →
   paralogs → allele_detail → disease_annotations → disease_models →
-  phenotypes.
+  phenotypes

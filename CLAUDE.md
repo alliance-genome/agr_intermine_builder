@@ -73,13 +73,13 @@ src/intermine_builder/ (orchestration)    scripts/extract_data.py (FMS + S3 data
 
 **build_full.py** — 6-stage pipeline: buildDB → extract_data → project_build → postprocess → war → deploy. Supports `--skip-stages`, `--start-from`, `--resume`.
 
-**extract_data.py** — Downloads data from FMS snapshot API (49 files) and syncs SGD data from S3 (`s3://agr-db-backups/alliancemine/intermine/`).
+**extract_data.py** — Three passes: (1) S3 sync of SGD/external data from `s3://agr-db-backups/alliancemine/intermine/`, (2) FMS snapshot download of 49 MOD files, (3) Alliance API fetch via `alliancemine-bio-sources/scripts/fetch_all.py` into `/root/data/api/` (cache in `/root/data/api-cache/` via `ALLIANCE_FETCH_CACHE`). Use `--skip-fms` / `--skip-api` to re-run only one half.
 
 **entrypoint.sh** — Resolves Alliance release from FMS API, auto-increments RC number, constructs versioned DB names, configures properties via `envsubst`, creates databases on RDS.
 
 ### Build Stages (Sequential, 6 stages)
 1. **buildDB** — Create PostgreSQL schema (Gradle)
-2. **extract_data** — Download data from FMS API + S3 (Python)
+2. **extract_data** — S3 sync + FMS download + Alliance API fetchers (Python)
 3. **project_build** — Data integration, 4-7 hours (intermine-scripts `project_build`)
 4. **postprocess** — Indexing, summary tables, Solr search indexes (Gradle)
 5. **war** — Build WAR file (Gradle)
@@ -92,6 +92,8 @@ src/intermine_builder/ (orchestration)    scripts/extract_data.py (FMS + S3 data
 **From S3** (`s3://agr-db-backups/alliancemine/intermine/`): SGD-specific data — protein properties, protein N-termini, yeast orthologs (fungidb, CGOB, C.glabrata, pombe), GFF-UTR, DB-UTR, ontologies (psi-mi.obo, goslim_yeast.obo), idresolver files.
 
 **From SGD database** (external PostgreSQL at `www-rds-primary.yeastgenome.org`): SGD gene data, complexes, complementation data. Credentials in `.env` only, never committed.
+
+**From Alliance API** (`https://www.alliancegenome.org/api`): nine TSVs produced by the fetchers in `alliancemine-bio-sources/scripts/` (genes-enriched, genetic + molecular interactions, orthologs, paralogs, allele detail, disease annotations + models, phenotypes). Land in `/root/data/api/`. Cold cache ~20 min for yeast-only, hours for multi-MOD; SQLite cache at `/root/data/api-cache/` keeps reruns to ~2 min. Replaces FMS feeds as that system is wound down.
 
 ### Database Structure (RDS)
 - Main DB: `alliancemine_{version}_rc{N}` (test) or `alliancemine_{version}` (production)

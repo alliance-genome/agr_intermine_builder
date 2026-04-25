@@ -4,17 +4,18 @@ AllianceMine Full Build Script
 
 Executes the complete InterMine build pipeline (6 stages):
 1. buildDB       - Create PostgreSQL schema
-2. extract_data  - Download data from FMS
-3. project_build - Data integration (2-4 hours)
-4. postprocess   - Indexing and summary tables
+2. extract_data  - S3 sync + FMS download + Alliance API fetchers
+3. project_build - Data integration (4-7 hours)
+4. postprocess   - Indexing, summary tables, Solr indexes
 5. war           - Build WAR file
-6. deploy        - Deploy WAR to EC2 Tomcat via cargoRedeployRemote
+6. deploy        - Deploy WAR to Tomcat via cargoRedeployRemote
 
 Usage:
-    python3 build_full.py --build-type test --release 8.3.0 --rc 1
-    python3 build_full.py --build-type production --release 8.3.0
+    python3 build_full.py --build-type test            # release auto-resolved from FMS
+    python3 build_full.py --build-type test --release 9.0.0 --rc 1
+    python3 build_full.py --build-type production --release 9.0.0
     python3 build_full.py --start-from postprocess
-    python3 build_full.py --skip-stages buildUserDB deploy
+    python3 build_full.py --skip-stages deploy
 """
 
 import os
@@ -53,7 +54,7 @@ class AllianceMineBuildPipeline:
     def __init__(
         self,
         build_type: str = "test",
-        release: str = "8.3.0",
+        release: str = "",
         rc: Optional[int] = None,
         deploy_host: Optional[str] = None,
         deploy_port: int = 8090,
@@ -77,7 +78,7 @@ class AllianceMineBuildPipeline:
     def _log_stage(self, num: int, description: str) -> None:
         logger.info("")
         logger.info("=" * 60)
-        logger.info(f"STAGE {num}/7: {description}")
+        logger.info(f"STAGE {num}/{len(STAGES)}: {description}")
         logger.info("=" * 60)
 
     def _run(self, cmd: list, description: str, cwd: Optional[str] = None) -> bool:
@@ -114,8 +115,12 @@ class AllianceMineBuildPipeline:
         )
 
     def stage_extract_data(self) -> bool:
-        """Stage 2: Extract Alliance data from FMS."""
-        self._log_stage(2, "Extracting Alliance Data from FMS")
+        """Stage 2: S3 sync + FMS download + Alliance API fetchers.
+
+        On a cold cache the API fetch can add ~20 min; warm reruns are ~2 min.
+        Cache lives at /root/data/api-cache/ (bind-mounted via docker-compose).
+        """
+        self._log_stage(2, "Extracting Alliance Data (S3 + FMS + API)")
 
         script = SCRIPTS_DIR / "extract_data.py"
         if not script.exists():
@@ -155,16 +160,16 @@ class AllianceMineBuildPipeline:
         )
 
     def stage_war(self) -> bool:
-        """Stage 6: Build WAR file."""
-        self._log_stage(6, "Building WAR File")
+        """Stage 5: Build WAR file."""
+        self._log_stage(5, "Building WAR File")
         return self._run(
             ["./gradlew", "war", "--stacktrace"],
             "WAR file build",
         )
 
     def stage_deploy(self) -> bool:
-        """Stage 7: Deploy WAR to EC2 Tomcat."""
-        self._log_stage(7, "Deploying WAR to Tomcat")
+        """Stage 6: Deploy WAR to Tomcat via cargoRedeployRemote."""
+        self._log_stage(6, "Deploying WAR to Tomcat")
 
         if not self.deploy_host:
             logger.info("No --deploy-host specified, skipping deployment")
@@ -260,7 +265,7 @@ def main():
         default="test",
         help="Build type (default: test)",
     )
-    parser.add_argument("--release", default=None, help="Alliance release version (e.g., 8.3.0)")
+    parser.add_argument("--release", default=None, help="Alliance release version (e.g., 9.0.0); omit to read ALLIANCE_RELEASE from env")
     parser.add_argument("--rc", type=int, default=None, help="RC number for test builds")
     parser.add_argument("--deploy-host", default=None, help="EC2 host for WAR deployment")
     parser.add_argument("--deploy-port", type=int, default=8090, help="Tomcat port on deploy host")
@@ -272,8 +277,12 @@ def main():
 
     args = parser.parse_args()
 
-    # Use env var as fallback for release
-    release = args.release or os.environ.get("ALLIANCE_RELEASE", "8.3.0")
+    # Release: --release wins, then ALLIANCE_RELEASE (entrypoint.sh resolves it
+    # from the FMS API before invoking us, so this should always be set).
+    release = args.release or os.environ.get("ALLIANCE_RELEASE", "")
+    if not release:
+        logger.error("No release specified. Pass --release or set ALLIANCE_RELEASE.")
+        sys.exit(2)
 
     pipeline = AllianceMineBuildPipeline(
         build_type=args.build_type,
