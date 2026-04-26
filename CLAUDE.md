@@ -104,8 +104,8 @@ src/intermine_builder/ (orchestration)    scripts/extract_data.py (FMS + S3 data
 ### Docker Configurations
 
 - **`docker/alliancemine/`** — Active build container with RDS support (Alpine, Java 8, Python scripts)
-- **`legacy/alliancemine-unified/`** — Previous all-in-one container (Tomcat+Solr+Build), archived
-- **`legacy/wormmine-unified/`** — Previous WormMine container, archived
+- **`docker/wormmine/`** — WormMine all-in-one container (Tomcat+Solr+Build), kept available for ad-hoc use
+- **`legacy/alliancemine-unified/`** — Previous all-in-one AllianceMine container, archived
 - **`legacy/`** — All deprecated configs, bash scripts, old Docker setups (reference only)
 
 ### Solr

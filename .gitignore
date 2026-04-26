@@ -10,7 +10,7 @@
 *.tgz
 *.tar.gz
 docker/*/data/
-docker/wormmine-unified/WS*/
+docker/wormmine/WS*/
 
 # Python
 __pycache__/
