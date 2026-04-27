@@ -475,6 +475,78 @@ def cmd_drop_checkpoints(args):
         sys.exit(f"\n{len(failures)} of {len(targets)} drops failed. See log: {LOG_PATH}")
 
 
+def cmd_promote(args):
+    """Rename mine_X_Y_Z_rcN to its production equivalent (mine_X_Y_Z).
+
+    Auto-derives the target by stripping the trailing _rcN suffix; pass
+    --target to override. If the production target already exists, requires
+    --replace to drop it first.
+    """
+    if not db_exists(args.src):
+        sys.exit(f"Source database does not exist: {args.src}")
+
+    if args.target:
+        target = args.target
+    else:
+        m = re.match(r'^(.+)_rc\d+$', args.src)
+        if not m:
+            sys.exit(
+                f"Source name {args.src!r} doesn't match the *_rcN pattern. "
+                f"Pass --target to set the production name explicitly."
+            )
+        target = m.group(1)
+
+    check_protected(args.src, args.really_i_mean_it)
+    check_protected(target, args.really_i_mean_it)
+
+    target_exists = db_exists(target)
+
+    if target_exists and not args.replace:
+        sys.exit(
+            f"Target {target!r} already exists. Pass --replace to drop it first."
+        )
+
+    src_size = psql_query(
+        f"SELECT pg_size_pretty(pg_database_size('{_quote(args.src)}'));"
+    )[0][0]
+
+    if args.dry_run:
+        if target_exists:
+            tgt_size = psql_query(
+                f"SELECT pg_size_pretty(pg_database_size('{_quote(target)}'));"
+            )[0][0]
+            print(f"[dry-run] would drop existing {target} ({tgt_size}): "
+                  f"DROP DATABASE {_ident(target)};")
+        print(f"[dry-run] would rename {args.src} ({src_size}) -> {target}: "
+              f"ALTER DATABASE {_ident(args.src)} RENAME TO {_ident(target)};")
+        return
+
+    if target_exists:
+        prompt = (f"Promote: drop existing {target}, then rename "
+                  f"{args.src} -> {target}?")
+    else:
+        prompt = f"Promote: rename {args.src} ({src_size}) -> {target}?"
+    if not confirm(prompt, args.yes):
+        sys.exit("Aborted.")
+
+    if args.force:
+        if kill_connections(args.src):
+            logger.info("Terminated active connections on %s", args.src)
+        if target_exists and kill_connections(target):
+            logger.info("Terminated active connections on %s", target)
+
+    if target_exists:
+        psql_run(f"DROP DATABASE {_ident(target)};")
+        log_action("promote_drop_target", {"db": target})
+        print(f"Dropped existing {target}")
+
+    psql_run(f"ALTER DATABASE {_ident(args.src)} RENAME TO {_ident(target)};")
+    log_action("promote", {
+        "src": args.src, "dst": target, "replaced": target_exists,
+    })
+    print(f"Promoted {args.src} -> {target}")
+
+
 def setup_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
@@ -548,6 +620,16 @@ def main():
     p_del.add_argument("db", help="Database name")
     add_destructive_args(p_del)
     p_del.set_defaults(func=cmd_delete)
+
+    p_promote = sub.add_parser("promote",
+        help="Rename mine_X_Y_Z_rcN to its production equivalent (mine_X_Y_Z)")
+    p_promote.add_argument("src", help="RC database name, e.g. alliancemine_9_0_0_rc99")
+    p_promote.add_argument("--target",
+        help="Override the auto-derived production name (default: strip the _rcN suffix)")
+    p_promote.add_argument("--replace", action="store_true",
+        help="Drop the existing production DB first if it already exists")
+    add_destructive_args(p_promote)
+    p_promote.set_defaults(func=cmd_promote)
 
     p_dropchk = sub.add_parser("drop-checkpoints", help="Bulk-drop checkpoint DBs")
     p_dropchk.add_argument("release", help="Release version, e.g. 9.0.0")
