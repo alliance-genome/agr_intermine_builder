@@ -105,7 +105,7 @@ src/intermine_builder/ (orchestration)    scripts/extract_data.py (FMS + S3 data
 
 - **`docker/alliancemine/`** — Active build container with RDS support (Alpine, Java 8, Python scripts)
 - **`docker/flymine/`** — FlyMine build container, mirrors the alliancemine pattern (image-build skeleton; data wiring deferred)
-- **`docker/wormmine/`** — WormMine all-in-one container (Tomcat+Solr+Build), kept available for ad-hoc use
+- **`docker/wormmine/`** — WormMine build container (build-only; Tomcat/Solr deployed externally on multitenant)
 - **`legacy/alliancemine-unified/`** — Previous all-in-one AllianceMine container, archived
 - **`legacy/`** — All deprecated configs, bash scripts, old Docker setups (reference only)
 

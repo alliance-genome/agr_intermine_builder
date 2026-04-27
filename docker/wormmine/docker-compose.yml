@@ -1,132 +1,62 @@
-version: '3.8'
-
-# ============================================
-# WormMine Unified Docker Compose
-# ============================================
-# Single-container deployment with RDS
-# For manual operation - no auto-start
-#
-# Usage:
-#   docker-compose up -d        # Start in background
-#   docker-compose logs -f      # Follow logs
-#   docker-compose exec wormmine bash  # Shell access
-#   docker-compose down         # Stop and remove
-# ============================================
-
 services:
-  wormmine:
-    # Load environment from project root
-    env_file:
-      - ../../.env
+  wormmine-builder:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         WORMMINE_BRANCH: ${WORMMINE_BRANCH:-im-298}
-        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-im-293}
-        WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS298}
+        WORMMINE_BIO_SOURCES_BRANCH: ${WORMMINE_BIO_SOURCES_BRANCH:-im-293}
 
-    image: wormmine-unified:${IMAGE_TAG:-latest}
+    image: wormmine-builder:${IMAGE_TAG:-latest}
+    container_name: wormmine-builder
 
-    container_name: wormmine
+    environment:
+      # RDS Connection
+      RDS_HOST: ${RDS_HOST}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_USER: ${RDS_USER:-postgres}
+      RDS_PASSWORD: ${RDS_PASSWORD}
 
-    # Resource limits
+      # Build Configuration
+      # WormBase release version drives DB naming. WormBase publishes WS-prefixed
+      # releases (WS298, WS299, ...). Operator should set this explicitly;
+      # entrypoint defaults to today's date if unset.
+      WORMBASE_RELEASE: ${WORMBASE_RELEASE:-}
+      BUILD_TYPE: ${BUILD_TYPE:-test}
+      # RC_NUMBER: auto-incremented from RDS if not set
+      RC_NUMBER: ${RC_NUMBER:-}
+      # COPY_PROFILE_DB: if true, test builds get an isolated copy of
+      # wormmine_userprofile instead of sharing the production one
+      COPY_PROFILE_DB: ${COPY_PROFILE_DB:-false}
+
+      # Deployment (optional — WAR is deployed externally to multitenant Tomcat)
+      DEPLOY_HOST: ${DEPLOY_HOST:-}
+      DEPLOY_PORT: ${DEPLOY_PORT:-8080}
+      DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
+      DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
+
+      # Webapp
+      WEBAPP_BASEURL: ${WEBAPP_BASEURL:-http://localhost:8080}
+      SUPERUSER_ACCOUNT: ${SUPERUSER_ACCOUNT:-superuser@mail_account}
+      SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-secret}
+
+      # Java/Gradle (must exceed 48g JVM by ~8G for native memory; container limit 56G)
+      GRADLE_OPTS: >-
+        -Xmx48g -Xms24g
+        -XX:+UseParallelGC
+        -Dorg.gradle.daemon=false
+
+    volumes:
+      - ./data:/root/data
+
     deploy:
       resources:
         limits:
           cpus: '8'
-          memory: 32G
+          memory: 56G
         reservations:
           cpus: '4'
-          memory: 16G
+          memory: 24G
 
-    # Ports
-    ports:
-      - "${TOMCAT_PORT:-8080}:8080"  # Tomcat webapp
-      - "${SOLR_PORT:-8983}:8983"    # Solr search
-
-    # Environment variables
-    environment:
-      # RDS Connection
-      RDS_HOST: ${RDS_HOST:-intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com}
-      RDS_PORT: ${RDS_PORT:-5432}
-      RDS_USER: ${RDS_USER:-postgres}
-      RDS_PASSWORD: ${RDS_PASSWORD}
-      RDS_DB_NAME: ${RDS_DB_NAME:-wormmine_db}
-      RDS_PROFILE_DB_NAME: ${RDS_PROFILE_DB_NAME:-wormmine_userprofile}
-
-      # Application
-      WORMBASE_RELEASE: ${WORMBASE_RELEASE:-WS290}
-      DB_VERSION_SUFFIX: ${DB_VERSION_SUFFIX:-}
-
-      # Java Memory Settings
-      CATALINA_OPTS: "-Xmx16g -Xms8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
-      SOLR_JAVA_MEM: "-Xms4g -Xmx4g"
-
-      # Ports (if custom)
-      TOMCAT_PORT: ${TOMCAT_PORT:-8080}
-      SOLR_PORT: ${SOLR_PORT:-8983}
-
-    # Volumes for data persistence
-    volumes:
-      # Mount WS298 data directory
-      # FTP files and AceDB XML dumps
-      - ./WS298:/root/data/ftp_files
-
-      # Mount acedb dumps directory
-      - ./WS298:/root/data/acedb_dumps/WS298
-
-      # Mount processed data directory (output from deploy.sh)
-      - wormmine-data:/root/data/mine_input
-
-      # Solr indexes
-      - solr-data:/var/solr/data
-
-      # Logs
-      - wormmine-logs:/opt/intermine/logs
-      - tomcat-logs:/opt/tomcat/logs
-
-    # Networking
-    networks:
-      - intermine-net
-
-    # Health check
-    healthcheck:
-      test: ["CMD", "pg_isready", "-h", "${RDS_HOST}", "-p", "${RDS_PORT}", "-U", "${RDS_USER}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-    # Restart policy
-    restart: unless-stopped
-
-    # Command
-    # Options:
-    #   - run: Manual mode (shell access, services not auto-started)
-    #   - tomcat: Start Solr + Tomcat (for webapp deployment)
-    command: tomcat
-
-# ============================================
-# Named Volumes
-# ============================================
-volumes:
-  wormmine-data:
-    name: wormmine_data
-
-  solr-data:
-    name: wormmine_solr
-
-  wormmine-logs:
-    name: wormmine_logs
-
-  tomcat-logs:
-    name: wormmine_tomcat_logs
-
-# ============================================
-# Networks
-# ============================================
-networks:
-  intermine-net:
-    name: intermine_network
-    driver: bridge
+    stdin_open: true
+    tty: true

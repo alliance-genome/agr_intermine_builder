@@ -1,6 +1,6 @@
 # ============================================
-# WormMine Properties File
-# Generated from template by docker-entrypoint.sh
+# WormMine Properties
+# Generated from template by entrypoint.sh
 # ============================================
 
 # ============================================
@@ -17,7 +17,7 @@ db.production.platform=PostgreSQL
 # Common Target Items Database
 # ============================================
 db.common-tgt-items.datasource.serverName=${RDS_HOST}
-db.common-tgt-items.datasource.databaseName=wormmine_items
+db.common-tgt-items.datasource.databaseName=${RDS_ITEMS_DB_NAME}
 db.common-tgt-items.datasource.user=${RDS_USER}
 db.common-tgt-items.datasource.password=${RDS_PASSWORD}
 db.common-tgt-items.driver=org.postgresql.Driver
@@ -37,42 +37,37 @@ db.userprofile-production.platform=PostgreSQL
 # Project Configuration
 # ============================================
 project.title=WormMine
-project.subTitle=An integrated data resource for C. elegans and related nematodes
+project.subTitle=An integrated database of C. elegans and other nematode genomics
 project.releaseVersion=${WORMBASE_RELEASE}
-project.sitePrefix=http://localhost:8080
-project.helpLocation=https://wormbase.org
+project.sitePrefix=${WEBAPP_BASEURL}
 
 # ============================================
-# Web Application Configuration
+# Web Application / Deployment
 # ============================================
-webapp.deploy.url=http://localhost:8080/manager/text
-webapp.baseurl=http://localhost:8080
+webapp.deploy.url=${DEPLOY_URL}
+webapp.baseurl=${WEBAPP_BASEURL}
 webapp.path=wormmine
-webapp.manager=manager
-webapp.password=manager
+webapp.manager=${DEPLOY_MANAGER}
+webapp.password=${DEPLOY_PASSWORD}
+webapp.port=${DEPLOY_PORT}
+webapp.hostname=${DEPLOY_HOST}
 
-# Tomcat Manager credentials (for deployment)
-tomcat.user=manager
-tomcat.pwd=manager
-
-# ============================================
-# Solr Configuration
-# ============================================
-solr.url=http://localhost:${SOLR_PORT}/solr/wormmine
+tomcat.user=${DEPLOY_MANAGER}
+tomcat.pwd=${DEPLOY_PASSWORD}
 
 # ============================================
 # SuperUser Account
 # ============================================
-superuser.account=admin@wormmine.org
-superuser.password=admin
+superuser.account=${SUPERUSER_ACCOUNT}
+superuser.initialPassword=${SUPERUSER_PASSWORD}
 
 # ============================================
 # Performance Tuning
 # ============================================
-# Batch processing settings
 batch.size=1000
 webapp.os.alias=os.production
-
-# Query result caching
 webapp.query.cache.size=10000
 webapp.query.cache.timeout=300
+
+# XML Factory
+systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl
