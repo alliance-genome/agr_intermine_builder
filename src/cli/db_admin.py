@@ -547,6 +547,173 @@ def cmd_promote(args):
     print(f"Promoted {args.src} -> {target}")
 
 
+# ---------------------------------------------------------------------------
+# Backup / prune to S3
+# ---------------------------------------------------------------------------
+
+DEFAULT_BUCKET = "agr-db-backups"
+DEFAULT_PREFIX = "db-backups"
+
+
+def _backup_key(prefix: str, db: str, when: datetime) -> str:
+    return f"{prefix.rstrip('/')}/{db}/{when:%Y-%m-%d}/{db}.dump"
+
+
+def _aws(args_list, **kw):
+    return subprocess.run(["aws", *args_list], check=False, **kw)
+
+
+def cmd_backup(args):
+    """pg_dump -> temp file -> aws s3 cp."""
+    if not db_exists(args.db):
+        sys.exit(f"Error: database {args.db!r} does not exist")
+
+    when = datetime.utcnow()
+    key = _backup_key(args.prefix, args.db, when)
+    s3_uri = f"s3://{args.bucket}/{key}"
+
+    if args.dry_run:
+        print(f"DRY RUN: pg_dump {args.db} | aws s3 cp - {s3_uri}")
+        return
+
+    tmp_dir = Path(args.tmp_dir).expanduser()
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_file = tmp_dir / f"{args.db}.{when:%Y%m%dT%H%M%SZ}.dump"
+
+    print(f"Dumping {args.db} -> {tmp_file}")
+    dump_cmd = [
+        "pg_dump",
+        "-h", os.environ["RDS_HOST"],
+        "-p", os.environ.get("RDS_PORT", "5432"),
+        "-U", os.environ.get("RDS_USER", "postgres"),
+        "--format=custom",
+        "--compress=9",
+        "--no-password",
+        "--file", str(tmp_file),
+        args.db,
+    ]
+    env = os.environ.copy()
+    env["PGPASSWORD"] = os.environ.get("RDS_PASSWORD", "")
+    dump_t0 = datetime.utcnow()
+    res = subprocess.run(dump_cmd, env=env, check=False)
+    if res.returncode != 0:
+        try:
+            tmp_file.unlink()
+        except FileNotFoundError:
+            pass
+        sys.exit(f"Error: pg_dump exited {res.returncode} for {args.db}")
+    dump_secs = (datetime.utcnow() - dump_t0).total_seconds()
+    size_mb = tmp_file.stat().st_size / (1024 * 1024)
+    print(f"  dump OK: {size_mb:.1f} MB in {dump_secs:.0f}s")
+
+    print(f"Uploading -> {s3_uri}")
+    up_t0 = datetime.utcnow()
+    res = _aws(["s3", "cp", str(tmp_file), s3_uri, "--no-progress"])
+    if res.returncode != 0:
+        sys.exit(f"Error: aws s3 cp exited {res.returncode}")
+    up_secs = (datetime.utcnow() - up_t0).total_seconds()
+    print(f"  upload OK in {up_secs:.0f}s")
+
+    try:
+        tmp_file.unlink()
+    except FileNotFoundError:
+        pass
+
+    log_action("backup", {
+        "db": args.db, "s3": s3_uri, "size_mb": round(size_mb, 1),
+        "dump_secs": round(dump_secs, 1), "upload_secs": round(up_secs, 1),
+    })
+    print(f"Backed up {args.db} -> {s3_uri}")
+
+
+def _list_backup_objects(bucket: str, prefix: str, db: str | None = None) -> list:
+    """Return list of (key, last_modified_iso, size_bytes)."""
+    list_prefix = f"{prefix.rstrip('/')}/"
+    if db:
+        list_prefix += f"{db}/"
+    res = _aws(
+        ["s3api", "list-objects-v2",
+         "--bucket", bucket,
+         "--prefix", list_prefix,
+         "--query", "Contents[].[Key,LastModified,Size]",
+         "--output", "json"],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        sys.exit(f"Error: list-objects-v2 failed: {res.stderr.strip()}")
+    if not res.stdout.strip() or res.stdout.strip() == "null":
+        return []
+    try:
+        return json.loads(res.stdout) or []
+    except json.JSONDecodeError as e:
+        sys.exit(f"Error: parsing list-objects-v2: {e}")
+
+
+def cmd_backup_list(args):
+    objs = _list_backup_objects(args.bucket, args.prefix, args.db)
+    if not objs:
+        print("(no backups found)")
+        return
+    rows = []
+    for key, last_mod, size in sorted(objs, key=lambda r: r[1], reverse=True):
+        size_mb = (size or 0) / (1024 * 1024)
+        rows.append({"key": key, "size_mb": f"{size_mb:.1f}", "modified": last_mod})
+    emit(rows, args.format, columns=["key", "size_mb", "modified"])
+
+
+def cmd_backup_prune(args):
+    objs = _list_backup_objects(args.bucket, args.prefix, args.db)
+    if not objs:
+        print("(no backups found)")
+        return
+
+    cutoff_secs = args.keep_days * 86400
+    now = datetime.utcnow()
+    stale = []
+    for key, last_mod, size in objs:
+        # last_mod ISO 8601 with timezone, e.g. 2026-04-21T03:14:00+00:00
+        try:
+            ts = datetime.fromisoformat(last_mod.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            continue
+        age_secs = (now - ts).total_seconds()
+        if age_secs > cutoff_secs:
+            stale.append((key, last_mod, size, age_secs / 86400))
+
+    if not stale:
+        print(f"Nothing older than {args.keep_days} days.")
+        return
+
+    print(f"Will delete {len(stale)} object(s) older than {args.keep_days} days:")
+    for key, last_mod, size, age_days in stale:
+        print(f"  {age_days:5.1f}d  {(size or 0) / 1024 / 1024:7.1f} MB  {key}")
+
+    if args.dry_run:
+        print("DRY RUN: no deletions performed.")
+        return
+
+    if not confirm(f"Delete {len(stale)} object(s)?", args.yes):
+        print("Aborted.")
+        return
+
+    # Batch delete via s3api delete-objects (max 1000 per call)
+    keys_payload = {"Objects": [{"Key": k} for k, *_ in stale], "Quiet": True}
+    res = _aws(
+        ["s3api", "delete-objects",
+         "--bucket", args.bucket,
+         "--delete", json.dumps(keys_payload)],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        sys.exit(f"Error: delete-objects failed: {res.stderr.strip()}")
+
+    log_action("backup_prune", {
+        "bucket": args.bucket, "prefix": args.prefix,
+        "deleted": [k for k, *_ in stale], "keep_days": args.keep_days,
+    })
+    print(f"Deleted {len(stale)} object(s).")
+
+
 def setup_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
@@ -638,6 +805,40 @@ def main():
                            help="Keep the alphabetically-last checkpoint (usually the most recent)")
     add_destructive_args(p_dropchk)
     p_dropchk.set_defaults(func=cmd_drop_checkpoints)
+
+    p_backup = sub.add_parser("backup", help="pg_dump a DB and upload to S3")
+    p_backup.add_argument("db", help="Database name")
+    p_backup.add_argument("--bucket", default=DEFAULT_BUCKET,
+                          help=f"S3 bucket (default: {DEFAULT_BUCKET})")
+    p_backup.add_argument("--prefix", default=DEFAULT_PREFIX,
+                          help=f"S3 key prefix (default: {DEFAULT_PREFIX})")
+    p_backup.add_argument("--tmp-dir", default="/tmp",
+                          help="Local scratch dir for the dump file (default: /tmp)")
+    p_backup.add_argument("--dry-run", action="store_true",
+                          help="Print what would happen, don't dump or upload")
+    p_backup.set_defaults(func=cmd_backup)
+
+    p_backup_list = sub.add_parser("backup-list", help="List backups in S3")
+    p_backup_list.add_argument("--bucket", default=DEFAULT_BUCKET)
+    p_backup_list.add_argument("--prefix", default=DEFAULT_PREFIX)
+    p_backup_list.add_argument("--db", default=None,
+                               help="Filter to one database name")
+    add_format_arg(p_backup_list)
+    p_backup_list.set_defaults(func=cmd_backup_list)
+
+    p_backup_prune = sub.add_parser("backup-prune",
+                                    help="Delete S3 backups older than --keep-days")
+    p_backup_prune.add_argument("--bucket", default=DEFAULT_BUCKET)
+    p_backup_prune.add_argument("--prefix", default=DEFAULT_PREFIX)
+    p_backup_prune.add_argument("--db", default=None,
+                                help="Filter to one database name")
+    p_backup_prune.add_argument("--keep-days", type=int, default=7,
+                                help="Delete objects older than this many days (default: 7)")
+    p_backup_prune.add_argument("--dry-run", action="store_true",
+                                help="Show what would be deleted, don't delete")
+    p_backup_prune.add_argument("--yes", action="store_true",
+                                help="Skip the y/N confirmation")
+    p_backup_prune.set_defaults(func=cmd_backup_prune)
 
     args = parser.parse_args()
     setup_logging(args.verbose)

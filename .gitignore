@@ -46,3 +46,6 @@ firebase-debug.log
 AllianceMine_Build_Revamp_Plan.pdf
 docs/BUILD_PROCESS_OVERVIEW.pdf
 docs/build_revamp_presentation.html
+
+# Infra docs with credentials (operator-local only)
+docs/INFRASTRUCTURE_REFERENCE.md
