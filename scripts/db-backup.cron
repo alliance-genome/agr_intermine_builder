@@ -1,0 +1,21 @@
+# RDS-to-S3 backup schedule on AllianceMineDev.
+#
+# Install:
+#   sudo cp scripts/db-backup.cron /etc/cron.d/db-backup
+#   sudo chmod 644 /etc/cron.d/db-backup
+#   sudo install -d -o ec2-user -g ec2-user /var/log/db-backup
+#
+# All times UTC.
+# Profile DBs are small (<200 MB total) and irreplaceable -> daily.
+# Production data DBs are big (~150 GB total) and rebuildable -> weekly.
+# Both jobs prune objects older than 7 days at the end.
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+# Daily 02:00 UTC -- profile DBs (alliancemine_userprofile, wormmine_userprofile)
+0 2 * * *   ec2-user  /home/ec2-user/agr_intermine_builder_flymine/scripts/db_backup_cron.sh profiles
+
+# Weekly Sunday 03:00 UTC -- production data DBs
+0 3 * * 0   ec2-user  /home/ec2-user/agr_intermine_builder_flymine/scripts/db_backup_cron.sh production
