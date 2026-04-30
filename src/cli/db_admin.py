@@ -38,7 +38,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROTECTED_DBS = {
@@ -568,7 +568,7 @@ def cmd_backup(args):
     if not db_exists(args.db):
         sys.exit(f"Error: database {args.db!r} does not exist")
 
-    when = datetime.utcnow()
+    when = datetime.now(timezone.utc).replace(tzinfo=None)
     key = _backup_key(args.prefix, args.db, when)
     s3_uri = f"s3://{args.bucket}/{key}"
 
@@ -594,7 +594,7 @@ def cmd_backup(args):
     ]
     env = os.environ.copy()
     env["PGPASSWORD"] = os.environ.get("RDS_PASSWORD", "")
-    dump_t0 = datetime.utcnow()
+    dump_t0 = datetime.now(timezone.utc).replace(tzinfo=None)
     res = subprocess.run(dump_cmd, env=env, check=False)
     if res.returncode != 0:
         try:
@@ -602,16 +602,16 @@ def cmd_backup(args):
         except FileNotFoundError:
             pass
         sys.exit(f"Error: pg_dump exited {res.returncode} for {args.db}")
-    dump_secs = (datetime.utcnow() - dump_t0).total_seconds()
+    dump_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - dump_t0).total_seconds()
     size_mb = tmp_file.stat().st_size / (1024 * 1024)
     print(f"  dump OK: {size_mb:.1f} MB in {dump_secs:.0f}s")
 
     print(f"Uploading -> {s3_uri}")
-    up_t0 = datetime.utcnow()
+    up_t0 = datetime.now(timezone.utc).replace(tzinfo=None)
     res = _aws(["s3", "cp", str(tmp_file), s3_uri, "--no-progress"])
     if res.returncode != 0:
         sys.exit(f"Error: aws s3 cp exited {res.returncode}")
-    up_secs = (datetime.utcnow() - up_t0).total_seconds()
+    up_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - up_t0).total_seconds()
     print(f"  upload OK in {up_secs:.0f}s")
 
     try:
@@ -668,7 +668,7 @@ def cmd_backup_prune(args):
         return
 
     cutoff_secs = args.keep_days * 86400
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     stale = []
     for key, last_mod, size in objs:
         # last_mod ISO 8601 with timezone, e.g. 2026-04-21T03:14:00+00:00
@@ -712,6 +712,75 @@ def cmd_backup_prune(args):
         "deleted": [k for k, *_ in stale], "keep_days": args.keep_days,
     })
     print(f"Deleted {len(stale)} object(s).")
+
+
+# ---------------------------------------------------------------------------
+# kill-queries
+# ---------------------------------------------------------------------------
+
+_DURATION_RE = re.compile(r"^(\d+)\s*([smhd])$")
+
+
+def parse_duration(value: str) -> str:
+    """Convert '5m' / '30s' / '2h' / '1d' to a Postgres interval literal."""
+    m = _DURATION_RE.match(value.strip().lower())
+    if not m:
+        raise ValueError(
+            f"Invalid duration {value!r}. Use Ns, Nm, Nh, or Nd (e.g. '5m')."
+        )
+    n, unit = m.group(1), m.group(2)
+    units = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days"}
+    return f"{n} {units[unit]}"
+
+
+def cmd_kill_queries(args):
+    if not db_exists(args.db):
+        sys.exit(f"Error: database {args.db!r} does not exist")
+
+    interval = parse_duration(args.older_than)
+    func = "pg_terminate_backend" if args.terminate else "pg_cancel_backend"
+    verb = "Terminate" if args.terminate else "Cancel"
+
+    sql_list = (
+        f"SELECT pid, state, "
+        f"       extract(epoch FROM (now() - query_start))::int AS age_s, "
+        f"       substring(query, 1, 80) AS query "
+        f"FROM pg_stat_activity "
+        f"WHERE datname = '{_quote(args.db)}' "
+        f"  AND state = '{_quote(args.state)}' "
+        f"  AND now() - query_start > interval '{interval}' "
+        f"  AND pid <> pg_backend_pid() "
+        f"ORDER BY query_start;"
+    )
+    rows = psql_query(sql_list)
+
+    if not rows:
+        print(f"No {args.state!r} queries on {args.db} older than {args.older_than}.")
+        return
+
+    print(f"{verb} {len(rows)} {args.state} query/queries on {args.db} older than {args.older_than}:")
+    for pid, state, age_s, query in rows:
+        print(f"  pid={pid:>7}  age={age_s:>5}s  {query}")
+
+    if args.dry_run:
+        print("DRY RUN: no signals sent.")
+        return
+
+    if not confirm(f"{verb} {len(rows)} backend(s)?", args.yes):
+        print("Aborted.")
+        return
+
+    pids = [r[0] for r in rows]
+    pid_list = ",".join(pids)
+    sql_kill = f"SELECT pid, {func}(pid) FROM pg_stat_activity WHERE pid IN ({pid_list});"
+    result = psql_query(sql_kill)
+
+    success = sum(1 for r in result if len(r) > 1 and r[1] in ("t", "true"))
+    log_action("kill_queries", {
+        "db": args.db, "func": func, "older_than": args.older_than,
+        "state": args.state, "pids": pids, "success": success,
+    })
+    print(f"{verb}d {success}/{len(pids)} backend(s).")
 
 
 def setup_logging(verbose: bool) -> None:
@@ -839,6 +908,22 @@ def main():
     p_backup_prune.add_argument("--yes", action="store_true",
                                 help="Skip the y/N confirmation")
     p_backup_prune.set_defaults(func=cmd_backup_prune)
+
+    p_kill = sub.add_parser("kill-queries",
+        help="Cancel or terminate stuck queries on a database")
+    p_kill.add_argument("db", help="Database name")
+    p_kill.add_argument("--older-than", default="5m",
+        help="Minimum age of queries to kill, e.g. 30s, 5m, 2h (default: 5m)")
+    p_kill.add_argument("--state", default="active",
+        choices=["active", "idle", "idle in transaction"],
+        help="Backend state to target (default: active)")
+    p_kill.add_argument("--terminate", action="store_true",
+        help="Use pg_terminate_backend (kills connection) instead of pg_cancel_backend (graceful)")
+    p_kill.add_argument("--yes", action="store_true",
+        help="Skip the y/N confirmation")
+    p_kill.add_argument("--dry-run", action="store_true",
+        help="List matching backends, don't signal them")
+    p_kill.set_defaults(func=cmd_kill_queries)
 
     args = parser.parse_args()
     setup_logging(args.verbose)
