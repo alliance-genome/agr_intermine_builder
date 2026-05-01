@@ -21,6 +21,7 @@ RUN apk add --no-cache \
     ca-certificates \
     python3 \
     py3-pip \
+    py3-tqdm \
     build-base \
     perl \
     perl-dev \
