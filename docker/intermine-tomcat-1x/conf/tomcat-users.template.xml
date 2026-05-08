@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template — rendered at container start by /entrypoint.sh (envsubst).
+  Reads MANAGER_USER and MANAGER_PASSWORD from env.
+  Defaults: manager / manager (override in production).
+-->
+<tomcat-users xmlns="http://tomcat.apache.org/xml"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
+              version="1.0">
+  <role rolename="manager-gui"/>
+  <role rolename="manager-script"/>
+  <role rolename="manager-status"/>
+  <user username="${MANAGER_USER}"
+        password="${MANAGER_PASSWORD}"
+        roles="manager-gui,manager-script,manager-status"/>
+</tomcat-users>

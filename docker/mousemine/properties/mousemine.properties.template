@@ -1,0 +1,81 @@
+# ============================================
+# MouseMine Properties
+# Generated from template by entrypoint.sh
+# ============================================
+
+# ============================================
+# Production Database (Main Data)
+# ============================================
+db.production.datasource.serverName=${RDS_HOST}
+db.production.datasource.databaseName=${RDS_DB_NAME}
+db.production.datasource.user=${RDS_USER}
+db.production.datasource.password=${RDS_PASSWORD}
+db.production.driver=org.postgresql.Driver
+db.production.platform=PostgreSQL
+
+# ============================================
+# Common Target Items Database
+# ============================================
+db.common-tgt-items.datasource.serverName=${RDS_HOST}
+db.common-tgt-items.datasource.databaseName=${RDS_ITEMS_DB_NAME}
+db.common-tgt-items.datasource.user=${RDS_USER}
+db.common-tgt-items.datasource.password=${RDS_PASSWORD}
+db.common-tgt-items.driver=org.postgresql.Driver
+db.common-tgt-items.platform=PostgreSQL
+
+# ============================================
+# User Profile Database
+# ============================================
+db.userprofile-production.datasource.serverName=${RDS_HOST}
+db.userprofile-production.datasource.databaseName=${RDS_PROFILE_DB_NAME}
+db.userprofile-production.datasource.user=${RDS_USER}
+db.userprofile-production.datasource.password=${RDS_PASSWORD}
+db.userprofile-production.driver=org.postgresql.Driver
+db.userprofile-production.platform=PostgreSQL
+
+# ============================================
+# Project Configuration
+# ============================================
+project.title=MouseMine
+project.subTitle=An integrated database for Drosophila genomics
+project.releaseVersion=${MOUSEMINE_RELEASE}
+project.sitePrefix=${WEBAPP_BASEURL}
+
+# ============================================
+# Web Application / Deployment
+# ============================================
+webapp.deploy.url=${DEPLOY_URL}
+webapp.baseurl=${WEBAPP_BASEURL}
+webapp.path=mousemine
+theme=mousemine
+webapp.manager=${DEPLOY_MANAGER}
+webapp.password=${DEPLOY_PASSWORD}
+webapp.port=${DEPLOY_PORT}
+webapp.hostname=${DEPLOY_HOST}
+
+tomcat.user=${DEPLOY_MANAGER}
+tomcat.pwd=${DEPLOY_PASSWORD}
+
+# ============================================
+# BlueGenes Tools
+# Required by webapp/build.gradle :blueGenesStart task.
+# Defaults to a path inside the container; mount/symlink elsewhere if needed.
+# ============================================
+bluegenes.toolLocation=${BLUEGENES_TOOL_LOCATION}
+
+# ============================================
+# SuperUser Account
+# ============================================
+superuser.account=${SUPERUSER_ACCOUNT}
+superuser.initialPassword=${SUPERUSER_PASSWORD}
+
+# ============================================
+# Performance Tuning
+# ============================================
+batch.size=1000
+webapp.os.alias=os.production
+webapp.query.cache.size=10000
+webapp.query.cache.timeout=300
+
+# XML Factory
+systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl

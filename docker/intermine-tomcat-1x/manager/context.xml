@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AGR-patched manager webapp context.xml.
+
+  Patch vs stock Tomcat 8.5:
+    - RemoteAddrValve commented out — default Tomcat blocks any non-localhost
+      connection to the manager webapp. Build pipeline pushes WARs from
+      AllianceMineDev (172.31.60.197) -> multitenant Tomcat (172.31.59.87)
+      via cargoRedeployRemote, which is "non-localhost" from the container's
+      POV. Without this patch, all remote deploys 403.
+
+  See docs/INTERMINE_TOMCAT_DOCKER.md (§2 patch 2) for full reasoning.
+-->
+<Context antiResourceLocking="false" privileged="true" >
+    <!--
+    <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+           allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" />
+    -->
+    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.CsrfPreventionFilter\$LruCache(?:\$1)?|java\.util\.(?:Linked)?HashMap"/>
+</Context>
