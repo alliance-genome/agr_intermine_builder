@@ -283,7 +283,7 @@ class AllianceDataExtractor:
         (BGI gene seeds, EXPRESSION-ALLIANCE per-MOD files, allele/disease seeds).
         """
         stats = {"success": 0, "failed": 0, "skipped": 0, "total": len(FILE_MAP),
-                 "api": "skipped"}
+                 "api": "skipped", "genes_tsv": "skipped"}
 
         if not skip_fms:
             # SGD/external data from S3
@@ -303,12 +303,42 @@ class AllianceDataExtractor:
         else:
             logger.info("Skipping FMS / S3 downloads (--skip-fms)")
 
+        # Always (re)synthesise the 14-column Gene.tsv from whatever BGI_*.json
+        # files are on disk, even when --skip-fms was passed. The TSV is cheap
+        # to rebuild and AllianceGenesConverter relies on it being present and
+        # current with the BGI snapshot.
+        stats["genes_tsv"] = "ok" if self.build_genes_tsv() else "skipped"
+
         if not skip_api:
             stats["api"] = "ok" if self.fetch_api_data() else "failed"
         else:
             logger.info("Skipping API fetchers (--skip-api)")
 
         return stats
+
+    def build_genes_tsv(self) -> bool:
+        """Convert any BGI_*.json files in /root/data/genes/ into the
+        14-column Gene.tsv that alliance-genes / AllianceGenesConverter
+        reads. No-op (returns False) if there are no BGI files yet."""
+        script = Path(__file__).parent / "bgi_to_genes_tsv.py"
+        target_dir = self.data_dir / "genes"
+        if not script.exists():
+            logger.warning("bgi_to_genes_tsv.py not found; skipping Gene.tsv build")
+            return False
+        if not any(target_dir.glob("BGI_*.json")):
+            logger.info("No BGI_*.json files in %s — skipping Gene.tsv build", target_dir)
+            return False
+        logger.info("Building Gene.tsv from BGI_*.json in %s", target_dir)
+        try:
+            subprocess.check_call([
+                sys.executable, str(script),
+                "--data-dir", str(target_dir),
+                "--out", "Gene.tsv",
+            ])
+            return True
+        except subprocess.CalledProcessError as exc:
+            logger.error("Gene.tsv build failed: %s", exc)
+            return False
 
     def verify(self) -> None:
         """Print download summary."""

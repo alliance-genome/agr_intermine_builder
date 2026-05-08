@@ -179,8 +179,12 @@
           <property name="src.data.dir" location="/root/data/intermine/protein-ntermini"/>
       </source>
 
+      <!-- Gene.tsv is built by extract_data.py (build_genes_tsv) from the
+           downloaded BGI_*.json files. Including only Gene.tsv keeps the
+           converter from trying to parse the BGI JSON files as TSV. -->
       <source name="alliance-genes" type="alliance-genes">
           <property name="src.data.dir" location="/root/data/genes"/>
+          <property name="src.data.dir.includes" value="Gene.tsv"/>
       </source>
 
       <source name="go-annotation" type="go-annotation" dump="true">

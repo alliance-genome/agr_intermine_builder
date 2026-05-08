@@ -73,7 +73,9 @@ src/intermine_builder/ (orchestration)    scripts/extract_data.py (FMS + S3 data
 
 **build_full.py** — 6-stage pipeline: buildDB → extract_data → project_build → postprocess → war → deploy. Supports `--skip-stages`, `--start-from`, `--resume`.
 
-**extract_data.py** — Three passes: (1) S3 sync of SGD/external data from `s3://agr-db-backups/alliancemine/intermine/`, (2) FMS snapshot download of 49 MOD files, (3) Alliance API fetch via `alliancemine-bio-sources/scripts/fetch_all.py` into `/root/data/api/` (cache in `/root/data/api-cache/` via `ALLIANCE_FETCH_CACHE`). Use `--skip-fms` / `--skip-api` to re-run only one half.
+**extract_data.py** — Three passes: (1) S3 sync of SGD/external data from `s3://agr-db-backups/alliancemine/intermine/`, (2) FMS snapshot download of 49 MOD files, (3) Alliance API fetch via `alliancemine-bio-sources/scripts/fetch_all.py` into `/root/data/api/` (cache in `/root/data/api-cache/` via `ALLIANCE_FETCH_CACHE`). Use `--skip-fms` / `--skip-api` to re-run only one half. After FMS download, `build_genes_tsv()` runs `bgi_to_genes_tsv.py` to synthesise `/root/data/genes/Gene.tsv` (14-col TSV with SO term names) from the per-MOD BGI JSONs — the format `AllianceGenesConverter.java` consumes.
+
+**bgi_to_genes_tsv.py** — Reads `BGI_<MOD>.json` files, emits 14-col `Gene.tsv` matching the schema 8.3.0 used. Translates `soTermId` (`SO:0001217`) → SO term name (`protein_coding_gene`) via `/root/data/fms/ONTOLOGY_SO.obo`. Without name translation the converter silently drops every row (see `docs/RC20_BUILD_INCIDENT_2026_05_07.md` for the full story).
 
 **entrypoint.sh** — Resolves Alliance release from FMS API, auto-increments RC number, constructs versioned DB names, configures properties via `envsubst`, creates databases on RDS.
 
@@ -121,16 +123,31 @@ InterMine does NOT auto-create Solr cores. The build container does, via a prefl
 
 - Configuration via `.env` file + `envsubst` templates — never commit credentials
 - `project_build` uses `-E UTF8` for RDS compatibility and server-side DB copies for checkpoints
-- The Dockerfile patches `gradle.properties` (hardcoded `-Xmx48g`) and `SgdConverter.java` (dedup bug) — upstream PRs pending
+- The Dockerfile patches `gradle.properties` (hardcoded `-Xmx48g`), `SgdConverter.java` (dedup bug), symlinks `/root/alliancemine/alliancemine.properties` → `/root/.intermine/alliancemine.properties` (avoid stale upstream shadowing entrypoint-templated config), and installs a fake `/usr/local/bin/ssh` wrapper for project_build's checkpoint createdb (RDS doesn't accept SSH) — upstream PRs pending
 - Container memory limit (56G) must exceed JVM heap (48g) by ~8G for native memory
 - Profile DB is persistent across releases — not part of the build pipeline
 - WAR has properties baked in at build time — post-deploy fixes needed for `webapp.baseurl`, `superuser.account`, and profile DB name
+- **Always pipe `project_build` and `gradlew integrate` through `tee`** — the converter's row-count debug (`Processing Genes...`, `size of genes:  N`) only goes to stdout, not `intermine.log`. A 0-row load looks identical to success without the captured output. (Burned us on the rc20 build, see `docs/RC20_BUILD_INCIDENT_2026_05_07.md`.)
+- **Verify `db.production.datasource.databaseName` before every `./gradlew builddb`** — gradle reads `/root/alliancemine/alliancemine.properties` first, and the upstream copy of that file is a stale rc18 placeholder. The Dockerfile symlink fixes this for new images, but always sanity-check before running build-DB tasks (a misaimed builddb wiped 60 GB of production rc18).
 
 ## Important Docs
 
 - `docs/RELEASE_PROCESS.md` — End-to-end build and release workflow
+- `docs/RELEASE_PROMOTION_PROTOCOL.md` — Production cutover steps for major version promotion
 - `docs/BUILD_TROUBLESHOOTING.md` — Common errors and fixes
 - `docs/INFRASTRUCTURE_REFERENCE.md` — SSH hosts, RDS, machine specs (not committed, has credentials)
+- `docs/RC20_BUILD_INCIDENT_2026_05_07.md` — full timeline + recovery for the rc20 build defect that destroyed rc18 prod; canonical reference for the Gene.tsv synthesis design, properties shadowing trap, and the project_build/RDS gotchas
+- `docs/GENES_TSV_REBUILD.md` — design + field mapping for `bgi_to_genes_tsv.py` (BGI JSON → 14-col Gene.tsv with SO names)
+- `docs/RUNTIME_CONTAINER_BACKUP.md` — Snapshot deployed Tomcat containers to ECR for fast disaster recovery
+- `docs/MULTITENANT_BACKUP_RESTORE.md` — Automated all-mines backup + replay-flag restore (`scripts/backup_multitenant_runtimes.sh`, `scripts/restore_multitenant_runtime.sh`)
+- `docs/INTERMINE_PYTHON_BACKEND_MIGRATION.md` — Plan for Python+FastAPI backend rewrite (BlueGenes-driven, retires Java webapp; build pipeline stays Java)
+- `docs/INTERMINE_GO_BACKEND_MIGRATION.md` — Sibling plan, Go+chi+pgx stack (same scope, different language tradeoffs); §21 has the decision matrix
+- `docs/INTERMINE_TOMCAT_DOCKER.md` — 4 patches every InterMine Tomcat container needs + path to baked-in `intermine-tomcat:agr-runtime` image (resolves Tier 1 of POST_9_0_0_PLANNING)
+- `docs/RUNBOOK_ALLIANCEMINE_RESTART.md` — Restart procedure with `pg_terminate_backend` kick to break the bag-upgrade deadlock that bites every restart (until Tier 2 JDBC keepalive lands)
+- `docs/INCIDENT_2026_04_30_to_05_01.md` — Bot scraper / disk-full / accidental prune timeline + lessons
+- `docs/PRODUCTION_CUTOVER_9_0_0.md` — How 9.0.0 went live (ALB target swap 8080 → 8082)
+- `docs/ALLIANCEMINE_PUBLIC_URLS.md` — Public URL routing: `alliancemine.alliancegenome.org/alliancemine/` works; `www.alliancegenome.org/alliancemine/` returns CloudFront 502 (frontend team owns)
+- `docs/POST_9_0_0_PLANNING.md` — Open follow-ups, automation backlog, architecture questions
 
 ## Important Notes
 
