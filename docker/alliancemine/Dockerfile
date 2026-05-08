@@ -70,6 +70,22 @@ ARG ALLIANCEMINE_BRANCH=master
 RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
     https://github.com/alliance-genome/alliancemine.git
 
+# Symlink the in-project alliancemine.properties to the InterMine-convention
+# path. webapp/build.gradle reads /root/alliancemine/alliancemine.properties
+# directly (line ~59), so we can't just delete it. Symlinking ensures the
+# entrypoint-templated copy in /root/.intermine/ is the single source of
+# truth — no stale upstream rc18 placeholder shadowing it.
+RUN rm -f /root/alliancemine/alliancemine.properties && \
+    ln -s /root/.intermine/alliancemine.properties /root/alliancemine/alliancemine.properties
+
+# Fake ssh wrapper for project_build's checkpoint createdb step.
+# project_build wraps every checkpoint copy in `ssh <dump_host> createdb ...`,
+# but the dump_host is the RDS endpoint which doesn't accept SSH. The inner
+# createdb already carries `-h <dump_host>` so dropping the host arg and
+# exec'ing the rest locally hits RDS correctly via libpq.
+RUN printf '#!/bin/sh\nshift\nexec "$@"\n' > /usr/local/bin/ssh && \
+    chmod +x /usr/local/bin/ssh
+
 ARG BIO_SOURCES_BRANCH=master
 RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
     https://github.com/alliance-genome/alliancemine-bio-sources.git
@@ -108,6 +124,25 @@ RUN SGDFILE=/root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/d
     sed -i "${LINENUM}d" "$SGDFILE" && \
     sed -i "${LINENUM}s|/\\*if|if|" "$SGDFILE" && \
     sed -i "$((LINENUM+4))s|}\\*/|}|" "$SGDFILE"
+
+# Patch webconfig-model.xml: reorder Complex fieldconfig so systematicName comes
+# right after function. Without this, the Complex list view default columns hide
+# results until users manually add a column. Manually applied to prod 8082 on
+# 2026-05; baking in here so future builds inherit. Upstream fix needed in:
+# alliance-genome/alliancemine webapp/src/main/webapp/WEB-INF/webconfig-model.xml
+RUN python3 - <<'PYEOF'
+p = '/root/alliancemine/webapp/src/main/webapp/WEB-INF/webconfig-model.xml'
+s = open(p).read()
+old = '''            <fieldconfig fieldExpr="function" label="Complex Function" />
+            <fieldconfig fieldExpr="properties" label="Complex Properties" />
+            <fieldconfig fieldExpr="systematicName" label="Complex Systematic Name" />'''
+new = '''            <fieldconfig fieldExpr="function" label="Complex Function" />
+
+            <fieldconfig fieldExpr="systematicName" label="Complex Systematic Name" />
+            <fieldconfig fieldExpr="properties" label="Complex Properties" />'''
+assert old in s, 'webconfig Complex block not found - upstream may have changed'
+open(p, 'w').write(s.replace(old, new))
+PYEOF
 
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
