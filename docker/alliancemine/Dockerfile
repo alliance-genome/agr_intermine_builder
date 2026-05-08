@@ -144,6 +144,16 @@ assert old in s, 'webconfig Complex block not found - upstream may have changed'
 open(p, 'w').write(s.replace(old, new))
 PYEOF
 
+# Patch class_keys.properties: add Complex key + fix taxonif typo. Without a
+# Complex key, bag-upgrade can't resolve EBI-* identifiers when porting
+# Complex bags to a new release - osbag_int stays empty and the public
+# "Curated Macromolecular Complexes" list shows 0 items. The taxonif is a
+# longstanding typo (should be taxonid) flagged by ClassKeyHelper at startup.
+# Upstream fix needed in: alliance-genome/alliancemine dbmodel/resources/class_keys.properties
+RUN sed -i 's/taxonif/taxonid/' /root/alliancemine/dbmodel/resources/class_keys.properties && \
+    grep -q '^Complex' /root/alliancemine/dbmodel/resources/class_keys.properties || \
+    printf '\nComplex = identifier, accession, name\n' >> /root/alliancemine/dbmodel/resources/class_keys.properties
+
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
 
