@@ -1,0 +1,17 @@
+# Hourly cron job that cancels stuck queries on AllianceMine + WormMine
+# production DBs. Mitigates the InterMine large-IN-list planning storm
+# until the webapp-side bag-table fix lands.
+#
+# Install:
+#   sudo cp scripts/db-kill-stuck.cron /etc/cron.d/db-kill-stuck
+#   sudo chmod 644 /etc/cron.d/db-kill-stuck
+#
+# Disable when no longer needed:
+#   sudo rm /etc/cron.d/db-kill-stuck
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+# Every hour at :15 (offset from backup cron so logs don't interleave)
+15 * * * *  ec2-user  /home/ec2-user/agr_intermine_builder_flymine/scripts/db_kill_stuck_cron.sh
