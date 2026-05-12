@@ -49,3 +49,7 @@ docs/build_revamp_presentation.html
 
 # Infra docs with credentials (operator-local only)
 docs/INFRASTRUCTURE_REFERENCE.md
+
+# Database dumps (operator-local; can be large + sensitive)
+*.dump
+dumps/
