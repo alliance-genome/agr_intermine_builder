@@ -69,5 +69,10 @@ webapp.os.alias=os.production
 webapp.query.cache.size=10000
 webapp.query.cache.timeout=300
 
+# Planner-cost ceiling for ObjectStore queries. InterMine 1.x default is
+# 10000000, which enrichment widgets exceed on ontology-transitive joins.
+# See docs/MOUSEMINE_ENRICHMENT_WIDGET_FIX_2026_05_15.md.
+os.query.max-time=100000000
+
 # XML Factory
 systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl
