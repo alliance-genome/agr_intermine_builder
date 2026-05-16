@@ -1,0 +1,136 @@
+diff --git c/cdk/amplify-production-stack.ts w/cdk/amplify-production-stack.ts
+index 3a44d61f..03b432a7 100644
+--- c/cdk/amplify-production-stack.ts
++++ w/cdk/amplify-production-stack.ts
+@@ -150,21 +150,11 @@ export class AmplifyProductionStack extends cdk.Stack {
+         status: amplify.RedirectStatus.REWRITE,
+       },
+ 
+-      {
+-        source: '/alliancemine',
+-        target: 'https://www.alliancegenome.org/alliancemine/',
+-        status: amplify.RedirectStatus.PERMANENT_REDIRECT,
+-      },
+-      {
+-        source: '/alliancemine/',
+-        target: 'https://production-alliancemine.alliancegenome.org/alliancemine/',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/alliancemine/<*>',
+-        target: 'https://production-alliancemine.alliancegenome.org/alliancemine/<*>',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
++      // /alliancemine routes removed 2026-05-14: backing host
++      // production-alliancemine.alliancegenome.org was decommissioned with its
++      // Elastic Beanstalk environment. BlueGenes (/bluegenes/alliancemine) is
++      // the only user-facing entry to AllianceMine now. See
++      // docs/AMPLIFY_AND_NGINX_CLEANUP_2026_05_14.md.
+       {
+         source: '/bluegenes',
+         target: 'https://www.alliancegenome.org/bluegenes/',
+@@ -172,12 +162,12 @@ export class AmplifyProductionStack extends cdk.Stack {
+       },
+       {
+         source: '/bluegenes/',
+-        target: 'https://production-alliancemine.alliancegenome.org:444/bluegenes/alliancemine',
++        target: 'https://alliancemine.alliancegenome.org/bluegenes/alliancemine',
+         status: amplify.RedirectStatus.REWRITE,
+       },
+       {
+         source: '/bluegenes/<*>',
+-        target: 'https://production-alliancemine.alliancegenome.org:444/bluegenes/<*>',
++        target: 'https://alliancemine.alliancegenome.org/bluegenes/<*>',
+         status: amplify.RedirectStatus.REWRITE,
+       },
+ 
+diff --git c/cdk/amplify-stage-stack.ts w/cdk/amplify-stage-stack.ts
+index 7b461f51..5695bb50 100644
+--- c/cdk/amplify-stage-stack.ts
++++ w/cdk/amplify-stage-stack.ts
+@@ -165,36 +165,10 @@ export class AmplifyStageStack extends cdk.Stack {
+         target: 'https://stage-api.alliancegenome.org/openapi',
+         status: amplify.RedirectStatus.REWRITE,
+       },
+-      {
+-        source: '/alliancemine',
+-        target: 'https://stage.alliancegenome.org/alliancemine/',
+-        status: amplify.RedirectStatus.PERMANENT_REDIRECT,
+-      },
+-      {
+-        source: '/alliancemine/',
+-        target: 'https://stage-alliancemine.alliancegenome.org/alliancemine/',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/alliancemine/<*>',
+-        target: 'https://stage-alliancemine.alliancegenome.org/alliancemine/<*>',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/bluegenes',
+-        target: 'https://stage.alliancegenome.org/bluegenes/alliancemine',
+-        status: amplify.RedirectStatus.PERMANENT_REDIRECT,
+-      },
+-      {
+-        source: '/bluegenes/',
+-        target: 'https://stage.alliancegenome.org/bluegenes/alliancemine',
+-        status: amplify.RedirectStatus.PERMANENT_REDIRECT,
+-      },
+-      {
+-        source: '/bluegenes/<*>',
+-        target: 'https://stage-alliancemine.alliancegenome.org:444/bluegenes/<*>',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
++      // /alliancemine + /bluegenes routes removed 2026-05-14: stage env has no
++      // dedicated AllianceMine/BlueGenes UI consumer. Targets pointed at
++      // decommissioned stage-alliancemine.alliancegenome.org host. See
++      // docs/AMPLIFY_AND_NGINX_CLEANUP_2026_05_14.md.
+ 
+       {
+         source: '/textpresso/sgd',
+diff --git c/cdk/amplify-test-stack.ts w/cdk/amplify-test-stack.ts
+index 6de2f776..8a474660 100644
+--- c/cdk/amplify-test-stack.ts
++++ w/cdk/amplify-test-stack.ts
+@@ -139,36 +139,10 @@ export class AmplifyTestStack extends cdk.Stack {
+         status: amplify.RedirectStatus.REWRITE,
+       },
+ 
+-      {
+-        source: '/alliancemine',
+-        target: 'https://production-alliancemine.alliancegenome.org/alliancemine/',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/alliancemine/',
+-        target: 'https://production-alliancemine.alliancegenome.org/alliancemine/',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/alliancemine/<*>',
+-        target: 'https://production-alliancemine.alliancegenome.org/alliancemine/<*>',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/bluegenes',
+-        target: 'https://production-alliancemine.alliancegenome.org:444/bluegenes/alliancemine',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/bluegenes/',
+-        target: 'https://production-alliancemine.alliancegenome.org:444/bluegenes/alliancemine',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
+-      {
+-        source: '/bluegenes/<*>',
+-        target: 'https://production-alliancemine.alliancegenome.org:444/bluegenes/<*>',
+-        status: amplify.RedirectStatus.REWRITE,
+-      },
++      // /alliancemine + /bluegenes routes removed 2026-05-14: test env has no
++      // dedicated AllianceMine/BlueGenes UI consumer. Targets pointed at
++      // decommissioned production-alliancemine.alliancegenome.org host. See
++      // docs/AMPLIFY_AND_NGINX_CLEANUP_2026_05_14.md.
+ 
+       {
+         source: '/swagger-ui',
