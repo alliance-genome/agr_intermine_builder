@@ -1,0 +1,62 @@
+services:
+  yeastmine-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        YEASTMINE_BRANCH: ${YEASTMINE_BRANCH:-master}
+        YEASTMINE_BIO_SOURCES_BRANCH: ${YEASTMINE_BIO_SOURCES_BRANCH:-master}
+
+    image: yeastmine-builder:${IMAGE_TAG:-latest}
+    container_name: yeastmine-builder
+
+    environment:
+      # RDS Connection
+      RDS_HOST: ${RDS_HOST}
+      RDS_PORT: ${RDS_PORT:-5432}
+      RDS_USER: ${RDS_USER:-postgres}
+      RDS_PASSWORD: ${RDS_PASSWORD}
+
+      # Build Configuration
+      # Operator should set this explicitly to align with the SGD/YeastMine
+      # release the build is for (e.g. R64-5-1). Entrypoint defaults to
+      # today's date if unset.
+      YEASTMINE_RELEASE: ${YEASTMINE_RELEASE:-}
+      BUILD_TYPE: ${BUILD_TYPE:-test}
+      # RC_NUMBER: auto-incremented from RDS if not set
+      RC_NUMBER: ${RC_NUMBER:-}
+      # COPY_PROFILE_DB: if true, test builds get an isolated copy of
+      # yeastmine_userprofile instead of sharing the production one
+      COPY_PROFILE_DB: ${COPY_PROFILE_DB:-false}
+
+      # Deployment (optional — WAR is deployed externally to multitenant Tomcat)
+      DEPLOY_HOST: ${DEPLOY_HOST:-}
+      DEPLOY_PORT: ${DEPLOY_PORT:-8080}
+      DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
+      DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
+
+      # Webapp
+      WEBAPP_BASEURL: ${WEBAPP_BASEURL:-http://localhost:8080}
+      SUPERUSER_ACCOUNT: ${SUPERUSER_ACCOUNT:-superuser@mail_account}
+      SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-secret}
+
+      # Java/Gradle (must exceed 48g JVM by ~8G for native memory; container limit 56G)
+      GRADLE_OPTS: >-
+        -Xmx48g -Xms24g
+        -XX:+UseParallelGC
+        -Dorg.gradle.daemon=false
+
+    volumes:
+      - ./data:/root/data
+
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 56G
+        reservations:
+          cpus: '4'
+          memory: 24G
+
+    stdin_open: true
+    tty: true
