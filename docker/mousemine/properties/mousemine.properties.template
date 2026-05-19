@@ -39,7 +39,7 @@ db.userprofile-production.platform=PostgreSQL
 project.title=MouseMine
 project.subTitle=An integrated database for Mus musculus genomics, curated by MGI
 project.releaseVersion=${MOUSEMINE_RELEASE}
-project.sitePrefix=${WEBAPP_BASEURL}
+project.sitePrefix=${WEBAPP_BASEURL}/mousemine
 
 # ============================================
 # Web Application / Deployment

@@ -39,7 +39,7 @@ db.userprofile-production.platform=PostgreSQL
 project.title=YeastMine
 project.subTitle=An integrated database of Saccharomyces cerevisiae genomics, curated by SGD
 project.releaseVersion=${YEASTMINE_RELEASE}
-project.sitePrefix=${WEBAPP_BASEURL}
+project.sitePrefix=${WEBAPP_BASEURL}/yeastmine
 
 # ============================================
 # Web Application / Deployment

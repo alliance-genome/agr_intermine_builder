@@ -53,7 +53,7 @@ db.sgd.platform=PostgreSQL
 project.title=AllianceMine
 project.subTitle=Alliance of Genome Resources
 project.releaseVersion=${ALLIANCE_RELEASE}
-project.sitePrefix=${WEBAPP_BASEURL}
+project.sitePrefix=${WEBAPP_BASEURL}/alliancemine
 project.helpLocation=https://www.alliancegenome.org
 
 # ============================================

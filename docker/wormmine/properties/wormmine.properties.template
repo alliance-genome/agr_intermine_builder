@@ -39,7 +39,7 @@ db.userprofile-production.platform=PostgreSQL
 project.title=WormMine
 project.subTitle=An integrated database of C. elegans and other nematode genomics
 project.releaseVersion=${WORMBASE_RELEASE}
-project.sitePrefix=${WEBAPP_BASEURL}
+project.sitePrefix=${WEBAPP_BASEURL}/wormmine
 
 # ============================================
 # Web Application / Deployment
