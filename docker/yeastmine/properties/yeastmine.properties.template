@@ -47,6 +47,12 @@ project.sitePrefix=${WEBAPP_BASEURL}
 webapp.deploy.url=${DEPLOY_URL}
 webapp.baseurl=${WEBAPP_BASEURL}
 webapp.path=yeastmine
+theme=yeastmine
+
+# Static assets CDN. cdn.intermine.org was decommissioned; the live mirror
+# is the Alliance CDN proxy. Without this, inner pages 404 on jQuery / imjs /
+# theme.css. See docs/MOUSEMINE_ENRICHMENT_WIDGET_FIX_2026_05_15.md.
+head.cdn.location=https://intermine-cdn.alliancegenome.org
 webapp.manager=${DEPLOY_MANAGER}
 webapp.password=${DEPLOY_PASSWORD}
 webapp.port=${DEPLOY_PORT}
