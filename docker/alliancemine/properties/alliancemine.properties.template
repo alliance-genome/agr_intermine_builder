@@ -108,5 +108,20 @@ webapp.query.cache.timeout=300
 # See docs/MOUSEMINE_ENRICHMENT_WIDGET_FIX_2026_05_15.md.
 os.query.max-time=1000000000
 
+# ============================================
+# Mail / SMTP (AWS SES via STARTTLS by default)
+# Requires the runtime patches in scripts/patch_mail_post_deploy.sh:
+#   - JavaMail 1.6.2 jar (upstream ships 1.4 / 2005, no TLS 1.2)
+#   - patched MailUtils.class from patches/intermine/MailUtils.java
+# See docs/MOUSEMINE_FORGOT_PASSWORD_FIX_2026_05_27.md.
+# ============================================
+mail.host=${MAIL_HOST}
+mail.smtp.port=${MAIL_SMTP_PORT}
+mail.smtp.auth=${MAIL_SMTP_AUTH}
+mail.smtp.starttls.enable=${MAIL_SMTP_STARTTLS}
+mail.smtp.user=${MAIL_SMTP_USER}
+mail.server.password=${MAIL_SERVER_PASSWORD}
+mail.from=${MAIL_FROM}
+
 # XML Factory
 systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl
