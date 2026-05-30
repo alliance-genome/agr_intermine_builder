@@ -1,8 +1,15 @@
 # FlyMine source → data correlation
 
 Date: 2026-05-28
-Status: audit complete; build-strategy decision pending (see bottom)
-Task: #9
+Status: **superseded for Bucket D as of 2026-05-29** — see
+`docs/FLYMINE_BUCKET_D_DECISIONS_2026_05_29.md` and the sibling's
+`new_flymine/docs/BUCKET_D_RECOVERY_INVENTORY_2026-05-29.md`. Live HTTP
+probes by the new_flymine session showed 9/14 Bucket-D sources are
+actually recoverable (the paper audit below was too pessimistic). The
+build strategy is **full FlyMine minus non-FB fluff + stocks** (not the
+Path 2 "slim FlyMine" recommended below). This doc stays as the
+original audit; the decisions doc is the plan of record.
+Task: #9 (completed)
 
 `intermine/flymine` `project.xml` (master, last upstream push 2022-08-26)
 declares **67 sources**. Every one points at Cambridge's `/micklem/data/`
