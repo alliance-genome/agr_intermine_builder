@@ -85,7 +85,7 @@ webapp.query.cache.timeout=300
 # Planner-cost ceiling for ObjectStore queries. InterMine 1.x default is
 # 10000000, which MP / EMAPA / DO enrichment widgets exceed on MouseMine-sized
 # OntologyTermParents joins. See docs/MOUSEMINE_ENRICHMENT_WIDGET_FIX_2026_05_15.md.
-os.query.max-time=1000000000
+os.query.max-time=500000000
 
 # ============================================
 # Mail / SMTP (AWS SES via STARTTLS by default)
