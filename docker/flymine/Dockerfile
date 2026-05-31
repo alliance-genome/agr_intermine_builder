@@ -61,39 +61,36 @@ WORKDIR /root
 RUN mkdir -p .intermine
 
 # ============================================
-# Clone FlyMine Repositories
-# Repos are cloned at build time but compiled at runtime (first run)
-# to keep image build lightweight.
+# FlyMine source location
+# We do NOT clone upstream intermine/flymine — the operator's local fork at
+# new_flymine/{flymine, flymine-bio-sources} carries EBI Maven URL + GO
+# enrichment fixes (and the in-progress full-no-fluff project.xml edits) that
+# exist nowhere else.
+#
+# The source dirs are bind-mounted at runtime by docker-compose.yml:
+#   host: ${FLYMINE_SRC_DIR}            -> container: /root/flymine
+#   host: ${FLYMINE_BIO_SOURCES_SRC_DIR} -> container: /root/flymine-bio-sources
+#
+# When alliance-genome/flymine fork is published, switch this back to a clone
+# + ARG <pin-sha> pattern. See docs/FLYMINE_DOCKER_HANDOFF_REPLIES_2026_05_30.md Q2.
 # ============================================
-ARG FLYMINE_BRANCH=master
-RUN git clone --depth 1 --branch ${FLYMINE_BRANCH} \
-    https://github.com/intermine/flymine.git
-
-ARG FLYMINE_BIO_SOURCES_BRANCH=master
-RUN git clone --depth 1 --branch ${FLYMINE_BIO_SOURCES_BRANCH} \
-    https://github.com/intermine/flymine-bio-sources.git
 
 # ============================================
 # Install project_build from intermine-scripts
 # Mirrors the AllianceMine pattern (consistency over FlyMine's in-repo variant).
+# Drop the binary into /opt; entrypoint copies it into /root/flymine after
+# the source mount is in place.
 # ============================================
-RUN git clone --depth 1 https://github.com/intermine/intermine-scripts.git /root/intermine-scripts && \
-    cp /root/intermine-scripts/project_build /root/flymine/project_build && \
-    chmod +x /root/flymine/project_build && \
-    rm -rf /root/intermine-scripts
+RUN git clone --depth 1 https://github.com/intermine/intermine-scripts.git /opt/intermine-scripts && \
+    cp /opt/intermine-scripts/project_build /opt/project_build && \
+    chmod +x /opt/project_build && \
+    rm -rf /opt/intermine-scripts
 
 # ============================================
 # Add Properties and Configuration
 # ============================================
 COPY properties/flymine.properties.template /root/.intermine/flymine.properties.template
 COPY properties/flymine.properties.template /root/.intermine/flymine.properties
-
-# Append a JVM heap setting to FlyMine's gradle.properties.
-# FlyMine's upstream gradle.properties does NOT set org.gradle.jvmargs, so
-# we APPEND (not sed-replace as in AllianceMine where the line exists). Without
-# this the build OOMs on real-sized data with the default ~1g heap.
-RUN echo '' >> /root/flymine/gradle.properties && \
-    echo 'org.gradle.jvmargs=-Xmx48g -XX:+HeapDumpOnOutOfMemoryError' >> /root/flymine/gradle.properties
 
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh

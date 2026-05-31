@@ -3,9 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        FLYMINE_BRANCH: ${FLYMINE_BRANCH:-master}
-        FLYMINE_BIO_SOURCES_BRANCH: ${FLYMINE_BIO_SOURCES_BRANCH:-master}
 
     image: flymine-builder:${IMAGE_TAG:-latest}
     container_name: flymine-builder
@@ -49,7 +46,16 @@ services:
         -Dorg.gradle.daemon=false
 
     volumes:
+      # FlyMine source dirs come from the operator's local fork — NOT an in-image clone.
+      # On AllianceMineDev: rsync /Users/nuin/Projects/alliance/new_flymine/{flymine,flymine-bio-sources}
+      # to /home/ec2-user/flymine + /home/ec2-user/flymine-bio-sources, then point these at them.
+      # See docs/FLYMINE_DOCKER_HANDOFF_REPLIES_2026_05_30.md Q2.
+      - ${FLYMINE_SRC_DIR:?Set FLYMINE_SRC_DIR in .env}:/root/flymine
+      - ${FLYMINE_BIO_SOURCES_SRC_DIR:?Set FLYMINE_BIO_SOURCES_SRC_DIR in .env}:/root/flymine-bio-sources
       - ./data:/root/data
+      # Persist the maven local repo between runs so bio-sources installs stick
+      - flymine-m2:/root/.m2
+      - flymine-gradle:/root/.gradle
 
     deploy:
       resources:
@@ -62,3 +68,7 @@ services:
 
     stdin_open: true
     tty: true
+
+volumes:
+  flymine-m2:
+  flymine-gradle:

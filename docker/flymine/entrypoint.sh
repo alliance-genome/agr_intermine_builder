@@ -6,6 +6,50 @@ echo "FlyMine Build Container"
 echo "============================================"
 
 # ============================================
+# Source mount sanity check
+# Source dirs are bind-mounted from host by docker-compose.yml — no image-baked clone.
+# ============================================
+for dir in /root/flymine /root/flymine-bio-sources; do
+    if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+        echo "ERROR: $dir is not mounted or is empty."
+        echo "  Set FLYMINE_SRC_DIR + FLYMINE_BIO_SOURCES_SRC_DIR in .env."
+        echo "  See docs/FLYMINE_DOCKER_HANDOFF_REPLIES_2026_05_30.md Q2."
+        exit 1
+    fi
+done
+
+# ============================================
+# Pre-compile patches — applied at first run, idempotent
+# ============================================
+patch_sources_if_needed() {
+    # 1. Strip JCenter-sunset bintray plugin classpaths from bio-sources build.gradle
+    #    (upstream still has these; they 404 against the dead jcenter.bintray.com).
+    #    Sibling already fixed in their local fork; this is a safety net.
+    BS_GRADLE=/root/flymine-bio-sources/build.gradle
+    if [ -f "$BS_GRADLE" ] && grep -q 'jfrog.bintray' "$BS_GRADLE"; then
+        echo "  Patching bio-sources build.gradle (drop JCenter bintray classpaths)..."
+        sed -i '/com\.jfrog\.bintray\.gradle:gradle-bintray-plugin/d' "$BS_GRADLE"
+        sed -i '/org\.jfrog\.buildinfo:build-info-extractor-gradle/d' "$BS_GRADLE"
+        sed -i "/apply plugin: 'com\.jfrog\.bintray'/d" "$BS_GRADLE"
+    fi
+
+    # 2. Drop intermine-scripts project_build into the mine root if not present
+    if [ -f /opt/project_build ] && [ ! -f /root/flymine/project_build ]; then
+        echo "  Installing project_build from intermine-scripts..."
+        cp /opt/project_build /root/flymine/project_build
+        chmod +x /root/flymine/project_build
+    fi
+
+    # 3. Ensure JVM heap setting on flymine/gradle.properties
+    GP=/root/flymine/gradle.properties
+    if [ -f "$GP" ] && ! grep -q 'org.gradle.jvmargs.*-Xmx48g' "$GP"; then
+        echo "  Appending -Xmx48g to flymine/gradle.properties..."
+        echo '' >> "$GP"
+        echo 'org.gradle.jvmargs=-Xmx48g -XX:+HeapDumpOnOutOfMemoryError' >> "$GP"
+    fi
+}
+
+# ============================================
 # Compile bio-sources and flymine (first run only)
 # ============================================
 compile_if_needed() {
@@ -16,6 +60,8 @@ compile_if_needed() {
 
     echo "First run: compiling flymine-bio-sources and flymine..."
     echo "This takes ~10-15 minutes."
+
+    patch_sources_if_needed
 
     echo "  [1/2] Building flymine-bio-sources..."
     cd /root/flymine-bio-sources
