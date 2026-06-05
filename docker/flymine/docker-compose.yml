@@ -1,4 +1,38 @@
 services:
+  chado-pg:
+    # Local FlyBase Chado Postgres so the chado-db-flybase-dmel source has a
+    # backing DB without consuming intermine-postgres RDS storage. Dump
+    # restore: `gunzip -c FB2026_01.sql.gz | docker compose exec -T chado-pg psql -U chado -d chado`
+    image: postgres:14
+    container_name: chado-pg
+    environment:
+      POSTGRES_USER: ${CHADO_PG_USER:-chado}
+      POSTGRES_PASSWORD: ${CHADO_PG_PASSWORD:-chado}
+      POSTGRES_DB: ${CHADO_PG_DB:-chado}
+    volumes:
+      - chado-pg-data:/var/lib/postgresql/data
+      # Tuning conf — restore + integrate are both heavy on shared_buffers
+      - ./chado-pg.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - chado-net
+    # Docker's default /dev/shm is 64 MB; postgres needs much more for parallel
+    # workers + hash joins on the big chado tables (feature: 25 GB, featureloc:
+    # 39 GB). Without this VACUUM and the InterMine chado-db source's parallel
+    # queries fail with "could not resize shared memory segment ... No space left
+    # on device".
+    shm_size: 4gb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CHADO_PG_USER:-chado} -d ${CHADO_PG_DB:-chado}"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 12G
+
   flymine-builder:
     build:
       context: .
@@ -7,12 +41,24 @@ services:
     image: flymine-builder:${IMAGE_TAG:-latest}
     container_name: flymine-builder
 
+    networks:
+      - chado-net
+      - default
+
     environment:
-      # RDS Connection
+      # RDS Connection (production / userprofile / items DBs)
       RDS_HOST: ${RDS_HOST}
       RDS_PORT: ${RDS_PORT:-5432}
       RDS_USER: ${RDS_USER:-postgres}
       RDS_PASSWORD: ${RDS_PASSWORD}
+
+      # FlyBase Chado source DB — defaults to the local chado-pg service.
+      # Override CHADO_PG_HOST in .env to point at an external chado pg.
+      CHADO_PG_HOST: ${CHADO_PG_HOST:-chado-pg}
+      CHADO_PG_PORT: ${CHADO_PG_PORT:-5432}
+      CHADO_PG_DB: ${CHADO_PG_DB:-chado}
+      CHADO_PG_USER: ${CHADO_PG_USER:-chado}
+      CHADO_PG_PASSWORD: ${CHADO_PG_PASSWORD:-chado}
 
       # Build Configuration
       # FlyMine has no FMS-equivalent API; the operator must set FLYMINE_RELEASE
@@ -68,3 +114,8 @@ services:
 volumes:
   flymine-m2:
   flymine-gradle:
+  chado-pg-data:
+
+networks:
+  chado-net:
+  default:

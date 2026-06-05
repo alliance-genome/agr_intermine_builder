@@ -29,16 +29,17 @@ compile_if_needed() {
     cd /root/flymine
     ./gradlew install --stacktrace
 
-    # Cleanup Gradle caches to save space
+    # Cleanup Gradle caches to save space. Wrap in `|| true` because /tmp
+    # is sometimes bind-mounted for operator scripts (e.g. `-v script.sh:/tmp/foo`)
+    # which causes EBUSY and would otherwise trip `set -e` and abort the
+    # container before exec "$@" runs the operator's command.
     rm -rf /root/.gradle/caches/transforms-* \
-           /root/.gradle/caches/journal-* \
-           /tmp/*
+           /root/.gradle/caches/journal-* 2>/dev/null || true
+    rm -rf /tmp/* 2>/dev/null || true
 
-    rm /root/.needs_compile
+    rm -f /root/.needs_compile
     echo "Compilation complete."
 }
-
-compile_if_needed
 
 # ============================================
 # Resolve FlyMine Release
@@ -162,6 +163,16 @@ configure_properties() {
     export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-secret}"
     export BLUEGENES_TOOL_LOCATION="${BLUEGENES_TOOL_LOCATION:-/root/bluegenes-tools/node_modules}"
 
+    # Solr URLs — multitenant Solr at SOLR_HOST:SOLR_PORT.
+    # Convention: cores are `flymine-search` / `flymine-autocomplete` (no release
+    # suffix). Override SOLR_INDEX_URL/SOLR_AUTOCOMPLETE_URL directly for tests.
+    local solr_host="${SOLR_HOST:-172.31.59.87}"
+    local solr_port="${SOLR_PORT:-8983}"
+    export SOLR_INDEX_URL="${SOLR_INDEX_URL:-http://${solr_host}:${solr_port}/solr/flymine-search}"
+    export SOLR_AUTOCOMPLETE_URL="${SOLR_AUTOCOMPLETE_URL:-http://${solr_host}:${solr_port}/solr/flymine-autocomplete}"
+    echo "  Solr index URL:        ${SOLR_INDEX_URL}"
+    echo "  Solr autocomplete URL: ${SOLR_AUTOCOMPLETE_URL}"
+
     envsubst < /root/.intermine/flymine.properties.template \
              > /root/.intermine/flymine.properties
 
@@ -224,20 +235,26 @@ construct_db_names
 configure_properties
 setup_databases
 
-# Handle commands
-case "$1" in
-    bash|sh)
-        echo ""
-        echo "Mode: SHELL"
-        exec /bin/bash
-        ;;
+# Compile flymine-bio-sources + flymine. Must run AFTER configure_properties
+# because webapp/build.gradle reads webapp.port as an integer at config time,
+# and the template's ${DEPLOY_PORT} placeholder must already be substituted
+# (otherwise gradle fails with: For input string: "${DEPLOY_PORT}").
+compile_if_needed
 
-    *)
-        # Default: run the provided command (or bash if none)
-        if [ $# -eq 0 ]; then
-            exec /bin/bash
-        else
-            exec "$@"
-        fi
-        ;;
-esac
+# Handle commands
+if [ $# -eq 0 ]; then
+    echo ""
+    echo "Mode: SHELL"
+    exec /bin/bash
+fi
+
+# When invoked as `bash` / `sh` with NO further args, drop into an interactive
+# shell. With args (e.g. `bash -c "..."`, `bash script.sh`), forward them so
+# downstream tooling works correctly.
+if { [ "$1" = "bash" ] || [ "$1" = "sh" ]; } && [ $# -eq 1 ]; then
+    echo ""
+    echo "Mode: SHELL"
+    exec /bin/bash
+fi
+
+exec "$@"

@@ -84,12 +84,19 @@ HASH_TAG="src-${SRC_HASH}"
 echo "==> Source hash: ${HASH_TAG}"
 
 echo "==> Building flymine-builder:${TAG} + flymine-builder:${HASH_TAG}..."
-docker build \
-    -t "flymine-builder:${TAG}" \
-    -t "flymine-builder:${HASH_TAG}" \
-    "${HERE}"
+# AllianceMineDev (the consumer) is linux/amd64; Mac build hosts are arm64.
+# Use buildx so the pushed manifest is amd64 regardless of build-host arch.
+# --no-push variant uses --load (single-arch) so the local daemon can run it
+# for smoke tests.
+PLATFORM="linux/amd64"
 
 if [[ ${PUSH} -eq 0 ]]; then
+    docker buildx build \
+        --platform "${PLATFORM}" \
+        --load \
+        -t "flymine-builder:${TAG}" \
+        -t "flymine-builder:${HASH_TAG}" \
+        "${HERE}"
     echo "==> --no-push set; skipping ECR push."
     echo "Local images:"
     docker images flymine-builder --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}' | head -5
@@ -103,11 +110,13 @@ aws ecr describe-repositories --region "${ECR_REGION}" --repository-names "${ECR
 aws ecr get-login-password --region "${ECR_REGION}" \
     | docker login --username AWS --password-stdin "${ECR_HOST}"
 
-for t in "${TAG}" "${HASH_TAG}"; do
-    docker tag "flymine-builder:${t}" "${ECR_HOST}/${ECR_REPO}:${t}"
-    echo "==> Pushing ${ECR_HOST}/${ECR_REPO}:${t}..."
-    docker push "${ECR_HOST}/${ECR_REPO}:${t}"
-done
+# Push directly from buildx (single push, native amd64 manifest).
+docker buildx build \
+    --platform "${PLATFORM}" \
+    --push \
+    -t "${ECR_HOST}/${ECR_REPO}:${TAG}" \
+    -t "${ECR_HOST}/${ECR_REPO}:${HASH_TAG}" \
+    "${HERE}"
 
 echo
 echo "==> Done."
