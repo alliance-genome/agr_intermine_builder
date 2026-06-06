@@ -38,29 +38,28 @@ Top loaded classes:
 
 | Class | Count |
 |---|---|
-| GOAnnotation | (full count from per-class summary file) |
 | SequenceFeature | 2 606 748 |
-| Allele | 329 847 |
-| Synonym | 303 215 |
-| OntologyAnnotation | (in file) |
 | OntologyRelation | 815 610 |
-| Publication | 154 254 |
 | TransposableElementInsertionSite | 394 906 |
 | PhenotypeAnnotation | 383 050 |
 | SequenceCollection | 352 436 |
+| Allele | 329 847 |
+| Synonym | 303 215 |
+| OntologyAnnotation | 182 289 |
+| GOAnnotation | 182 289 |
+| Gene | 164 765 |
 | TransgenicConstruct | 163 626 |
-| Stock | 122 066 |
-| Gene | (in file) |
-| Protein | 57 911 |
-| ProteinDomain | 51 489 |
+| Publication | 154 254 |
+| UTR | 60 549 |
 | OntologyTerm | 58 700 |
 | RegulatoryRegion | 58 506 |
-| UTR | 60 549 |
+| Protein | 57 911 |
+| ProteinDomain | 51 489 |
 | Transcript | 35 118 |
 | ThreePrimeUTR | 30 324 |
 | Aberration | 23 870 |
-| TransposableElement | 6 306 |
 | PointMutation | 7 008 |
+| TransposableElement | 6 306 |
 | SOTerm | 2 312 |
 
 Full per-class breakdown lives in `/usr/local/tomcat/webapps/flymine/WEB-INF/objectstoresummary.properties` (106 entries, generated from DB row counts — see "Runtime patches" below).
@@ -190,6 +189,56 @@ All applied at image-build time, idempotent:
 `scripts/build_and_push.sh` switched to `docker buildx build --platform linux/amd64 --push` so Mac builds produce amd64 manifests.
 
 `docker-compose.yml`, `entrypoint.sh`, `properties/flymine.properties.template`, `.env.example` also updated for Solr env vars + Hikari pool sizing + chado-pg routing — see git diff.
+
+## Day-0 data-fill patches (2026-06-06)
+
+Post-deploy audit showed many user-facing attribute columns were NULL even when the underlying entity was loaded. Two layers of fix:
+
+### Tier 1 — SQL fallbacks (`scripts/patch_*.sql`, run by `finalize_build.sh`)
+
+Idempotent, runs in seconds, baked into the image (copies via Dockerfile, symlinked as `/usr/local/bin/finalize_build`). Apply between `:dbmodel:postprocess` and `:webapp:summariseObjectStore` so the WAR's `objectstoresummary.properties` reflects the patched data.
+
+| Table | Patch |
+|---|---|
+| chromosome | `name = symbol = primaryidentifier` for the 26 chado-loaded chromosomes |
+| aberration | `name = symbol`; `secondaryidentifier = primaryidentifier` |
+| balancer | same |
+| transgenicconstruct | same |
+| transcript | `name = secondaryidentifier` ("CG10129-RA") |
+| transposableelement / transposableelementinsertionsite | `name = symbol or secondaryidentifier` |
+| gene (90% skeleton entries from chado-db-flybase-{others,dpse}) | `symbol = name = secondaryidentifier = primaryidentifier` so the FBgn renders in cross-class queries instead of an empty cell |
+| protein | `name = symbol = primaryaccession` (35K / 58K rows) |
+| proteindomain | `symbol = primaryidentifier`; `secondaryidentifier = shortname` |
+| stock | `name = secondaryidentifier` (the genotype string); `symbol = primaryidentifier` |
+| allele | `name = symbol`; `secondaryidentifier = primaryidentifier` |
+
+Post-patch coverage for the key columns:
+
+- aberration.name: 0% → 100%
+- balancer.name: 0% → 99.7% (2 of 644 have no symbol either)
+- gene.symbol: 10% → 100%
+- gene.name: 7% → 100%
+- transgenicconstruct.name: 0% → 100%
+- transposableelementinsertionsite.name: 0% → 100%
+- protein.name: 0% → 61% (rest have no primaryaccession)
+- stock.name: 0% → 100%
+- allele.name: 0% → 100%
+
+These don't conjure missing data — they make the existing identifier visible where the chado loader left a NULL.
+
+### Tier 2 — Source-level fixes (next build)
+
+Deep data still missing; needs source-code or project.xml work:
+
+| Gap | Fix |
+|---|---|
+| `publication.{title,journal,year,firstauthor,doi,…}` all NULL | Re-enable `update-publications` with an NCBI API key (currently disabled in project.xml; eutils rate-limits at 144K pubs without key). Alternative: pre-fetch a FlyBase publications.xml feed and point `src.data.file` at it |
+| `protein.{molecularweight,uniprotname,uniprotaccession}` all NULL | Re-run `uniprot` source with `loadFullRecord=true` style attribute pass (current run only kept primaryaccession + sequence) |
+| `aberration.description` / `balancer.description` all NULL | Patch sibling's `flybase-aberrations` lean source to emit description from chado `featureprop` (the chado-db loader doesn't pull these for aberration/balancer entity types) |
+| `transposableelementinsertionsite` chromosome attached on 18% only | Drop FBti entries without chromosome location at integration time, OR re-run chado-db with insertion-loc enabled — most non-located FBtis are stubs |
+| `gene.symbol = FBgn…` for non-D.mel (slim build) | Either keep the fallback (FBgn is at least a valid identifier) OR drop `chado-db-flybase-{others,dpse}` from project.xml for a D.mel-only mine |
+
+These all land as edits to the FlyMine fork in `~/Projects/alliance/new_flymine/` and re-runs of specific `:dbmodel:integrate -Psource=…` steps; coordinate with the sibling session before scheduling.
 
 ## Remaining follow-ups
 

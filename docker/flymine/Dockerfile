@@ -165,6 +165,15 @@ RUN chmod +x /root/entrypoint.sh
 COPY scripts/extract_data.py /root/scripts/extract_data.py
 RUN chmod +x /root/scripts/extract_data.py
 
+# Post-build SQL patches + finalize wrapper.
+# Run after :dbmodel:postprocess so the WAR's objectstoresummary.properties
+# and the deployed UI both reflect the patched DB. See scripts/finalize_build.sh.
+COPY scripts/patch_chromosome_names.sql /root/scripts/patch_chromosome_names.sql
+COPY scripts/patch_attribute_fallbacks.sql /root/scripts/patch_attribute_fallbacks.sql
+COPY scripts/finalize_build.sh /root/scripts/finalize_build.sh
+RUN chmod +x /root/scripts/finalize_build.sh && \
+    ln -sf /root/scripts/finalize_build.sh /usr/local/bin/finalize_build
+
 # Create data directories
 # A future session will own data layout; for image build we just need /root/data/dump
 # for project_build's checkpoint area.
