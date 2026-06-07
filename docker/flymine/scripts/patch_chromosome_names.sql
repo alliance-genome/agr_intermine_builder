@@ -4,7 +4,12 @@
 -- `Chromosome > Symbol`, even though the underlying `primaryIdentifier` ("2L",
 -- "3R", etc.) is populated and chromosomal locations resolve correctly.
 --
--- Run against the production object store DB after the `postprocess` step.
+-- RUN ORDER (see patch_attribute_fallbacks.sql for the full rationale):
+--   Canonical: BEFORE `:dbmodel:postprocess`, so `create-attribute-indexes`
+--   builds the chromosome name/symbol b-trees once over patched values.
+--   Hot-fix on already-built DB: also safe, idempotent.
+--   Always BEFORE `:webapp:summariseObjectStore` so the WAR's
+--   `objectstoresummary.properties` reflects the patched chromosome attributes.
 -- Idempotent — guarded by `WHERE … IS NULL`.
 --
 -- Usage:

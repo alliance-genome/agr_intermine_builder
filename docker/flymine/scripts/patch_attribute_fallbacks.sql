@@ -10,8 +10,21 @@
 -- Companion to:
 --   patch_chromosome_names.sql (chromosome.name/.symbol)
 --
--- Run order: after `postprocess`, before `:webapp:summariseObjectStore`
--- (so the WAR's objectstoresummary.properties picks up the filled values).
+-- RUN ORDER:
+--   Canonical (cold build, fast): run BEFORE `:dbmodel:postprocess`. The
+--   `create-attribute-indexes` post-process (step 11 of 15) builds
+--   case-insensitive b-trees on lower(name)/lower(symbol)/lower(secondary
+--   identifier) across every entity table — ~6 indexes per column. UPDATEing
+--   after those indexes exist rewrites all of them for every row touched
+--   (gene 165K, allele 330K, transposableelementinsertionsite 395K). Running
+--   the SQL first means UPDATEs hit unindexed tables and the post-process
+--   builds the indexes once, from patched values.
+--
+--   Hot-fix on an already-built DB: also safe (the SQL is idempotent), just
+--   slower for the large tables.
+--
+--   Always BEFORE `:webapp:summariseObjectStore` so the WAR's
+--   `objectstoresummary.properties` picks up the filled values.
 --
 -- Usage:
 --   PGPASSWORD=… psql -h <RDS_HOST> -U postgres -d <DB_NAME> \

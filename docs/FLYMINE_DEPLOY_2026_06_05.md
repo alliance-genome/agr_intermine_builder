@@ -196,7 +196,23 @@ Post-deploy audit showed many user-facing attribute columns were NULL even when 
 
 ### Tier 1 — SQL fallbacks (`scripts/patch_*.sql`, run by `finalize_build.sh`)
 
-Idempotent, runs in seconds, baked into the image (copies via Dockerfile, symlinked as `/usr/local/bin/finalize_build`). Apply between `:dbmodel:postprocess` and `:webapp:summariseObjectStore` so the WAR's `objectstoresummary.properties` reflects the patched data.
+Idempotent, runs in seconds, baked into the image (copies via Dockerfile, symlinked as `/usr/local/bin/finalize_build`).
+
+**Run order (cold build):** SQL patches BEFORE `:dbmodel:postprocess`, then postprocess, then WAR.
+
+The `create-attribute-indexes` post-process (step 11 of 15) builds case-insensitive b-trees on `lower(name)` / `lower(symbol)` / `lower(secondaryidentifier)` across every entity table — ~6 indexes per column. If the SQL runs *after* postprocess, every UPDATE rewrites those indexes per row (gene 165K, allele 330K, transposableelementinsertionsite 395K — expensive). Running the SQL *before* postprocess means UPDATEs hit unindexed tables and the index build runs once over the patched values. No drop/recreate dance needed.
+
+Hot-fix on an already-built DB (e.g. 2026-06-06 rc2): also safe, just slower on the wide tables.
+
+Canonical operator sequence:
+
+```
+./project_build … (integrate phase)
+finalize_build --sql-only                    # patches here, before postprocess
+./gradlew :dbmodel:postprocess               # create-attribute-indexes sees patched data
+finalize_build --skip-war                    # re-runs SQL (idempotent) + summariseObjectStore
+./gradlew :webapp:war                        # or call plain `finalize_build` (default runs last two)
+```
 
 | Table | Patch |
 |---|---|
