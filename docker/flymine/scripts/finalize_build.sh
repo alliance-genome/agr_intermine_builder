@@ -89,6 +89,9 @@ echo "==> 1/4 patch_chromosome_names.sql"
 echo "==> 2/4 patch_attribute_fallbacks.sql"
 "${PSQL[@]}" -f "$HERE/patch_attribute_fallbacks.sql"
 
+echo "==> 2.5/4 patch_intermineobject_blob.sql (mirror per-class patches into the serialized blob)"
+"${PSQL[@]}" -f "$HERE/patch_intermineobject_blob.sql"
+
 if [ $SQL_ONLY -eq 1 ]; then
     echo "==> --sql-only set; skipping gradle steps."
     exit 0
