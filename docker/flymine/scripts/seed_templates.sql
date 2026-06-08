@@ -1,7 +1,7 @@
 -- seed_templates.sql — install (or refresh) the BDSC Phase 2 named-query
 -- templates into the FlyMine userprofile DB.
 --
--- The six templates surface AGR's Phase 2 named-query categories defined in
+-- The seven templates surface AGR's Phase 2 named-query categories defined in
 -- agr_stock/docs/plans/2026-05-22-bdsc-phase2-specific-aims.md §Aim 4:
 --   * Synonym audits        → Gene_to_Synonyms
 --   * FBab/FBba resolution  → Aberration_by_Symbol, Balancer_by_Symbol
@@ -10,6 +10,11 @@
 --                             flymine-bio-sources@75303cb populating
 --                             balancercomposedofaberrations from the curated
 --                             fbba_to_fbab.tsv — 9 classic balancers in v1)
+--   * Cytological breakpoints → Aberration_CytologicalBreakpoints (depends on
+--                             flymine-bio-sources@74ef170 consuming the
+--                             aberration_cytological_breakpoints.tsv dump
+--                             produced from chado-pg — ~22K aberrations with
+--                             band data, ~25K CytologicalBand items)
 -- (Stock additions are intentionally NOT here — they coordinate with the
 --  separate Phase 1 stock-api Lambda flow.)
 --
@@ -46,12 +51,13 @@ DELETE FROM tag
        'Balancer_by_Symbol',
        'Aberration_DeletedGenes',
        'Aberration_DuplicatedGenes',
-       'Balancer_Composition'
+       'Balancer_Composition',
+       'Aberration_CytologicalBreakpoints'
    );
 
 DELETE FROM savedtemplatequery
  WHERE userprofileid = 999999999
-   AND id BETWEEN 900000001 AND 900000006;
+   AND id BETWEEN 900000001 AND 900000007;
 
 INSERT INTO savedtemplatequery (id, userprofileid, templatequery) VALUES
 (900000001, 999999999, $TPL$<template name="Gene_to_Synonyms" title="Gene --> All synonyms" longDescription="Given a FlyBase gene identifier, list every synonym (current symbol, secondary identifiers, historical names) with the data source that contributed it. Useful for synonym audits and symbol-merge detection." comment="">
@@ -87,6 +93,12 @@ INSERT INTO savedtemplatequery (id, userprofileid, templatequery) VALUES
     <pathDescription pathString="Balancer.composedOfAberrations" description="Aberrations the balancer is composed of"/>
     <constraint path="Balancer.primaryIdentifier" editable="true" description="Balancer FBba identifier (e.g. FBba0000033 = CyO, FBba0000091 = TM3)" op="=" value="FBba0000033"/>
   </query>
+</template>$TPL$),
+(900000007, 999999999, $TPL$<template name="Aberration_CytologicalBreakpoints" title="Aberration --> Cytological breakpoints" longDescription="Given a FlyBase aberration identifier (FBab), list the cytological band(s) the aberration breaks at. Backed by 22K+ aberrations with chado-derived cytological coordinates (left-arm-band and right-arm-band per aberration, semicolon-split into separate CytologicalBand items by the converter)." comment="">
+  <query name="Aberration_CytologicalBreakpoints" model="genomic" view="Aberration.primaryIdentifier Aberration.symbol Aberration.aberrationType Aberration.cytologicalBreakpoints.cytologicalCoordinates" sortOrder="Aberration.cytologicalBreakpoints.cytologicalCoordinates asc">
+    <pathDescription pathString="Aberration.cytologicalBreakpoints" description="Cytological band(s) the aberration breaks at"/>
+    <constraint path="Aberration.primaryIdentifier" editable="true" description="Aberration FBab identifier (e.g. FBab0001648 = Df(2L)TW161)" op="=" value="FBab0001648"/>
+  </query>
 </template>$TPL$);
 
 INSERT INTO tag (id, type, objectidentifier, tagname, userprofileid) VALUES
@@ -96,12 +108,14 @@ INSERT INTO tag (id, type, objectidentifier, tagname, userprofileid) VALUES
  (910000004,'template','Balancer_by_Symbol','im:public',999999999),
  (910000005,'template','Aberration_DuplicatedGenes','im:public',999999999),
  (910000006,'template','Balancer_Composition','im:public',999999999),
+ (910000007,'template','Aberration_CytologicalBreakpoints','im:public',999999999),
  (910000011,'template','Gene_to_Synonyms','im:aspect:Genomics',999999999),
  (910000012,'template','Aberration_DeletedGenes','im:aspect:Genetic_Variations',999999999),
  (910000013,'template','Aberration_by_Symbol','im:aspect:Genetic_Variations',999999999),
  (910000014,'template','Balancer_by_Symbol','im:aspect:Genetic_Variations',999999999),
  (910000015,'template','Aberration_DuplicatedGenes','im:aspect:Genetic_Variations',999999999),
- (910000016,'template','Balancer_Composition','im:aspect:Genetic_Variations',999999999);
+ (910000016,'template','Balancer_Composition','im:aspect:Genetic_Variations',999999999),
+ (910000017,'template','Aberration_CytologicalBreakpoints','im:aspect:Genetic_Variations',999999999);
 
 COMMIT;
 

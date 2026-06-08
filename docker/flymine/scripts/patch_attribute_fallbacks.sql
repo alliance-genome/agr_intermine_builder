@@ -33,6 +33,14 @@
 -- See docs/FLYMINE_DEPLOY_2026_06_05.md for the runtime context.
 
 \echo '--- aberration ---'
+-- 2026-06-08: ~6K FBab stub entries arrive from the breakpoint-TSV pass with
+-- NO symbol/name (they appear only in the breakpoints feed, not synonyms).
+-- Cover those stubs first by copying primaryidentifier into symbol, then the
+-- existing "name = symbol" line fills name for both the stubs AND the
+-- synonym-loaded aberrations. See sibling handoff
+-- new_flymine/docs/HANDOFF_TO_BUILDER_BREAKPOINTS_2026-06-08.md §1
+-- "Stub-creating Aberrations from the breakpoints file alone".
+UPDATE aberration SET symbol = primaryidentifier WHERE symbol IS NULL;
 UPDATE aberration SET name = symbol WHERE name IS NULL AND symbol IS NOT NULL;
 UPDATE aberration SET secondaryidentifier = primaryidentifier WHERE secondaryidentifier IS NULL;
 
