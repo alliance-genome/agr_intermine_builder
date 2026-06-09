@@ -110,4 +110,48 @@ fi
 echo "==> 4/4 :webapp:war"
 ./gradlew :webapp:war --no-daemon --console=plain
 
+# ============================================
+# Post-WAR patch: rewrite head.cdn.location in the packaged WAR so the
+# templates.do page (and every other view that pulls JS/CSS via
+# `${head.cdn.location}/...`) hits the local Caddy on multitenant rather
+# than `cdn.intermine.org`. Without this the page blocks on external CDN
+# fetches and can take 10+ minutes to render.
+#
+# The replacement target matches the ALB rule + Caddy mirror set up
+# 2026-06-07: `https://flymine.alliancegenome.org/cdn/*` forwards to
+# the wormmine-cdn target group (caddy on 172.31.59.87:8888) which
+# already mirrors the upstream cdn.intermine.org tree.
+#
+# The file lives at `WEB-INF/global.web.properties` inside the WAR;
+# extract just that one, sed, re-add. Python's `zipfile` ships in the
+# base image (no apk install needed).
+# ============================================
+WAR=$(ls -t /root/flymine/webapp/build/libs/*.war 2>/dev/null | head -1)
+if [ -n "$WAR" ]; then
+    echo "==> patching head.cdn.location in $WAR"
+    python3 - "$WAR" <<'PY'
+import sys, zipfile, shutil, tempfile, os
+war = sys.argv[1]
+entry = "WEB-INF/global.web.properties"
+with zipfile.ZipFile(war, "r") as zf:
+    txt = zf.read(entry).decode("utf-8")
+patched = txt.replace(
+    "head.cdn.location = https://cdn.intermine.org",
+    "head.cdn.location = https://flymine.alliancegenome.org/cdn",
+)
+if patched == txt:
+    print("  no upstream cdn URL found — already patched or template changed.")
+    sys.exit(0)
+tmp = war + ".tmp"
+with zipfile.ZipFile(war, "r") as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+    for item in src.infolist():
+        data = src.read(item.filename)
+        if item.filename == entry:
+            data = patched.encode("utf-8")
+        dst.writestr(item, data)
+shutil.move(tmp, war)
+print("  head.cdn.location -> flymine.alliancegenome.org/cdn")
+PY
+fi
+
 echo "==> Done. WAR is at /root/flymine/webapp/build/libs/webapp.war"
