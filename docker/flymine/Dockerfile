@@ -172,6 +172,7 @@ COPY scripts/patch_chromosome_names.sql /root/scripts/patch_chromosome_names.sql
 COPY scripts/patch_attribute_fallbacks.sql /root/scripts/patch_attribute_fallbacks.sql
 COPY scripts/patch_intermineobject_blob.sql /root/scripts/patch_intermineobject_blob.sql
 COPY scripts/seed_templates.sql /root/scripts/seed_templates.sql
+COPY scripts/gen_objectstoresummary.py /root/scripts/gen_objectstoresummary.py
 COPY scripts/finalize_build.sh /root/scripts/finalize_build.sh
 RUN chmod +x /root/scripts/finalize_build.sh && \
     ln -sf /root/scripts/finalize_build.sh /usr/local/bin/finalize_build

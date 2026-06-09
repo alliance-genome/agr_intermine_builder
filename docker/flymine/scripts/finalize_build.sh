@@ -128,9 +128,10 @@ echo "==> 4/4 :webapp:war"
 # ============================================
 WAR=$(ls -t /root/flymine/webapp/build/libs/*.war 2>/dev/null | head -1)
 if [ -n "$WAR" ]; then
+    # ----- 4a: rewrite head.cdn.location -----
     echo "==> patching head.cdn.location in $WAR"
     python3 - "$WAR" <<'PY'
-import sys, zipfile, shutil, tempfile, os
+import sys, zipfile, shutil
 war = sys.argv[1]
 entry = "WEB-INF/global.web.properties"
 with zipfile.ZipFile(war, "r") as zf:
@@ -151,6 +152,39 @@ with zipfile.ZipFile(war, "r") as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEF
         dst.writestr(item, data)
 shutil.move(tmp, war)
 print("  head.cdn.location -> flymine.alliancegenome.org/cdn")
+PY
+
+    # ----- 4b: inject objectstoresummary.properties -----
+    # `:webapp:summariseObjectStore` silently fails on Sequence.residues
+    # Clob, leaving the WAR without the file the begin.do page needs.
+    # gen_objectstoresummary.py hand-rolls it from raw row counts; we then
+    # splice it into the WAR alongside the other WEB-INF resources so the
+    # webapp finds it on classpath.
+    echo "==> generating + injecting objectstoresummary.properties"
+    if ! python3 -c "import psycopg2" 2>/dev/null; then
+        python3 -m pip install --quiet --break-system-packages psycopg2-binary || true
+    fi
+    python3 "$HERE/gen_objectstoresummary.py" \
+        --out /tmp/objectstoresummary.properties
+    python3 - "$WAR" /tmp/objectstoresummary.properties <<'PY'
+import sys, zipfile, shutil
+war, src_props = sys.argv[1], sys.argv[2]
+entry = "WEB-INF/objectstoresummary.properties"
+with open(src_props, "rb") as fh:
+    payload = fh.read()
+tmp = war + ".tmp"
+with zipfile.ZipFile(war, "r") as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+    seen = False
+    for item in src.infolist():
+        if item.filename == entry:
+            seen = True
+            dst.writestr(item, payload)
+        else:
+            dst.writestr(item, src.read(item.filename))
+    if not seen:
+        dst.writestr(entry, payload)
+shutil.move(tmp, war)
+print(f"  injected {len(payload)} bytes -> {entry}")
 PY
 fi
 
