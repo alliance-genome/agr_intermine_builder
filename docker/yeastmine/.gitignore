@@ -1,0 +1,7 @@
+# Operator's local fork, staged in by scripts/build_and_push.sh — never commit source
+source/
+# Build data volume
+data/*
+!data/.gitkeep
+# env with secrets
+.env
