@@ -40,6 +40,13 @@ services:
       SUPERUSER_ACCOUNT: ${SUPERUSER_ACCOUNT:-superuser@mail_account}
       SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-secret}
 
+      # SGD Database (external, read-only) — the 5 DB sources read from here
+      SGD_DB_HOST: ${SGD_DB_HOST:-}
+      SGD_DB_NAME: ${SGD_DB_NAME:-sgd}
+      SGD_DB_USER: ${SGD_DB_USER:-}
+      SGD_DB_PASSWORD: ${SGD_DB_PASSWORD:-}
+      SGD_DB_PORT: ${SGD_DB_PORT:-5432}
+
       # Java/Gradle (must exceed 48g JVM by ~8G for native memory; container limit 56G)
       GRADLE_OPTS: >-
         -Xmx48g -Xms24g
