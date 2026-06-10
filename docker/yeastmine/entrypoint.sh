@@ -34,8 +34,6 @@ compile_if_needed() {
     echo "Compilation complete."
 }
 
-compile_if_needed
-
 # ============================================
 # Resolve YeastMine Release
 # Like FlyMine / WormMine, no FMS API. Operator sets YEASTMINE_RELEASE
@@ -159,6 +157,16 @@ configure_properties() {
     export SUPERUSER_ACCOUNT="${SUPERUSER_ACCOUNT:-superuser@mail_account}"
     export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-secret}"
 
+    # Solr URLs — multitenant Solr. Cores are `yeastmine-search` /
+    # `yeastmine-autocomplete` (no release suffix). Used only once
+    # create-search-index is re-enabled at deploy time (skipped this round).
+    local solr_host="${SOLR_HOST:-172.31.59.87}"
+    local solr_port="${SOLR_PORT:-8983}"
+    export SOLR_INDEX_URL="${SOLR_INDEX_URL:-http://${solr_host}:${solr_port}/solr/yeastmine-search}"
+    export SOLR_AUTOCOMPLETE_URL="${SOLR_AUTOCOMPLETE_URL:-http://${solr_host}:${solr_port}/solr/yeastmine-autocomplete}"
+    echo "  Solr index URL:        ${SOLR_INDEX_URL}"
+    echo "  Solr autocomplete URL: ${SOLR_AUTOCOMPLETE_URL}"
+
     envsubst < /root/.intermine/yeastmine.properties.template \
              > /root/.intermine/yeastmine.properties
 
@@ -220,6 +228,10 @@ resolve_rc_number
 construct_db_names
 configure_properties
 setup_databases
+
+# Compile AFTER configure_properties: webapp/build.gradle reads webapp.port as
+# an int at config time, so ${DEPLOY_PORT} must already be substituted.
+compile_if_needed
 
 # Handle commands
 case "$1" in

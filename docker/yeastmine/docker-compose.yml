@@ -47,6 +47,12 @@ services:
       SGD_DB_PASSWORD: ${SGD_DB_PASSWORD:-}
       SGD_DB_PORT: ${SGD_DB_PORT:-5432}
 
+      # Solr (external, on multitenant). Cores: yeastmine-search / yeastmine-autocomplete
+      SOLR_HOST: ${SOLR_HOST:-172.31.59.87}
+      SOLR_PORT: ${SOLR_PORT:-8983}
+      SOLR_INDEX_URL: ${SOLR_INDEX_URL:-}
+      SOLR_AUTOCOMPLETE_URL: ${SOLR_AUTOCOMPLETE_URL:-}
+
       # Java/Gradle (must exceed 48g JVM by ~8G for native memory; container limit 56G)
       GRADLE_OPTS: >-
         -Xmx48g -Xms24g
