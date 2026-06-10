@@ -112,3 +112,10 @@ mail.from=${MAIL_FROM}
 
 # XML Factory
 systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl
+
+# ============================================
+# Solr URLs (multitenant). entrypoint.sh resolves these from SOLR_HOST/SOLR_PORT.
+# Only consumed once create-search-index postprocess is re-enabled at deploy.
+# ============================================
+index.solrurl=${SOLR_INDEX_URL}
+autocomplete.solrurl=${SOLR_AUTOCOMPLETE_URL}

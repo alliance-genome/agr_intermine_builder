@@ -179,7 +179,8 @@ webapp.query.cache.timeout=300
 EOF
 
 # ============================================
-# Compile bio-sources + yeastmine + webapp WAR at IMAGE BUILD TIME.
+# Compile bio-sources + yeastmine at IMAGE BUILD TIME (webapp classes compile
+# during install; the WAR itself is built later by finalize_build.sh).
 # Runtime entrypoint compile is then a no-op (no /root/.needs_compile).
 # ============================================
 RUN cd /root/yeastmine-bio-sources && ./gradlew clean install --stacktrace --no-daemon && \

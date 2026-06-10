@@ -7,14 +7,17 @@
 # Usage:
 #   finalize_build              # summariseObjectStore + WAR
 #   finalize_build --skip-war   # summary only
+#   finalize_build --sql-only   # SQL patches only (use BEFORE postprocess)
 #
 # Reads DB connection from /root/.intermine/yeastmine.properties.
 set -euo pipefail
 
 SKIP_WAR=0
+SQL_ONLY=0
 for a in "$@"; do
     case "$a" in
         --skip-war) SKIP_WAR=1 ;;
+        --sql-only) SQL_ONLY=1; SKIP_WAR=1 ;;
         --help|-h) sed -n '2,12p' "$0"; exit 0 ;;
     esac
 done
@@ -36,6 +39,11 @@ echo "==> Target DB: ${PG_DB} on ${PG_HOST}"
 # --- Future: yeast-specific patch_*.sql calls go here (before summarise) ---
 # HERE=$(dirname "$(readlink -f "$0")")
 # psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -v ON_ERROR_STOP=1 -f "$HERE/patch_xxx.sql"
+
+if [ $SQL_ONLY -eq 1 ]; then
+    echo "==> --sql-only set; skipping gradle steps."
+    exit 0
+fi
 
 cd /root/yeastmine
 

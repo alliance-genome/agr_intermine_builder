@@ -27,10 +27,10 @@ compile_if_needed() {
     ./gradlew install --stacktrace
 
     rm -rf /root/.gradle/caches/transforms-* \
-           /root/.gradle/caches/journal-* \
-           /tmp/*
+           /root/.gradle/caches/journal-* 2>/dev/null || true
+    rm -rf /tmp/* 2>/dev/null || true
 
-    rm /root/.needs_compile
+    rm -f /root/.needs_compile
     echo "Compilation complete."
 }
 
@@ -234,18 +234,18 @@ setup_databases
 compile_if_needed
 
 # Handle commands
-case "$1" in
-    bash|sh)
-        echo ""
-        echo "Mode: SHELL"
-        exec /bin/bash
-        ;;
+if [ $# -eq 0 ]; then
+    echo ""
+    echo "Mode: SHELL"
+    exec /bin/bash
+fi
 
-    *)
-        if [ $# -eq 0 ]; then
-            exec /bin/bash
-        else
-            exec "$@"
-        fi
-        ;;
-esac
+# bash/sh with NO further args → interactive shell.
+# bash -c "..." or bash script.sh → forward all args so downstream tooling works.
+if { [ "$1" = "bash" ] || [ "$1" = "sh" ]; } && [ $# -eq 1 ]; then
+    echo ""
+    echo "Mode: SHELL"
+    exec /bin/bash
+fi
+
+exec "$@"
