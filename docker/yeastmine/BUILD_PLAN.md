@@ -789,6 +789,8 @@ git commit -m "yeastmine: add finalize_build.sh (summariseObjectStore + WAR)"
 
 Operational sequence run inside the container against RDS. Not committed code — record outcomes in the build log. **Rebuild + push the image first** so all prior tasks are baked in: `scripts/build_and_push.sh` (push to ECR, pull on AllianceMineDev).
 
+> ⚠️ **PIN `RC_NUMBER` before running stages as separate `docker compose run` invocations.** The entrypoint's `resolve_rc_number` auto-increments off existing `yeastmine_<rel>_rc<N>` DBs on RDS. If you run `builddb`, `extract`, and `integrate` as *separate* container runs without pinning, each run resolves a *new* RC and creates a fresh empty DB — so `builddb` builds the schema in rc1 but `integrate` loads into an empty rc3 and dies with `The table intermine_metadata for db.production doesn't exist`. **Add `RC_NUMBER=1` (or your chosen RC) to `.env`** so every stage targets the same DB. (Single-shot `project_build` runs the whole pipeline in one container, so it resolves RC once — but pinning is still the safe default. Observed 2026-06-10 on the first yeastmine build.)
+
 - [ ] **Step 1: Sanity-check the build target before any builddb (CLAUDE.md rule)**
 
 Run:
