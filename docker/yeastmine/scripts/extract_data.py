@@ -17,11 +17,16 @@ Use --skip-s3 / --skip-ontology to run only one pass.
 """
 import argparse
 import logging
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen
+
+# Some OBO hosts (notably current.geneontology.org behind its CDN) return
+# HTTP 403 to the default "Python-urllib" User-Agent. Send a browser-like UA.
+USER_AGENT = "Mozilla/5.0 (yeastmine-extract)"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("yeastmine-extract")
@@ -75,7 +80,9 @@ def download_ontologies() -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         logger.info(f"Downloading {url} -> {out}")
         try:
-            urlretrieve(url, out)
+            req = Request(url, headers={"User-Agent": USER_AGENT})
+            with urlopen(req, timeout=180) as resp, open(out, "wb") as fh:
+                shutil.copyfileobj(resp, fh)
             mb = out.stat().st_size / (1024 * 1024)
             logger.info(f"  OK ({mb:.1f} MB)")
         except (HTTPError, URLError, OSError) as e:
