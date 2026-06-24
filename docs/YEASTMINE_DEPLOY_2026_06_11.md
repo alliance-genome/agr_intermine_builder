@@ -347,6 +347,99 @@ Per-user bag distribution after migration:
 
 All alliancemine logins work as-is on yeastmine because the bcrypt password hashes were copied verbatim. The 30 users who never had an apikey in alliance got auto-generated 32-char md5 apikeys (random). SGD curators (`rnash@stanford.edu`, `dang@calicolabs.com`, etc.) log in with their existing alliancemine credentials. The `superuser@mail_account` placeholder remains at id=1000001 for template/tag-attribution compatibility; `rnash@stanford.edu` is the real-email second superuser.
 
+## BlueGenes UX patches (2026-06-12)
+
+Two same-day follow-ups to make BlueGenes feel yeast-native.
+
+### Template dedup
+
+After the full-mirror profile migration, yeastmine ended up with 184 templates (89 native + 95 alliance imports) and 679 tag rows — many duplicate (owner, name) pairs because alliance forked yeastmine's template set years ago and shipped its own copies. Cleaned up:
+
+```sql
+-- drop alliance imports that share a name with a yeastmine native template
+WITH alliance_to_drop AS (
+  SELECT alliance.id
+    FROM savedtemplatequery alliance
+    JOIN savedtemplatequery native
+      ON alliance.userprofileid = native.userprofileid
+     AND substring(alliance.templatequery FROM 'name="([^"]+)"')
+       = substring(native.templatequery FROM 'name="([^"]+)"')
+   WHERE alliance.id >= 14000000    -- alliance id range
+     AND native.id < 2000000        -- yeastmine native range
+)
+DELETE FROM savedtemplatequery WHERE id IN (SELECT id FROM alliance_to_drop);
+
+-- dedupe tag rows by (objectidentifier, tagname, userprofileid, type)
+WITH dupes AS (
+  SELECT id, row_number() OVER (
+    PARTITION BY objectidentifier, tagname, userprofileid, type ORDER BY id
+  ) AS rn FROM tag
+)
+DELETE FROM tag WHERE id IN (SELECT id FROM dupes WHERE rn > 1);
+```
+
+Result: 184 → 156 templates, 679 → 493 tags. 93 public templates visible via REST after restart. One title-only duplicate remains (`Literature_Phenotype` + `Literature_Phenotype_New` — distinct queries, alliance-side revision pair) — acceptable.
+
+### S. cerevisiae default organism on Upload page
+
+Three-layer rabbit hole:
+
+1. **Region Search defaulted to S. cerevisiae out of the box** because yeastmine's `service/web-properties` already returns `genomicRegionSearch.defaultOrganisms="S. cerevisiae"`. BlueGenes' `web-properties-to-bluegenes` reads that into the mine entry's `:default-organism`, and Region Search picks it up at render time.
+
+2. **Upload "Create a new list" page kept showing "Any"** because:
+   - It uses `idresolver/select-organism-option` which reads `(:organism @options)` from `[:idresolver :stage :options]`
+   - Initial `:options` is empty, so organism is nil
+   - `imcontrols/select-organism` then falls through to `(or value @default-organism "")`, where `@default-organism` is the `:mine-default-organism` sub which reads `:abbrev` (a different key from `:default-organism`)
+   - Patching `:abbrev "S. cerevisiae"` into BlueGenes `config.edn` doesn't help — see next.
+
+3. **Discovery: `init-configured-mine` in `bluegenes/events/boot.cljs` destructures to `{:keys [root name namespace external]}` and DROPS every other key.** So `:abbrev` and `:default-organism` added to the additional-mines entry never reach the `:mines` table. (Filed in [`feedback_bluegenes_config_traps`](../.claude/memory).)
+
+**Fix:** JS shim appended to `app-aba0ae0.js` inside `bluegenes.jar`. On URL match `/yeastmine/upload`, it programmatically clicks the Reset button (which dispatches `idresolver/events/::reset`, which DOES call `validate-default-organism` → S. cerevisiae). Also hooks `pushState` / `replaceState` / `popstate` for SPA navigation. ~30 lines, no upstream BlueGenes change required.
+
+```javascript
+// === yeastmine: auto-init S. cerevisiae as default organism on /upload page ===
+(function(){
+  var lastInitPath = null;
+  function tryReset(){
+    for (var b of document.querySelectorAll('button')) {
+      if (b.textContent.trim() === 'Reset') { b.click(); return true; }
+    }
+    return false;
+  }
+  function maybeInit(){
+    var path = location.pathname;
+    if (path !== lastInitPath && /\/yeastmine\/upload(\/|$)/.test(path)) {
+      lastInitPath = path;
+      var n = 0, iv = setInterval(function(){
+        if (tryReset() || ++n > 40) clearInterval(iv);
+      }, 250);
+    } else if (!/\/yeastmine\/upload(\/|$)/.test(path)) lastInitPath = null;
+  }
+  setTimeout(maybeInit, 1500);
+  window.addEventListener('popstate', function(){ setTimeout(maybeInit, 300); });
+  var origPush = history.pushState;
+  history.pushState = function(){ var r=origPush.apply(this,arguments); setTimeout(maybeInit,300); return r; };
+  var origReplace = history.replaceState;
+  history.replaceState = function(){ var r=origReplace.apply(this,arguments); setTimeout(maybeInit,300); return r; };
+})();
+```
+
+**Deploy via bind-mount** (survives container recreate; ECR image still wins on real upstream update):
+
+```bash
+# patched bluegenes.jar lives at /home/ec2-user/bluegenes-config/bluegenes.jar
+docker run -d --name bluegenes -p 5000:5000 \
+  -v /home/ec2-user/bluegenes-config/bluegenes.jar:/bluegenes.jar:ro \
+  --restart unless-stopped \
+  100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_bluegenes:latest
+```
+
+Verified live: `<select.organism-selector> value="S. cerevisiae"` on first navigation to `/bluegenes/yeastmine/upload`, no user click.
+
+### Multitenant disk recovery during this work
+
+Ran out of root partition mid-deploy. Recovered 50 GB by truncating stale tomcat logs in `/data/mines/logs/{wormmine,alliancemine}` (46 GB combined) and flymine's in-overlay `localhost.2026-06-12.log` (11 GB/day during scraping). See [`feedback_multitenant_disk`](../.claude/memory) for the run-book.
+
 ## Operational notes
 
 - **Don't restart `mousemine-1x`.** Triggers a 30-min Lucene keyword-search re-extract (legacy, not Solr). Warm it with one search after any unavoidable restart.
