@@ -9,7 +9,7 @@ Short operator reference. For deep dives see `MOUSEMINE_BUILD_GUIDE.md`, `JOB_AI
 | **Build container** | `mousemine` on **AllianceMineDev** `172.31.60.197` (Ant / InterMine 1.x, Java 8/11) |
 | **Runtime container** | `mousemine-1x` on **multitenant** `172.31.59.87`, port **8084**, image `…/agr_mousemine:runtime-1x` |
 | **Public URL** | `https://mousemine.alliancegenome.org/mousemine/` |
-| **RDS** | `intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com` — prod DB `mousemine_rc2`; profile `mousemine_userprofile` (persistent) |
+| **RDS** | `intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com` — prod DB **`mousemine_rc3`** (release 1.8-2026-06, live 2026-07-03; `mousemine_rc2` kept as rollback); profile `mousemine_userprofile` (persistent) |
 | **Source/ETL data** | build container `/data/etl_output/…` (from `update.tar.gz`); project `/intermine/mousemine` |
 | **Keyword search** | legacy **Lucene** (not Solr); index bind-mounted `/home/ec2-user/mousemine-data/keyword_search_index` |
 
@@ -59,10 +59,12 @@ cd /intermine/mousemine/webapp && ant default            # -> webapp/dist/mousem
 
 ```bash
 # on multitenant 172.31.59.87
-docker restart mousemine-1x            # safe — Lucene index is bind-mounted, no re-extract
+docker restart mousemine-1x            # same-DB restart: FS index still valid, search stays fast
 docker logs --tail 50 mousemine-1x
 docker stats --no-stream mousemine-1x  # CPU/mem
 ```
+
+> **Lucene note:** a **same-DB** restart keeps the bind-mounted index valid (fast). A restart **after a DB change** invalidates it → InterMine re-extracts the new index from the DB (~37 min for rc3's 5.8 GB) during which searches hang, then self-clears. See the cutover section.
 
 Common issues:
 - **504 / "internal error" / queries hang, site up** → usually the JVM is wedged (OOM/GC or a stale pool). `docker restart mousemine-1x`. Check heap: `docker exec mousemine-1x sh -c 'ps -eo args | grep -o "\-Xmx[0-9]*[gm]"'`.
@@ -77,25 +79,40 @@ Common issues:
 
 ## Update / cut over to a new release
 
-After a successful build (WAR at `mousemine:/intermine/mousemine/webapp/dist/mousemine-webapp.war`):
+If the **model is unchanged** (only sources/data changed, as with rc2→rc3), the deployed WAR is compatible with the new DB — **cutover is just a properties repoint + restart**, no WAR swap. Steps used for the rc2→rc3 cutover (2026-07-03):
 
 ```bash
-# 1. copy WAR build-host -> multitenant (relay via laptop; dev host has no key to multitenant)
-docker cp mousemine:/intermine/mousemine/webapp/dist/mousemine-webapp.war /tmp/mousemine.war
-scp … dev:/tmp/mousemine.war ./ ; scp … ./mousemine.war multitenant:/home/ec2-user/mine-wars/mousemine.war
+# 1. BACKUP the userprofile first (the bag upgrade is semi-one-way — rollback safety)
+pg_dump -Fc -Z6 … -d mousemine_userprofile | \
+  aws s3 cp - s3://agr-db-backups/profile-dbs/mousemine_userprofile_pre-rc<N>-cutover_<date>.dump
 
-# 2. point the runtime container's properties at the new DB (mousemine_rc<N>), fix head.cdn.location,
-#    set -Xmx via setenv.sh, deploy the new WAR
-# 3. docker restart mousemine-1x  (or recreate with the WAR bind-mounted — preferred, avoids cp fragility)
+# 2. repoint the EFFECTIVE properties file (intermine.properties, NOT web.properties — its
+#    db.production lines are vestigial/overridden) + bump the version, in the running container:
+docker exec mousemine-1x sh -c '
+  cd /usr/local/tomcat/webapps/mousemine/WEB-INF/classes
+  cp intermine.properties intermine.properties.bak.pre-rc<N>
+  sed -i "s/mousemine_rc<OLD>/mousemine_rc<N>/g" intermine.properties          # both db.production lines
+  sed -i "s/^project.releaseVersion=.*/project.releaseVersion=1.8-YYYY-MM/" intermine.properties'
+# (also bump project.releaseVersion in WEB-INF/web.properties for the homepage banner)
+
+# 3. RESTART (never recreate — the DB pointer, CDN fix, setenv.sh heap, query cap all live in the
+#    container's extracted layer and revert on recreate/image re-pull)
+docker restart mousemine-1x
 
 # 4. verify
 curl -s -o /dev/null -w "%{http_code}\n" https://mousemine.alliancegenome.org/mousemine/service/version
-#   + begin.do body has no "internal error"; run a query; warm keyword search
+#   begin.do body has no "internal error"; homepage shows the new release; run a query
 ```
 
-Keep the previous prod DB (`mousemine_rc<OLD>`) as rollback until the new one is verified ≥ a few days, then drop it to reclaim RDS space.
+**What to expect after the restart (both normal, no intervention):**
+- **Keyword search rebuild** — InterMine extracts the new Lucene index from the DB on first search. rc3's index is ~5.8 GB → **~37 min** during which searches hang. It self-completes (`KeywordSearch - Successfully restored FS directory from database`), then searches are sub-second. Warm it with a few searches.
+- **Lazy bag upgrade** — after a DB swap ALL saved lists go `NOT_CURRENT` (rc3 had ~7,200); they re-resolve to `CURRENT` **only when a user opens the list** — they do NOT bulk-auto-upgrade, so a large `NOT_CURRENT` count is **expected, not a stall**. Lists whose identifiers changed in the new data stay `NOT_CURRENT` (user re-runs them). Watch for a startup **bag-upgrade deadlock**; if it hangs, `pg_terminate_backend` the lock-waiting backend on the new DB (see `RUNBOOK_ALLIANCEMINE_RESTART.md`).
 
-**Current status:** `mousemine_rc3` is built (259 GB, 1.56M genes) but **NOT cut over** — `mousemine_rc2` still serves production.
+**Rollback:** `sed` the properties back to `mousemine_rc<OLD>` + old version, `docker restart`; if lists got mangled, `pg_restore -c -d mousemine_userprofile` from the S3 dump. Keep the previous prod DB (`mousemine_rc<OLD>`) ≥ a few days, then drop it to reclaim RDS space (~252 GB for rc2).
+
+**Permanent fix:** all cutover edits are runtime-only (revert on recreate). Bake the new DB pointer + version + CDN/heap/cap into the `agr_mousemine:runtime-1x` image so a recreate doesn't silently roll back.
+
+**Current status (2026-07-03):** `mousemine_rc3` (259 GB, 1.56M genes, release 1.8-2026-06) is **LIVE in production**. `mousemine_rc2` retained as rollback — drop after a few days of verification.
 
 ---
 
