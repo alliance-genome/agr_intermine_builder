@@ -151,17 +151,10 @@ construct_db_names() {
         export RDS_DB_NAME="alliancemine_${RELEASE_SANITIZED}_rc${RC}"
     fi
 
-    # Profile DB:
-    #   production → alliancemine_userprofile (the real one)
-    #   test       → alliancemine_userprofile_test (safe default)
-    #   test + COPY_PROFILE_DB=true → fresh copy as alliancemine_userprofile_rcN
-    if [ "${BUILD_TYPE}" = "production" ]; then
-        export RDS_PROFILE_DB_NAME="alliancemine_userprofile"
-    elif [ "${COPY_PROFILE_DB}" = "true" ]; then
-        export RDS_PROFILE_DB_NAME="alliancemine_userprofile_rc${RC_NUMBER:-1}"
-    else
-        export RDS_PROFILE_DB_NAME="alliancemine_userprofile_test"
-    fi
+    # Profile DB is persistent and shared across releases — NOT created,
+    # copied, or dropped by the build. Every build (test or production) points
+    # at the existing alliancemine_userprofile; the webapp uses it at runtime.
+    export RDS_PROFILE_DB_NAME="alliancemine_userprofile"
 
     # Items DB (intermediary, can be dropped after build)
     export RDS_ITEMS_DB_NAME="alliancemine_items"
@@ -239,24 +232,17 @@ setup_databases() {
         fi
     done
 
-    # Profile DB setup
-    if ! db_exists "${RDS_PROFILE_DB_NAME}"; then
-        if [ "${BUILD_TYPE}" != "production" ] && db_exists "alliancemine_userprofile"; then
-            # Test builds: copy from production profile as template
-            echo "  Copying profile DB: alliancemine_userprofile -> ${RDS_PROFILE_DB_NAME}"
-            ${PSQL} -d postgres -c \
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='alliancemine_userprofile' AND pid <> pg_backend_pid();" \
-                2>/dev/null || true
-            ${PSQL} -d postgres -c \
-                "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\" TEMPLATE \"alliancemine_userprofile\";"
-            echo "  Profile DB copied successfully"
-        else
-            # Production builds or no source to copy from
-            echo "  Creating database: ${RDS_PROFILE_DB_NAME}"
-            ${PSQL} -d postgres -c "CREATE DATABASE \"${RDS_PROFILE_DB_NAME}\";"
-        fi
+    # Profile DB is persistent and shared — the build never creates, copies,
+    # or drops it (a template-copy would terminate live production connections;
+    # a blank CREATE would silently detach the webapp from real user data).
+    # Verify it exists and bail loudly if it doesn't.
+    if db_exists "${RDS_PROFILE_DB_NAME}"; then
+        echo "  Profile database exists (persistent, not managed by build): ${RDS_PROFILE_DB_NAME}"
     else
-        echo "  Profile database exists: ${RDS_PROFILE_DB_NAME}"
+        echo "ERROR: Profile DB '${RDS_PROFILE_DB_NAME}' does not exist on RDS."
+        echo "       It is persistent and must be provisioned/restored out-of-band;"
+        echo "       the build will not create it. Aborting."
+        exit 1
     fi
 }
 

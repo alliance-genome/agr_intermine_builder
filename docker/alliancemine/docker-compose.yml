@@ -24,9 +24,8 @@ services:
       BUILD_TYPE: ${BUILD_TYPE:-test}
       # RC_NUMBER: auto-incremented from RDS if not set
       RC_NUMBER: ${RC_NUMBER:-}
-      # COPY_PROFILE_DB: if true, test builds get an isolated copy of
-      # alliancemine_userprofile instead of sharing the production one
-      COPY_PROFILE_DB: ${COPY_PROFILE_DB:-false}
+      # Profile DB (alliancemine_userprofile) is persistent and shared across
+      # releases; the build never creates or copies it (see entrypoint.sh).
 
       # Deployment (optional)
       DEPLOY_HOST: ${DEPLOY_HOST:-}
