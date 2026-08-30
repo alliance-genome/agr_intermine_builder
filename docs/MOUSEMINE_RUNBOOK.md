@@ -9,7 +9,7 @@ Short operator reference. For deep dives see `MOUSEMINE_BUILD_GUIDE.md`, `JOB_AI
 | **Build container** | `mousemine` on **AllianceMineDev** `172.31.60.197` (Ant / InterMine 1.x, Java 8/11) |
 | **Runtime container** | `mousemine-1x` on **multitenant** `172.31.59.87`, port **8084**, image `…/agr_mousemine:runtime-1x` |
 | **Public URL** | `https://mousemine.alliancegenome.org/mousemine/` |
-| **RDS** | `intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com` — prod DB **`mousemine_rc3`** (release 1.8-2026-06, live 2026-07-03; `mousemine_rc2` kept as rollback); profile `mousemine_userprofile` (persistent) |
+| **RDS** | `intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com` — prod DB **`mousemine_rc4`** (release 1.8-2026-08, live 2026-08-30; rc2+rc3 dropped); profile `mousemine_userprofile` (persistent) |
 | **Source/ETL data** | build container `/data/etl_output/…` (from `update.tar.gz`); project `/intermine/mousemine` |
 | **Keyword search** | legacy **Lucene** (not Solr); index bind-mounted `/home/ec2-user/mousemine-data/keyword_search_index` |
 
@@ -112,7 +112,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://mousemine.alliancegenome.org/mo
 
 **Permanent fix:** all cutover edits are runtime-only (revert on recreate). Bake the new DB pointer + version + CDN/heap/cap into the `agr_mousemine:runtime-1x` image so a recreate doesn't silently roll back.
 
-**Current status (2026-07-03):** `mousemine_rc3` (259 GB, 1.56M genes, release 1.8-2026-06) is **LIVE in production**. `mousemine_rc2` retained as rollback — drop after a few days of verification.
+**Current status (2026-08-30):** `mousemine_rc4` (251 GB, 1.56M genes, 450K enriched publications, release 1.8-2026-08) is **LIVE in production**. rc2+rc3 were dropped before the rc4 build. rc4 re-enabled interpro/protein2ipr/update-publications — see `MOUSEMINE_RC4_BUILD_2026_08_30.md` for the update-publications reorder+dedup fixes. Drop the rc4 checkpoint DBs (`mousemine_rc4:*`, ~300 GB) after a few days of verification.
 
 ---
 
