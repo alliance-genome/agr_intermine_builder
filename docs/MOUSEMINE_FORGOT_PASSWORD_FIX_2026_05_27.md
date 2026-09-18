@@ -164,6 +164,43 @@ For permanence we ship in this repo:
 | `docker/<mine>/properties/<mine>.properties.template` | Adds the `mail.*` block (envsubst-templated). Empty values render harmlessly if env not set, matching pre-fix behavior |
 | `docker/<mine>/.env.example` | Documents the `MAIL_*` env vars + warns about the post-deploy script |
 
+## 2026-09-18 update — re-applied + made permanent (bake into the WAR)
+
+**Re-application (live containers):** the 2026-05-27 fix had been wiped on the
+mines rebuilt since (MouseMine rc4, and FlyMine/YeastMine never had it). On
+2026-09-18 the full fix (mail.* block copied from the still-working
+alliancemine container + JavaMail 1.6.2 + MailUtils.class + global mail.from)
+was re-applied to **mousemine-1x, flymine, yeastmine** and each restarted.
+Verified: `mail.host` now the SES host (not the dead `mail.flymine.org`
+default), and forgot-password tests threw **no** SMTP error (vs the
+`Unknown SMTP host: mail.flymine.org` failures logged before). alliancemine +
+wormmine were already healthy and untouched. All 5 mines now send.
+
+**Permanence — layers 2–4 baked into the WAR at build time:** new
+`scripts/bake_mail_into_war.sh` takes a built `.war` (or exploded webapp dir),
+swaps JavaMail 1.4→1.6.2, compiles `patches/intermine/MailUtils.java` against
+the WAR's own lib and shadows the class into `WEB-INF/classes/`, and rewrites
+`global.web.properties` mail.from — so a rebuilt WAR ships working mail and
+`patch_mail_post_deploy.sh` is no longer needed. Layer 1 (the SMTP creds) still
+renders from `MAIL_*` env → `web.properties` at deploy (`.env`, never committed).
+
+**Wired so far:** FlyMine — `docker/flymine/scripts/finalize_build.sh` calls it
+as step **4c** right after `:webapp:war`; `docker/flymine/scripts/{bake_mail_into_war.sh,MailUtils.java}`
+staged into the build context; `docker/flymine/Dockerfile` COPYs them to
+`/root/scripts/`. Takes effect on FlyMine's next rebuild.
+
+**To wire another mine** (alliancemine gradle, yeastmine/mousemine Ant, wormmine):
+1. Copy `scripts/bake_mail_into_war.sh` + `patches/intermine/MailUtils.java` into
+   that mine's build context (`docker/<mine>/scripts/`), COPY them in the Dockerfile.
+2. Call `bake_mail_into_war.sh "<built.war>"` right after the WAR is produced
+   (gradle `:webapp:war` / Ant `default`), in the build container (needs `javac`).
+3. Set `MAIL_*` in that mine's build `.env` (host/port/auth/starttls/user/password/from)
+   so the props render. Only `MAIL_SERVER_PASSWORD` is sensitive — pull it from
+   the working alliancemine container or IT; the SMTP user is `AKIAROVPJF4QF3YXRSGZ`.
+Each is validated on that mine's next rebuild.
+
+## (legacy) post-deploy applicator — still valid for an un-baked mine
+
 After any WAR redeploy from AllianceMineDev or fresh container creation, run:
 
 ```bash

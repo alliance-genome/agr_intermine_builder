@@ -174,7 +174,12 @@ COPY scripts/patch_intermineobject_blob.sql /root/scripts/patch_intermineobject_
 COPY scripts/seed_templates.sql /root/scripts/seed_templates.sql
 COPY scripts/gen_objectstoresummary.py /root/scripts/gen_objectstoresummary.py
 COPY scripts/finalize_build.sh /root/scripts/finalize_build.sh
-RUN chmod +x /root/scripts/finalize_build.sh && \
+# SES "forgot password" mail fix baked into the WAR by finalize_build.sh step 4c
+# (JavaMail 1.6.2 + patched MailUtils + global mail.from). Survives rebuild so
+# patch_mail_post_deploy.sh is no longer required. Creds still via MAIL_* env.
+COPY scripts/bake_mail_into_war.sh /root/scripts/bake_mail_into_war.sh
+COPY scripts/MailUtils.java /root/scripts/MailUtils.java
+RUN chmod +x /root/scripts/finalize_build.sh /root/scripts/bake_mail_into_war.sh && \
     ln -sf /root/scripts/finalize_build.sh /usr/local/bin/finalize_build
 
 # Create data directories

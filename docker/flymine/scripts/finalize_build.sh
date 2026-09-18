@@ -186,6 +186,18 @@ with zipfile.ZipFile(war, "r") as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEF
 shutil.move(tmp, war)
 print(f"  injected {len(payload)} bytes -> {entry}")
 PY
+
+    # ----- 4c: bake the SES "forgot password" mail fix into the WAR -----
+    # JavaMail 1.6.2 + patched MailUtils.class + global.web.properties mail.from,
+    # so mail survives rebuild/redeploy and the manual post-deploy
+    # patch_mail_post_deploy.sh is no longer needed. The mail.* SMTP creds still
+    # come from MAIL_* env -> web.properties at deploy time.
+    # See scripts/bake_mail_into_war.sh + docs/MOUSEMINE_FORGOT_PASSWORD_FIX_2026_05_27.md.
+    if [ -x /root/scripts/bake_mail_into_war.sh ]; then
+        echo "==> baking SES mail fix into the WAR"
+        MAILUTILS_SRC=/root/scripts/MailUtils.java /root/scripts/bake_mail_into_war.sh "$WAR" \
+            || echo "  WARNING: mail bake failed (non-fatal); run patch_mail_post_deploy.sh post-deploy"
+    fi
 fi
 
 echo "==> Done. WAR is at /root/flymine/webapp/build/libs/webapp.war"
