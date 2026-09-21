@@ -18,6 +18,39 @@ one artifact means either rewriting a live ETL pipeline (months, real regression
 zero data payoff) or a universal stage abstraction serving exactly one Ant consumer
 (accidental complexity). The honest win is deduping the ~90% shared plumbing.
 
+## Decisions (2026-09-21)
+
+Locked in via review wizard; **status stays proposal — no code yet.**
+
+1. **Direction: shared substrate + config registry + two fronts.** Confirmed as the target.
+2. **MouseMine Ant→gradle migration: imminent.** This *modifies* the two-fronts call — see
+   reconciliation below. The Ant front is now explicitly **transitional**, not permanent.
+3. **`src/` orchestrator: keep & fix.** Do NOT delete. Reconcile
+   `src/intermine_builder/mine_config.py` to reality (correct versions/ports, add YeastMine,
+   fix the stale profile-DB name in the `buildUserDB` path) and align it with the new
+   `mines/<mine>.yaml` so there is one accurate registry rather than two drifting ones.
+4. **Sequencing: leave as proposal.** Review/circulate first; don't start building.
+
+### Reconciliation — two fronts + imminent MouseMine migration
+
+The design doc (and codex) noted: *if* a 5.x MouseMine is imminent, prefer full unification
+and skip two-front scaffolding. Decisions 1 and 2 together therefore resolve to:
+
+- **Build the durable substrate now** — base image, entrypoint library, `mines/<mine>.yaml`
+  registry, patch/finalize/mail toolset, generalized gradle stage-runner. Valuable under
+  *any* future and the bulk of the payoff.
+- **Do NOT build the Ant scaffolding** — drop the deferred `docker/base-builder-ant` and any
+  Ant-specific generalization. The Ant MouseMine is legacy-until-migrated: leave the live
+  rc4 pipeline untouched, do not fold it into the substrate.
+- **Design the gradle front as THE front.** When the 5.x MouseMine lands it becomes just
+  another gradle overlay (`FROM intermine-build-base:jdk8-gradle` + its `project.xml`/ETL as
+  a per-mine extractor) consuming the same substrate — the "second front" collapses into the
+  first with no rework. So we build toward one gradle builder, with today's Ant MouseMine
+  sitting outside it only until its migration completes.
+- Net effect: steps 1–8 below are unchanged; **step 9 (bring the Ant build in-tree as a
+  second front) is dropped** in favor of onboarding the *migrated* 5.x MouseMine as a normal
+  gradle overlay when it arrives.
+
 ## Current state (mapped)
 
 | Mine | Front | In-repo build | Notes |
@@ -147,20 +180,23 @@ test DB-lifecycle safety before touching shared plumbing** — reorders it:
   validated against both fronts. Rebuttal: the substrate is already shared, so Front B can
   collapse into Front A later *if* an upstream MouseMine→gradle migration ever lands.
 
-## Open questions (need a human decision)
+## Open questions
 
-- Is an upstream MouseMine Ant→gradle migration coming? If imminent, unify fully now and
-  skip two-front scaffolding; if not (likely — rc4 just shipped), two fronts is correct.
-- Delete src/ orchestration entirely, or reduce to host-only duties reading `mines/*.yaml`?
-  (Recommend delete unless the `build-mines` CLI is actively used — codex confirmed it's
-  wired, so confirm real usage before deleting.)
+**Resolved 2026-09-21 (see Decisions):**
+- ~~MouseMine Ant→gradle migration coming?~~ → **Yes, imminent.** Ant front is transitional;
+  onboard the migrated 5.x MouseMine as a normal gradle overlay, don't build Ant scaffolding.
+- ~~Delete src/ or reduce?~~ → **Keep & fix** — reconcile `mine_config.py` and align it with
+  `mines/*.yaml`.
+- ~~Ratify deleting the dead `docker/mousemine` gradle skeleton?~~ → archive it; the migrated
+  5.x MouseMine supersedes it.
+
+**Still open (need a human decision before/during execution):**
 - Will alliance-genome publish the flymine/yeastmine forks so source acquisition can
-  converge on pinned git-clone?
+  converge on pinned git-clone? Until then the staged-fork COPY mode is a permanent per-mine
+  strategy.
 - Converge deploy on file-swap for the gradle mines (migrate alliancemine off
   cargoRedeployRemote), or keep cargo as a per-mine exception behind the deploy contract?
 - Standardize the Solr-URL patch timing (runtime vs image-build-bake) across mines?
-- Ratify deleting/archiving the dead `docker/mousemine` gradle skeleton before any base-ant
-  work.
 
 ## Effort
 
