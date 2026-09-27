@@ -604,3 +604,18 @@ them. Or expect empty Solr until first reindex.
 
 This order means the riskier 9.x retrofit benefits from lessons learned
 on the 1.x build.
+
+## 11. InterMine 5.x — `intermine-tomcat:agr-5x-runtime` (2026-09-27)
+
+Built for the MouseMine 5.1 port: `docker/intermine-tomcat-5x/` (Tomcat 9.0.122 + JDK 11).
+Same patch set as §8 on a Tomcat 9 base, generated from the stock 9.0.122 files, plus:
+
+- Manager uses `RemoteCIDRValve` in Tomcat 9 (not `RemoteAddrValve`) — that is what is disabled.
+- 9.0.122 ships `maxParameterCount="1000"` on the HTTP connector; raised to 10000 (the 1.x
+  value) because InterMine forms can exceed 1000 parameters and Tomcat drops the excess silently.
+- `requestAttributesEnabled="true"` on `AccessLogValve`, so the access log shows the client IP
+  that `RemoteIpValve` resolved rather than the ALB.
+
+Verified on the dev host: manager deploy API reachable from a non-local address with the
+rendered password (401 on a wrong one), app sees `X-Forwarded-For` / `-Proto`, access log logs
+the forwarded IP, JSPs compile, no SEVERE at startup. Details: `docker/intermine-tomcat-5x/README.md`.
