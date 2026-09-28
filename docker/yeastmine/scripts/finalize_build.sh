@@ -57,4 +57,19 @@ fi
 
 echo "==> :webapp:war"
 ./gradlew :webapp:war --no-daemon --console=plain
-echo "==> Done. WAR at /root/yeastmine/webapp/build/libs/"
+WAR=$(ls -t /root/yeastmine/webapp/build/libs/*.war | head -1)
+
+# Mail (forgot-password) fix: JavaMail 1.6.2 + patched MailUtils + mail.from. The SMTP
+# settings themselves come from MAIL_* via the properties template.
+if [ -x /root/scripts/bake_mail_into_war.sh ]; then
+    echo "==> baking SES mail fix into $WAR"
+    MAILUTILS_SRC=/root/scripts/MailUtils.java /root/scripts/bake_mail_into_war.sh "$WAR"
+else
+    echo "WARNING: bake_mail_into_war.sh not mounted - WAR keeps JavaMail 1.4 (SES mail will fail)"
+fi
+
+# The build container is thrown away after this run: keep the WAR on the mounted volume,
+# named after the DB it serves.
+mkdir -p /root/data/wars
+cp "$WAR" "/root/data/wars/${PG_DB}.war"
+echo "==> Done. WAR at /root/data/wars/${PG_DB}.war"

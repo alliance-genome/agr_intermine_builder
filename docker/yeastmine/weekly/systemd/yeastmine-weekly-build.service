@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly YeastMine build (build host) - see docker/yeastmine/weekly/README.md
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+Environment=HOME=/home/ec2-user
+ExecStart=/home/ec2-user/yeastmine-build/weekly/bin/weekly_build.sh
+TimeoutStartSec=14h

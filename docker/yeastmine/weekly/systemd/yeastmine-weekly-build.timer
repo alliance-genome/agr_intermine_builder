@@ -1,0 +1,9 @@
+[Unit]
+Description=YeastMine weekly build, Fridays 22:00 US Pacific
+
+[Timer]
+OnCalendar=Fri *-*-* 22:00:00 America/Los_Angeles
+Persistent=false
+
+[Install]
+WantedBy=timers.target

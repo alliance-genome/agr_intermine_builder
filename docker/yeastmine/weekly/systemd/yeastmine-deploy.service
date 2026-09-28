@@ -1,0 +1,11 @@
+[Unit]
+Description=Deploy a new weekly YeastMine build if one is ready (multitenant host)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+Environment=HOME=/home/ec2-user
+ExecStart=/home/ec2-user/yeastmine-deploy/deploy_agent.sh
+TimeoutStartSec=2h

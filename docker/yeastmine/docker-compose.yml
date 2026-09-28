@@ -50,6 +50,16 @@ services:
       SOLR_INDEX_URL: ${SOLR_INDEX_URL:-}
       SOLR_AUTOCOMPLETE_URL: ${SOLR_AUTOCOMPLETE_URL:-}
 
+      # Mail (forgot-password via AWS SES). Rendered into the WAR's mail.* properties;
+      # without these the WAR ships empty mail settings and password reset breaks.
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
+      MAIL_SERVER_PASSWORD: ${MAIL_SERVER_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@alliancegenome.org}
+
       # Java/Gradle (must exceed 48g JVM by ~8G for native memory; container limit 56G)
       GRADLE_OPTS: >-
         -Xmx48g -Xms24g
@@ -58,6 +68,12 @@ services:
 
     volumes:
       - ./data:/root/data
+      # Host copies override the ones baked into the image, so these can change without
+      # an image rebuild (which would also pull newer YeastMine source).
+      - ./properties/yeastmine.properties.template:/root/.intermine/yeastmine.properties.template:ro
+      - ./scripts/finalize_build.sh:/root/scripts/finalize_build.sh:ro
+      - ../../scripts/bake_mail_into_war.sh:/root/scripts/bake_mail_into_war.sh:ro
+      - ../../patches/intermine/MailUtils.java:/root/scripts/MailUtils.java:ro
 
     deploy:
       resources:

@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for a new weekly YeastMine build every 30 minutes
+
+[Timer]
+OnCalendar=*:0/30
+Persistent=false
+
+[Install]
+WantedBy=timers.target
