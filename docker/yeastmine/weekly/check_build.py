@@ -92,6 +92,9 @@ def main():
     check("war solr autocomplete", oc.get("autocomplete.solrurl", "").endswith("/yeastmine-autocomplete"),
           oc.get("autocomplete.solrurl", "<missing>"))
     check("war javamail", any(n.endswith("javax.mail-1.6.2.jar") for n in names), "SES needs JavaMail 1.6.2")
+    logo = wp.get("branding.images.logo", "")
+    check("war branding logo", logo.startswith("https://yeastmine.alliancegenome.org/"),
+          "%s (BlueGenes shows this; the old yeastgenome.org host is dead)" % (logo or "<missing>"))
     if a.label:
         shown = wp.get("project.releaseVersion") or ip.get("project.releaseVersion", "<missing>")
         check("war release label", shown == a.label, "%s (header shows build date + GO version)" % shown)
