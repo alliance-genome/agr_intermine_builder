@@ -1,7 +1,11 @@
 # MouseMine 1.8: keyword-search index reload takes the site down after every restart
 
-Status: **plan** (2026-09-29). Outage in progress when written: `mousemine-1x` restarted
-13:29 UTC for the model-browser counts, down from ~13:45 until the index load finishes (~15:00 UTC).
+Status: **deployed 2026-09-29 16:45 UTC** (patch cf8aac5). The outage that prompted it: `mousemine-1x`
+restarted 13:29 UTC for the model-browser counts, down ~13:45–16:14 UTC while the index reloaded
+(6.5 GB on disk, not the ~1.2 GB first estimated), then search failed with OutOfMemoryError on the
+4 GB heap. After the deploy: restart served in ~10 s, the log showed the index was reused
+(`Reusing search index … skipped extraction from the database`), and the first search returned
+7,651 hits in 27 s. Heap is now 6 GB (container limit 8 GB), with `-XX:+ExitOnOutOfMemoryError`.
 
 ## What happens
 
