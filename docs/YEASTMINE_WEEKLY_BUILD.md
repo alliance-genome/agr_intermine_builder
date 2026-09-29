@@ -181,9 +181,11 @@ multitenant host.
    2026-09-18. This is a planner-cost ceiling, not a timeout in milliseconds, and 3600000 is below
    InterMine's own default (10000000), which breaks enrichment widgets. 500000000 is the documented
    value (`docs/MOUSEMINE_ENRICHMENT_WIDGET_FIX_2026_05_15.md`).
-4. **The header shows the build date and GO version**, e.g. `R64-5-1 (built 2026-10-02, GO 2026-07-26)`. The same string is returned by `service/version/release`, so API clients and BlueGenes see a new release each week.
 3. **Mail settings are now built in** rather than hand-edited: same SES host and account, plus
    JavaMail 1.6.2 and the patched `MailUtils`.
+4. **The header shows the build date and GO version**, e.g. `R64-5-1 (built 2026-10-02, GO 2026-07-26)`.
+   The same string is returned by `service/version/release`, so API clients and BlueGenes see a
+   new release each week.
 
 ## 10. Files
 
