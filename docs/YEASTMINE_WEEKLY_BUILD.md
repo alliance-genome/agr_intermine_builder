@@ -46,6 +46,7 @@ in the build clone `~/yeastmine-build/agr_intermine_builder/docker/yeastmine` us
 | Preflight | Checks the `MAIL_*` settings, the standby Solr cores, 20 GB free disk, and `live.json` in S3 | any is missing |
 | Next rc | Finds the highest `yeastmine_R64_5_1_rc<N>` on RDS and pins `RC_NUMBER=N+1` for every container run | RDS unreachable |
 | Data | `extract_data.py` (S3 sync + ontologies), then refreshes the Alliance orthology file and downloads go-basic, goslim_yeast and PSI-MI with a browser User-Agent | a download is empty or not OBO |
+| Release label | Sets the site header / `service/version/release` to `R64-5-1 (built <Pacific date>, GO <GO release>)`; the GO release is the `data-version` of the `go-basic.obo` just downloaded | `go-basic.obo` has no `data-version` |
 | Integrate | `project_build -b` (integration plus the image's post-processing) | non-zero exit or `BUILD FAILED` |
 | Search indexes | `create-search-index` and `create-autocomplete-index`, each in its own JVM, pointed at `yeastmine-search-next` / `yeastmine-autocomplete-next` | a step reports FAILED, or did not target `-next` |
 | WAR | `finalize_build`: object-store summary, WAR, SES mail fix baked in; saved as `data/wars/<db>.war` | no WAR produced |
@@ -73,6 +74,7 @@ A build is published only if **all** of these pass. The thresholds are at the to
 | WAR database | Points at the new rc database |
 | WAR mail | `mail.host` and `mail.smtp.user` set; JavaMail 1.6.2 present (SES needs TLS 1.2) |
 | WAR Solr | Search and autocomplete URLs name the live cores, not `-next` |
+| WAR release label | `project.releaseVersion` is the label with the build date and GO version |
 
 Tested on 2026-09-28 against real rc3 data. Identical counts pass. Halving the Complexes fails
 ("317 vs live 634"). The June WAR fails on mail and JavaMail.
@@ -179,6 +181,7 @@ multitenant host.
    2026-09-18. This is a planner-cost ceiling, not a timeout in milliseconds, and 3600000 is below
    InterMine's own default (10000000), which breaks enrichment widgets. 500000000 is the documented
    value (`docs/MOUSEMINE_ENRICHMENT_WIDGET_FIX_2026_05_15.md`).
+4. **The header shows the build date and GO version**, e.g. `R64-5-1 (built 2026-10-02, GO 2026-07-26)`. The same string is returned by `service/version/release`, so API clients and BlueGenes see a new release each week.
 3. **Mail settings are now built in** rather than hand-edited: same SES host and account, plus
    JavaMail 1.6.2 and the patched `MailUtils`.
 

@@ -80,6 +80,14 @@ for o in "go-basic.obo http://purl.obolibrary.org/obo/go/go-basic.obo" \
         || { rm -f "$D/ontology/$1.new"; fail "download of $1 failed or is not OBO"; }
 done
 
+# Release label shown in the site header: build date (US Pacific, the schedule's zone) and the
+# GO release of the ontology just downloaded ("data-version: releases/2026-07-26").
+BUILD_DATE=$(TZ=America/Los_Angeles date +%F)
+GO_VERSION=$(grep -m1 '^data-version:' "$D/ontology/go-basic.obo" | awk '{print $2}' | awk -F/ '{print $NF}')
+[ -n "$GO_VERSION" ] || fail "no data-version in go-basic.obo"
+export YEASTMINE_RELEASE_LABEL="$YEASTMINE_RELEASE (built $BUILD_DATE, GO $GO_VERSION)"
+say "release label: $YEASTMINE_RELEASE_LABEL"
+
 # ---- 2. integrate + postprocess ------------------------------------------------------------
 status RUNNING "project_build $DB"
 CMD=(bash -c "cd /root/yeastmine && ./project_build -b -v localhost /root/data/dump/yeastmine")
@@ -115,18 +123,21 @@ for c in yeastmine-search yeastmine-search-next yeastmine-autocomplete yeastmine
         | python3 -c 'import json,sys; s=json.load(sys.stdin)["status"]; print(list(s.values())[0]["index"]["numDocs"])')"
 done > "$RUN/solr.tsv"
 python3 "$WEEKLY/bin/check_build.py" --new "$RUN/counts_new.tsv" --live "$RUN/counts_live.tsv" \
-    --solr "$RUN/solr.tsv" --war "$WAR" --db "$DB" --out "$RUN/checks.json" || fail "checks failed (see checks.json)"
+    --solr "$RUN/solr.tsv" --war "$WAR" --db "$DB" --label "$YEASTMINE_RELEASE_LABEL" \
+    --out "$RUN/checks.json" || fail "checks failed (see checks.json)"
 
 # ---- 6. publish --------------------------------------------------------------------------------
 if [ $PUBLISH -eq 1 ]; then
     status RUNNING "publish to S3"
     SHA=$(sha256sum "$WAR" | cut -d' ' -f1)
     aws s3 cp --quiet "$WAR" "$S3/builds/$DB/yeastmine.war" || fail "WAR upload failed"
-    python3 - "$DB" "$RC" "$YEASTMINE_RELEASE" "$SHA" "$S3/builds/$DB/yeastmine.war" "$STAMP" "$RUN/checks.json" > "$RUN/manifest.json" <<'PY'
+    python3 - "$DB" "$RC" "$YEASTMINE_RELEASE" "$SHA" "$S3/builds/$DB/yeastmine.war" "$STAMP" "$RUN/checks.json" \
+        "$YEASTMINE_RELEASE_LABEL" "$BUILD_DATE" "$GO_VERSION" > "$RUN/manifest.json" <<'PY'
 import json, sys
-db, rc, rel, sha, war, stamp, checks = sys.argv[1:]
-print(json.dumps({"db": db, "rc": int(rc), "release": rel, "war": war, "sha256": sha,
-                  "built": stamp, "checks": json.load(open(checks))}, indent=1))
+db, rc, rel, sha, war, stamp, checks, label, build_date, go = sys.argv[1:]
+print(json.dumps({"db": db, "rc": int(rc), "release": rel, "label": label, "build_date": build_date,
+                  "go_version": go, "war": war, "sha256": sha, "built": stamp,
+                  "checks": json.load(open(checks))}, indent=1))
 PY
     aws s3 cp --quiet "$RUN/manifest.json" "$S3/builds/$DB/manifest.json" \
         && aws s3 cp --quiet "$RUN/manifest.json" "$S3/ready.json" || fail "manifest upload failed"

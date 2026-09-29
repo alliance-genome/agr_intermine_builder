@@ -55,6 +55,7 @@ def main():
     ap = argparse.ArgumentParser()
     for a in ("--new", "--live", "--solr", "--war", "--db", "--out"):
         ap.add_argument(a, required=True)
+    ap.add_argument("--label", help="expected project.releaseVersion (release, build date, GO version)")
     a = ap.parse_args()
     new, live = counts(a.new), counts(a.live)
     checks = []
@@ -91,6 +92,9 @@ def main():
     check("war solr autocomplete", oc.get("autocomplete.solrurl", "").endswith("/yeastmine-autocomplete"),
           oc.get("autocomplete.solrurl", "<missing>"))
     check("war javamail", any(n.endswith("javax.mail-1.6.2.jar") for n in names), "SES needs JavaMail 1.6.2")
+    if a.label:
+        shown = wp.get("project.releaseVersion") or ip.get("project.releaseVersion", "<missing>")
+        check("war release label", shown == a.label, "%s (header shows build date + GO version)" % shown)
 
     ok = all(c["ok"] for c in checks)
     json.dump({"ok": ok, "checks": checks, "total_new": tn, "total_live": tl}, open(a.out, "w"), indent=1)

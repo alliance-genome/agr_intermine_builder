@@ -16,7 +16,8 @@ cannot SSH to the multitenant host.
 **Build** (about 3 hours):
 1. Picks the next rc number once (`yeastmine_R64_5_1_rc<N>`) and uses it for every step.
 2. Extracts data, then refreshes the Alliance orthology file and the GO, GO-slim and PSI-MI ontologies.
-3. Runs `project_build`: integration plus the post-processing in the image's `project.xml`.
+3. Sets the release label shown in the site header: `R64-5-1 (built <Pacific date>, GO <GO release from go-basic.obo>)`.
+4. Runs `project_build`: integration plus the post-processing in the image's `project.xml`.
 4. Builds the keyword-search and autocomplete indexes into the **standby** Solr cores
    `yeastmine-search-next` / `yeastmine-autocomplete-next`. The live cores are not touched.
 5. Builds the object-store summary and the WAR, with the SES mail fix baked in

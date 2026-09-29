@@ -53,7 +53,9 @@ db.sgd.platform=PostgreSQL
 # ============================================
 project.title=YeastMine
 project.subTitle=An integrated database of Saccharomyces cerevisiae genomics, curated by SGD
-project.releaseVersion=${YEASTMINE_RELEASE}
+# Shown in the site header and returned by service/version/release. The weekly build sets
+# it to "<release> (built <date>, GO <GO release>)"; manual builds default to the release.
+project.releaseVersion=${YEASTMINE_RELEASE_LABEL}
 project.sitePrefix=${WEBAPP_BASEURL}/yeastmine
 
 # ============================================

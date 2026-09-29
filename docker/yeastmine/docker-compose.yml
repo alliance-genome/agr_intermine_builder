@@ -19,6 +19,8 @@ services:
       # release the build is for (e.g. R64-5-1). Entrypoint defaults to
       # today's date if unset.
       YEASTMINE_RELEASE: ${YEASTMINE_RELEASE:-}
+      # Display label (site header, service/version/release); defaults to the release.
+      YEASTMINE_RELEASE_LABEL: ${YEASTMINE_RELEASE_LABEL:-${YEASTMINE_RELEASE:-}}
       BUILD_TYPE: ${BUILD_TYPE:-test}
       # RC_NUMBER: auto-incremented from RDS if not set
       RC_NUMBER: ${RC_NUMBER:-}
