@@ -1,0 +1,9 @@
+# Thresholds for `dive` CI mode (https://github.com/wagoodman/dive).
+# Used by .github/workflows/image-scan.yml and `make scan`.
+rules:
+  # Fail if image efficiency drops below 90%.
+  lowestEfficiency: 0.90
+  # Fail if more than 100MB is wasted (files duplicated/removed across layers).
+  highestWastedBytes: 100MB
+  # Fail if wasted space is 20% or more of the non-base layers.
+  highestUserWastedPercent: 0.20
