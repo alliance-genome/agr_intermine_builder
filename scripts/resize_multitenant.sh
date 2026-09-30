@@ -105,7 +105,7 @@ verify() {
     done
     diff "$STATE_DIR/containers.before" "$STATE_DIR/containers.after" && say "all baseline containers running" \
         || say "WARN: container set differs (< missing, > extra)"
-    SSH "sudo iptables -t nat -S PREROUTING | grep -q 'dport 8983' && echo 'solr DNAT rule present' || echo 'WARN: solr DNAT rule MISSING - sudo systemctl restart solr-dnat'"
+    SSH "sudo iptables -t nat -S PREROUTING | grep -q -- '-d $HOST/32 .*-j DNAT --to-destination 172.17.0.1' && echo 'solr/webapp DNAT rule present' || echo 'WARN: DNAT rule MISSING - sudo systemctl restart solr-dnat'"
     SSH "curl -s --max-time 30 -o /dev/null -w 'solr: %{http_code}\n' 'http://localhost:8983/solr/admin/cores?action=STATUS'"
     say "waiting for webapps (up to 10 min)..."
     for i in $(seq 1 60); do
