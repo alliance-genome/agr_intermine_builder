@@ -24,6 +24,7 @@ if [ -n "$(docker ps -aq -f "name=^/agr.local.alliancemine.postgres.server$")" ]
 fi
 
 # Run the Docker container with the volume mounted for persistence in detached mode
+# shellcheck disable=SC2086 # left unquoted, matching the original line
 docker run \
   -d \
   --name agr.local.alliancemine.postgres.server \
@@ -31,7 +32,7 @@ docker run \
   -p 5432:5432 \
   --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
   -e PGDATA=/var/lib/postgresql/data \
-  -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}" \
+  -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres} \
   --health-cmd="pg_isready -U postgres" \
   --health-interval=10s \
   --health-timeout=5s \
