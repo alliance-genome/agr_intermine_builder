@@ -16,7 +16,7 @@ if [ ! -d "$PG_DATA_DIR" ]; then
 fi
 
 # Check if a container named "agr.local.alliancemine.postgres.server" already exists
-if [ $(docker ps -aq -f name=^/agr.local.alliancemine.postgres.server$) ]; then
+if [ -n "$(docker ps -aq -f "name=^/agr.local.alliancemine.postgres.server$")" ]; then
     echo "Stopping existing PostgreSQL container..."
     docker stop agr.local.alliancemine.postgres.server || echo "Failed to stop container"
     docker rm agr.local.alliancemine.postgres.server || echo "Failed to remove container"
@@ -31,7 +31,7 @@ docker run \
   -p 5432:5432 \
   --log-driver=gelf --log-opt gelf-address=udp://logs.alliancegenome.org:12201 \
   -e PGDATA=/var/lib/postgresql/data \
-  -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres} \
+  -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}" \
   --health-cmd="pg_isready -U postgres" \
   --health-interval=10s \
   --health-timeout=5s \

@@ -28,7 +28,7 @@ docker network ls | grep -w intermine || \
 CONTAINER_NAME="agr.local.intermine_builder"
 
 # Check and remove existing builder container
-if [ $(docker ps -aq -f name=^/${CONTAINER_NAME}$) ]; then
+if [ -n "$(docker ps -aq -f "name=^/${CONTAINER_NAME}$")" ]; then
     echo "Found existing builder container - removing..."
     docker stop ${CONTAINER_NAME}
     docker rm ${CONTAINER_NAME}
@@ -43,7 +43,7 @@ PG_CONTAINER=$(docker ps \
 [ -z "$PG_CONTAINER" ] && handle_error "PostgreSQL container not found. Make sure it's running."
 
 # Get PostgreSQL container IP
-PG_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $PG_CONTAINER)
+PG_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PG_CONTAINER")
 [ -z "$PG_IP" ] && handle_error "Could not get IP address for PostgreSQL container."
 
 echo "Using PostgreSQL container: $PG_CONTAINER (IP: $PG_IP)"
