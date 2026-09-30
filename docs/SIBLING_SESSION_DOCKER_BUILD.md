@@ -157,7 +157,7 @@ YeastMine's `sgd` source reads from the live SGD Postgres at Stanford:
 `www-rds-primary.yeastgenome.org`. Read-only creds are in
 `docker/alliancemine/.env.example` (operator's `.env`):
 - user: `webb`
-- password: `readonly4alliance`
+- password: `<SGD_DB_PASSWORD - see .env, not in git>`
 - db: `sgd`
 
 These need to be in `.env` for the yeastmine container too. Set:
@@ -166,7 +166,7 @@ These need to be in `.env` for the yeastmine container too. Set:
 SGD_DB_HOST=www-rds-primary.yeastgenome.org
 SGD_DB_NAME=sgd
 SGD_DB_USER=webb
-SGD_DB_PASSWORD=readonly4alliance
+SGD_DB_PASSWORD=<SGD_DB_PASSWORD - see .env, not in git>
 SGD_DB_PORT=5432
 ```
 

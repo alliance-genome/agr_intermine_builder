@@ -48,10 +48,10 @@ Once TLS worked, the SMTP conversation reached `MAIL FROM` + `RCPT TO`
 successfully, then SES rejected at end-of-DATA with:
 
 ```
-554 Transaction failed: User name is missing: 'AKIAROVPJF4QF3YXRSGZ'
+554 Transaction failed: User name is missing: '<SES_SMTP_USER - see .env, not in git>'
 ```
 
-`AKIAROVPJF4QF3YXRSGZ` is the SES SMTP username (an AWS access key ID).
+`<SES_SMTP_USER - see .env, not in git>` is the SES SMTP username (an AWS access key ID).
 That value was appearing as the message `From:` header. Decompiling
 `MailUtils.class` revealed:
 
@@ -196,7 +196,7 @@ staged into the build context; `docker/flymine/Dockerfile` COPYs them to
    (gradle `:webapp:war` / Ant `default`), in the build container (needs `javac`).
 3. Set `MAIL_*` in that mine's build `.env` (host/port/auth/starttls/user/password/from)
    so the props render. Only `MAIL_SERVER_PASSWORD` is sensitive — pull it from
-   the working alliancemine container or IT; the SMTP user is `AKIAROVPJF4QF3YXRSGZ`.
+   the working alliancemine container or IT; the SMTP user is `<SES_SMTP_USER - see .env, not in git>`.
 Each is validated on that mine's next rebuild.
 
 ## (legacy) post-deploy applicator — still valid for an un-baked mine
