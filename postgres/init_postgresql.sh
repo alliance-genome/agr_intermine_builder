@@ -10,13 +10,13 @@ cd /opt
 # postgres, instead of Alpine; the latter doesn't include nss_wrapper.
 cp /etc/passwd .
 cp /etc/group .
-echo appuser:x:$(id -u):$(id -g):appuser:/home/appuser:/bin/false >> passwd
-echo appuser:x:$(id -g): >> group
+echo "appuser:x:$(id -u):$(id -g):appuser:/home/appuser:/bin/false" >> passwd
+echo "appuser:x:$(id -g):" >> group
 export LD_PRELOAD=/usr/lib/libnss_wrapper.so
 export NSS_WRAPPER_PASSWD=./passwd
 export NSS_WRAPPER_GROUP=./group
 
-psql -v ON_ERROR_STOP=1 --username ${PGUSER:-postgres} <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "${PGUSER:-postgres}" <<-EOSQL
     update pg_database set datallowconn = TRUE where datname = 'template0';
     \c template0
     update pg_database set datistemplate = FALSE where datname = 'template1';
