@@ -38,7 +38,14 @@ status() {  # state detail
         "$STAMP" "$RC" "$DB" "$1" "$2" "$(date -u +%FT%TZ)" > "$RUN/status.json"
     aws s3 cp --quiet "$RUN/status.json" "$S3/last-build-status.json" || say "WARN: could not write status to S3"
 }
-fail() { status FAILED "$1"; exit 1; }
+drop_if_empty() {  # a run that fails before loading anything leaves an empty rc DB that would
+                   # take a retention slot; drop it (never the live DB, never one with tables)
+    [ -n "$DB" ] && [ "$DB" != "${LIVE_DB:-}" ] || return 0
+    local n; n=$(echo "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" \
+        | PSQL -d "$DB" 2>/dev/null) || return 0
+    [ "$n" = 0 ] && echo "DROP DATABASE \"$DB\";" | PSQL -d postgres >/dev/null && say "dropped empty $DB"
+}
+fail() { status FAILED "$1"; drop_if_empty; exit 1; }
 
 cd "$YM_DIR" || fail "no $YM_DIR"
 set -a; . ./.env; set +a
@@ -46,6 +53,9 @@ PSQL() { docker run --rm -i -e PGPASSWORD="$RDS_PASSWORD" postgres:15 \
            psql -h "$RDS_HOST" -p "${RDS_PORT:-5432}" -U "$RDS_USER" -v ON_ERROR_STOP=1 -At "$@"; }
 RUNC() {  # run a command in a fresh build container with this build's pinned rc
     docker compose run --rm -T -e RC_NUMBER="$RC" "$@" yeastmine-builder "${CMD[@]}"; }
+own_data() {  # the container writes data/ as root; hand what this script edits on the host to us
+    CMD=(bash -c "mkdir -p /root/data/wars && chown -R $(id -u):$(id -g) /root/data/intermine /root/data/wars")
+    RUNC >/dev/null || fail "could not take ownership of data/intermine and data/wars"; }
 
 # ---- preflight --------------------------------------------------------------------------
 status RUNNING "preflight"
@@ -67,6 +77,7 @@ say "release $YEASTMINE_RELEASE -> building $DB (live: $LIVE_DB)"
 # ---- 1. data -----------------------------------------------------------------------------
 status RUNNING "extract data"
 CMD=(python3 /root/scripts/extract_data.py); RUNC || fail "extract_data failed"
+own_data
 D="$YM_DIR/data/intermine"
 cp -f "$AMFMS/ORTHOLOGY-ALLIANCE_COMBINED.tsv" "$D/yeast_orthologs/diopt/ORTHOLOGY-ALLIANCE_COMBINED.tsv" \
     || fail "orthology refresh failed"
@@ -145,6 +156,7 @@ fi
 
 # ---- 7. retention --------------------------------------------------------------------------------
 status RUNNING "retention (keep newest $KEEP)"
+own_data   # finalize_build wrote this build's WAR as root
 echo "SELECT datname FROM pg_database WHERE datname ~ '^${PREFIX}[0-9]+(:.*)?\$' ORDER BY substring(datname from '_rc([0-9]+)')::int DESC;" \
     | PSQL -d postgres > "$RUN/rc_dbs.txt"
 KEEP_LIST=$(grep -v ':' "$RUN/rc_dbs.txt" | head -"$KEEP")
