@@ -72,13 +72,24 @@ REL_S=$(echo "$YEASTMINE_RELEASE" | tr '.-' '__'); PREFIX="yeastmine_${REL_S}_rc
 MAXRC=$(echo "SELECT coalesce(max(substring(datname from '_rc([0-9]+)\$')::int),0) FROM pg_database WHERE datname ~ '^${PREFIX}[0-9]+\$';" | PSQL -d postgres) \
     || fail "cannot query RDS"
 RC=$((MAXRC + 1)); DB="${PREFIX}${RC}"
-say "release $YEASTMINE_RELEASE -> building $DB (live: $LIVE_DB)"
+# Resume a run whose data load finished: RESUME_RC=<n> skips extract + project_build and continues
+# at the search indexes against the already-loaded rc<n> (e.g. after an index-step failure).
+if [ -n "${RESUME_RC:-}" ]; then
+    RC=$RESUME_RC; DB="${PREFIX}${RC}"
+    [ "$DB" != "$LIVE_DB" ] || fail "RESUME_RC=$RC is the live database"
+    T=$(echo "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" | PSQL -d "$DB") \
+        && [ "${T:-0}" -gt 0 ] || fail "RESUME_RC=$RC: $DB missing or empty"
+    say "resuming $DB at the search indexes ($T tables; live: $LIVE_DB)"
+else
+    say "release $YEASTMINE_RELEASE -> building $DB (live: $LIVE_DB)"
+fi
 
 # ---- 1. data -----------------------------------------------------------------------------
+D="$YM_DIR/data/intermine"
+if [ -z "${RESUME_RC:-}" ]; then
 status RUNNING "extract data"
 CMD=(python3 /root/scripts/extract_data.py); RUNC || fail "extract_data failed"
 own_data
-D="$YM_DIR/data/intermine"
 cp -f "$AMFMS/ORTHOLOGY-ALLIANCE_COMBINED.tsv" "$D/yeast_orthologs/diopt/ORTHOLOGY-ALLIANCE_COMBINED.tsv" \
     || fail "orthology refresh failed"
 for o in "go-basic.obo http://purl.obolibrary.org/obo/go/go-basic.obo" \
@@ -90,6 +101,7 @@ for o in "go-basic.obo http://purl.obolibrary.org/obo/go/go-basic.obo" \
         && mv "$D/ontology/$1.new" "$D/ontology/$1" && say "  $1: $(stat -c %s "$D/ontology/$1") bytes" \
         || { rm -f "$D/ontology/$1.new"; fail "download of $1 failed or is not OBO"; }
 done
+fi
 
 # Release label shown in the site header: build date (US Pacific, the schedule's zone) and the
 # GO release of the ontology just downloaded ("data-version: releases/2026-07-26").
@@ -100,16 +112,23 @@ export YEASTMINE_RELEASE_LABEL="$YEASTMINE_RELEASE (built $BUILD_DATE, GO $GO_VE
 say "release label: $YEASTMINE_RELEASE_LABEL"
 
 # ---- 2. integrate + postprocess ------------------------------------------------------------
+if [ -z "${RESUME_RC:-}" ]; then
 status RUNNING "project_build $DB"
 CMD=(bash -c "cd /root/yeastmine && ./project_build -b -v localhost /root/data/dump/yeastmine")
 RUNC 2>&1 | tee "$RUN/project_build.log"; [ "${PIPESTATUS[0]}" -eq 0 ] || fail "project_build failed (see project_build.log)"
 grep -q -E "BUILD FAILED|ERROR: .*failed" "$RUN/project_build.log" && fail "project_build reported a failure"
+fi
 
 # ---- 3. search indexes into the standby cores ---------------------------------------------
 # 5.x reads the Solr URLs from resource files; point them at the -next cores in this container only.
+# gradle postprocess refuses a step that project.xml doesn't list, and YeastMine's project.xml
+# lists neither index step, so add it to this container's copy too.
 for step in create-search-index create-autocomplete-index; do
     status RUNNING "$step -> standby core"
     CMD=(bash -c "cd /root/yeastmine \
+        && { grep -q 'post-process name=\"$step\"' project.xml \
+             || sed -i 's#</post-processing>#  <post-process name=\"$step\"/>\n  </post-processing>#' project.xml; } \
+        && grep -c 'post-process name=\"$step\"' project.xml \
         && sed -i -E 's#(/solr/yeastmine-search)[[:space:]]*\$#\1-next#' dbmodel/resources/keyword_search.properties \
         && sed -i -E 's#(/solr/yeastmine-autocomplete)[[:space:]]*\$#\1-next#' dbmodel/resources/objectstoresummary.config.properties \
         && grep -h solrurl dbmodel/resources/keyword_search.properties dbmodel/resources/objectstoresummary.config.properties \
