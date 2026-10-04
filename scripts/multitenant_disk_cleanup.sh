@@ -23,7 +23,8 @@ echo "before: $(usage)"
 
 # ---- 0. grow root filesystem ---------------------------------------------------------------
 DISK=/dev/nvme0n1
-if [ "$(lsblk -bno SIZE $DISK)" -gt "$(( $(lsblk -bno SIZE ${DISK}p1) + 1073741824 ))" ]; then
+# -d: the device itself, not its partitions (plain -bno lists every partition too)
+if [ "$(lsblk -bdno SIZE $DISK)" -gt "$(( $(lsblk -bdno SIZE ${DISK}p1) + 1073741824 ))" ]; then
     growpart $DISK 1 && xfs_growfs / >/dev/null && echo "0. grew / to $(df -h / | tail -1 | awk '{print $2}')"
 else
     echo "0. disk not larger than the partition yet (EBS resize still pending?) - rerun later to grow"
