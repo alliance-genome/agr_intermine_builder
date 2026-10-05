@@ -6,7 +6,9 @@
 # across genes and belong in Gene.pathways, not crossReferences.
 # New for FB2026_03: restricted to current (non-obsolete) gene features of the 12 species FlyMine's
 # chado sources load. The converter creates a Gene for every FBgn it sees, so the unfiltered Sep
-# extract (239K FBgns) made ~145K identifier-only stub genes that had to be deleted after loading.
+# extract (239K FBgns) made ~145K identifier-only stub genes that had to be deleted after loading,
+# and ~4.2K human/mouse/yeast/other-species FBgns (transgene genes) got crossrefs while FlyMine
+# labelled them D. melanogaster. Those are now excluded too.
 set -euo pipefail
 cd /home/ec2-user/flymine-deploy
 OUT=data/flybase/crossreferences/current/gene_dbxrefs.tsv
@@ -22,8 +24,9 @@ JOIN dbxref dx         ON dx.dbxref_id = fd.dbxref_id
 JOIN db                ON db.db_id = dx.db_id
 WHERE f.uniquename ~ '^FBgn[0-9]+$' AND NOT f.is_obsolete
   AND o.genus = 'Drosophila'
-  AND o.species IN ('melanogaster','pseudoobscura','ananassae','erecta','grimshawi','mojavensis',
-                    'persimilis','sechellia','simulans','virilis','willistoni','yakuba')
+  -- chado names D. pseudoobscura 'pseudoobscura pseudoobscura', hence split_part
+  AND split_part(o.species, ' ', 1) IN ('melanogaster','pseudoobscura','ananassae','erecta','grimshawi',
+                    'mojavensis','persimilis','sechellia','simulans','virilis','willistoni','yakuba')
   AND db.name IN ('GB_protein','FlyBase Annotation IDs','EntrezGene','UniProt/TrEMBL','GB',
                   'FLYCYC_GENE','UniProt/Swiss-Prot');
 SQL
