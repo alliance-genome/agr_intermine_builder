@@ -117,3 +117,16 @@ systemProp.javax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutp
 # ============================================
 index.solrurl=${SOLR_INDEX_URL}
 autocomplete.solrurl=${SOLR_AUTOCOMPLETE_URL}
+
+# ============================================
+# Mail / SMTP (AWS SES via STARTTLS). The JavaMail 1.6.2 + MailUtils fix is baked
+# into the WAR by finalize_build.sh (bake_mail_into_war.sh). Before 2026-10 these
+# were hand-patched into the deployed WAR after every deploy.
+# ============================================
+mail.host=${MAIL_HOST}
+mail.smtp.port=${MAIL_SMTP_PORT}
+mail.smtp.auth=${MAIL_SMTP_AUTH}
+mail.smtp.starttls.enable=${MAIL_SMTP_STARTTLS}
+mail.smtp.user=${MAIL_SMTP_USER}
+mail.server.password=${MAIL_SERVER_PASSWORD}
+mail.from=${MAIL_FROM}
