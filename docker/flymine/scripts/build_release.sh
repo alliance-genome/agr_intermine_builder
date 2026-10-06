@@ -59,7 +59,9 @@ if run_step sqlpatch; then
     RUNC /root/scripts/finalize_build.sh --sql-only > "$LOGD/sqlpatch.log" 2>&1 || die "finalize --sql-only failed"
 fi
 if run_step postprocess; then
-    PP=$(grep -oE '<post-process name="[^"]+"' source/flymine/project.xml | cut -d'"' -f2)
+    # parse the XML (a grep also picks up steps that are commented out, e.g. populate-child-features)
+    PP=$(python3 -c 'import sys,xml.etree.ElementTree as E; print(" ".join(p.get("name") for p in E.parse(sys.argv[1]).getroot().iter("post-process")))' source/flymine/project.xml)
+    say "  post-process steps: $PP"
     for p in $PP; do                        # one JVM per step: a single-JVM postprocess leaks RDS connections
         [ -n "${PP_START_AT:-}" ] && [ "$p" != "$PP_START_AT" ] && [ -z "${pp_go:-}" ] && { say "  skip $p"; continue; }; pp_go=1
         say "== postprocess $p"
