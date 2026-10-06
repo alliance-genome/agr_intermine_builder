@@ -72,7 +72,12 @@ if run_step postprocess; then
 fi
 if run_step finalize; then
     say "== finalize (summary + WAR + objectstoresummary + mail bake)"
-    RUNC bash -c "$SOLR_FIX && /root/scripts/finalize_build.sh" > "$LOGD/finalize.log" 2>&1 || die "finalize failed"
+    # the WAR is built inside the (--rm) container; copy it to the mounted data dir or it is lost
+    WARNAME=flymine-$FLYMINE_RELEASE-rc$RC_NUMBER.war
+    RUNC bash -c "$SOLR_FIX && /root/scripts/finalize_build.sh && mkdir -p /root/data/wars \
+        && cp /root/flymine/webapp/build/libs/webapp.war /root/data/wars/$WARNAME" > "$LOGD/finalize.log" 2>&1 || die "finalize failed"
+    [ -s "data/wars/$WARNAME" ] || die "no WAR at data/wars/$WARNAME"
+    say "  WAR: data/wars/$WARNAME ($(du -h "data/wars/$WARNAME" | cut -f1), sha256 $(sha256sum "data/wars/$WARNAME" | cut -c1-16))"
 fi
 for c in $CORE_S $CORE_A; do say "  solr $c: $(curl -s "$SOLR/admin/cores?action=STATUS&core=$c&wt=json" | python3 -c 'import json,sys; print(list(json.load(sys.stdin)["status"].values())[0]["index"]["numDocs"])') docs"; done
 say "BUILD_RELEASE_DONE $FLYMINE_RELEASE rc$RC_NUMBER"

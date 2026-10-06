@@ -73,6 +73,13 @@ if sudo grep -q '^consider: FBcv:0003012$' "$OBO"; then
   sudo cp -n "$OBO" "$OBO.orig"; sudo sed -i '/^consider: FBcv:0003012$/d' "$OBO"; ok "removed obsolete consider (backup .orig)"
 else ok "cv obo already clean"; fi
 
+hdr "8b. dmel paralogs -> homology/current (drosophila-homology source)"
+# Since Sep 2026 drosophila-homology loads FlyBase's DIOPT paralog report (the cross-Drosophila
+# orthologs feed is gone). Without this the build silently loses ~470K homologue rows.
+sudo mkdir -p "$DATA/flybase/homology/current"
+if sudo test -s "$DATA/flybase/orthologs/dmel_paralogs_$REL.tsv"; then
+  sudo cp -f "$DATA/flybase/orthologs/dmel_paralogs_$REL.tsv" "$DATA/flybase/homology/current/dmel_paralogs.tsv" && ok "staged dmel_paralogs_$REL.tsv"
+else warn "no dmel_paralogs_$REL.tsv - drosophila-homology will load nothing"; fi
 hdr "9. drosophila-homology (UNRESOLVED — no data in this release; source will be skipped)"
 sudo mkdir -p "$DATA/flybase/homology/current"
 warn "no cross-Drosophila orthologs feed in $FB_RELEASE — drosophila-homology excluded from integration"
