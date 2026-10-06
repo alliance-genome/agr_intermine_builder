@@ -3,6 +3,12 @@
 Operational procedure for restarting the alliancemine-9.0.0 Tomcat container
 on multitenant. Avoids the bag-upgrade deadlock that bites every restart.
 
+> **Current names (2026-10-06):** container `alliancemine-9.0.0-rc20` on port **8086**, database
+> **`alliancemine_9_1_0_rc1`** (the 9.1.0 build). Substitute these for `alliancemine-9.0.0` / `8082` /
+> `alliancemine_9_0_0_rc18` below. The deadlock still happens on every restart: on 2026-10-06 (restart
+> for `os.query.max-time`) `service/version` answered at once but data queries hung with 20 idle JDBC
+> sessions; terminating them (step 4) brought it back in ~10 s.
+
 ## When to use
 
 Any planned restart of `alliancemine-9.0.0` on multitenant
