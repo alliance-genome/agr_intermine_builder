@@ -9,6 +9,7 @@
 # Restore: aws s3 cp s3://.../<db>.dump - | pg_restore -d <newdb> ...   (pg15 client)
 set -uo pipefail
 cd ~/flymine-deploy && set -a && . ./.env && set +a
+export PGPASSWORD="$RDS_PASSWORD"   # passed to docker by name, so the value never appears in ps output
 DAY=$(date -u +%F); BUCKET=s3://agr-db-backups/db-backups
 say() { echo "[$(date -u +%FT%TZ)] $*"; }
 fails=0
@@ -17,12 +18,12 @@ for db in "$@"; do
     # exact-key lookups (aws s3 ls matches by prefix, so it would also list <db>.dump.sha256)
     s3size() { aws s3api head-object --bucket agr-db-backups --key "${1#s3://agr-db-backups/}" --query ContentLength --output text 2>/dev/null; }
     if [ -n "$(s3size "$dest.sha256")" ]; then say "$db: already in S3, skipping"; continue; fi
-    bytes=$(docker run --rm -e PGPASSWORD="$RDS_PASSWORD" postgres:15 psql -h "$RDS_HOST" -U "$RDS_USER" -d postgres -At \
+    bytes=$(docker run --rm -e PGPASSWORD postgres:15 psql -h "$RDS_HOST" -U "$RDS_USER" -d postgres -At \
             -c "SELECT pg_database_size('$db')") || { say "$db: cannot read size - skipped"; fails=$((fails+1)); continue; }
     say "$db: dumping $((bytes/1024/1024/1024)) GB -> $dest"
     start=$(date +%s); sumf=$(mktemp)
     # --expected-size lets the CLI pick large enough multipart chunks for big streams (uncompressed size = upper bound)
-    docker run --rm -e PGPASSWORD="$RDS_PASSWORD" postgres:15 \
+    docker run --rm -e PGPASSWORD postgres:15 \
         pg_dump -Fc -Z6 -h "$RDS_HOST" -U "$RDS_USER" -d "$db" \
       | tee >(sha256sum | cut -d' ' -f1 > "$sumf") \
       | aws s3 cp - "$dest" --expected-size "$bytes" --only-show-errors
