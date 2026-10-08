@@ -7,9 +7,10 @@ Downloads data files for InterMine integration in four passes:
   2. FMS download (latest upload per file type in the release) of MOD files into /root/data/fms/ and /root/data/genes/
   3. Alliance API fetch via alliancemine-bio-sources/scripts/fetch_all.py
      into /root/data/api/ (SQLite cache in /root/data/api-cache/)
-  4. Flat-file downloads for the InterMine-core protein + pathway sources
-     added in Phase 6a/6b (UniProt, InterPro, KEGG, Reactome).
-     Lands in /root/data/{uniprot,interpro,kegg,reactome}/current/.
+  4. Flat-file downloads for the InterMine-core sources (UniProt, InterPro, protein2ipr,
+     interpro2go, gene2pubmed, OrthoDB, PANTHER, KEGG, Reactome) via flatfiles.py: filtered
+     to the AllianceMine taxa and rewritten to Alliance gene CURIEs with the ID map built
+     from the BGI files (/root/data/idmap/gene_idmap.tsv). Lands in /root/data/<source>/current/.
 
 The API fetch step requires /root/alliancemine-bio-sources/ to be present
 (cloned by the Dockerfile via the BIO_SOURCES_BRANCH build arg) and
@@ -22,6 +23,7 @@ Usage:
     python3 extract_data.py --skip-fms                # rerun only API + flatfiles
     python3 extract_data.py --skip-api                # legacy FMS-only behaviour
     python3 extract_data.py --skip-flatfiles          # skip Phase-6a/6b downloads
+    python3 extract_data.py --skip-fms --skip-api --flatfile-sources kegg-pathway,reactome
 """
 
 import gzip
@@ -34,8 +36,10 @@ import argparse
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
-from urllib.request import urlopen, urlretrieve, Request
+from urllib.request import urlopen, urlretrieve
 from urllib.error import HTTPError, URLError
+
+import flatfiles
 
 FMS_API_BASE = "https://fms.alliancegenome.org/api"
 DEFAULT_DATA_DIR = Path("/root/data")
@@ -47,66 +51,6 @@ FETCH_ALL_SCRIPT = Path("/root/alliancemine-bio-sources/scripts/fetch_all.py")
 # Downloaded from s3://agr-db-backups/alliancemine/intermine/
 S3_DATA_BUCKET = "agr-db-backups"
 S3_DATA_PREFIX = "alliancemine/intermine/"
-
-# ---------------------------------------------------------------------------
-# Phase 6a/6b: flat-file download sources for InterMine-core bio-sources.
-#
-# Each entry is (url, target_dir_relative, target_filename). target_dir is
-# relative to data_dir (e.g. "uniprot/current" -> /root/data/uniprot/current/).
-# The InterMine bio-source loaders expect specific filenames at specific paths
-# - changing these requires matching changes in alliancemine/project.xml.
-# ---------------------------------------------------------------------------
-
-# UniProt flat-file release. The uniprot bio-source reads the XML; the
-# uniprot-keywords bio-source reads keywlist.xml; the fasta source reads
-# uniprot_sprot_varsplic.fasta.
-# TODO-verify: the InterMine uniprot loader version may want trembl too;
-# if so, add a fourth tuple.
-UNIPROT_RELEASE_BASE = "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete"
-UNIPROT_FILES: List[tuple] = [
-    (f"{UNIPROT_RELEASE_BASE}/uniprot_sprot.xml.gz",
-     "uniprot/current", "uniprot_sprot.xml.gz"),
-    (f"{UNIPROT_RELEASE_BASE}/uniprot_sprot_varsplic.fasta.gz",
-     "uniprot/current", "uniprot_sprot_varsplic.fasta.gz"),
-    (f"{UNIPROT_RELEASE_BASE}/docs/keywlist.xml",
-     "uniprot/current", "keywlist.xml"),
-]
-
-# InterPro release files. The interpro source reads interpro.xml; protein2ipr
-# reads protein2ipr.dat (which lives in a separate match_complete subdirectory).
-INTERPRO_RELEASE_BASE = "https://ftp.ebi.ac.uk/pub/databases/interpro/current_release"
-INTERPRO_FILES: List[tuple] = [
-    (f"{INTERPRO_RELEASE_BASE}/interpro.xml.gz",
-     "interpro/current", "interpro.xml.gz"),
-    # protein2ipr.dat is huge (~30 GB uncompressed); the loader can read .gz directly.
-    (f"{INTERPRO_RELEASE_BASE}/protein2ipr.dat.gz",
-     "interpro/match_complete/current", "protein2ipr.dat.gz"),
-]
-
-# KEGG pathway data is per-organism. The InterMine kegg-pathway loader expects
-# both a {org}_gene_map.tab and a map_title.tab in the same directory.
-# TODO-verify: KEGG's licensing may require a registered FTP account for some
-# files - check that these public URLs still resolve before deploying.
-KEGG_RELEASE_BASE = "https://rest.kegg.jp"
-KEGG_ORGANISMS = ["sce", "hsa", "mmu", "rno", "cel", "dme", "dre"]  # taxa we ingest
-KEGG_FILES: List[tuple] = [
-    (f"{KEGG_RELEASE_BASE}/list/pathway", "kegg/current", "map_title.tab"),
-] + [
-    (f"{KEGG_RELEASE_BASE}/link/pathway/{org}", "kegg/current", f"{org}_gene_map.tab")
-    for org in KEGG_ORGANISMS
-]
-
-# Reactome pathway data. The reactome bio-source reads the species-stratified
-# Ensembl-to-Reactome TSV plus the pathways listing.
-REACTOME_RELEASE_BASE = "https://reactome.org/download/current"
-REACTOME_FILES: List[tuple] = [
-    (f"{REACTOME_RELEASE_BASE}/Ensembl2Reactome_All_Levels.txt",
-     "reactome/current", "Ensembl2Reactome_All_Levels.txt"),
-    (f"{REACTOME_RELEASE_BASE}/ReactomePathways.txt",
-     "reactome/current", "ReactomePathways.txt"),
-    (f"{REACTOME_RELEASE_BASE}/ReactomePathwaysRelation.txt",
-     "reactome/current", "ReactomePathwaysRelation.txt"),
-]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -386,59 +330,29 @@ class AllianceDataExtractor:
         logger.error(f"  API fetch failed (exit {result.returncode})")
         return "failed"
 
-    def _download_url(self, url: str, dest: Path) -> bool:
-        """Generic URL -> file helper with one retry. Used by Phase 6 flatfile
-        downloads. Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        for attempt in range(2):
-            try:
-                logger.info(f"  GET {url}")
-                urlretrieve(url, dest)
-                size = dest.stat().st_size
-                logger.info(f"  -> {dest} ({size:,} bytes)")
-                return True
-            except (HTTPError, URLError) as e:
-                if attempt == 0:
-                    logger.warning(f"  retry after error: {e}")
-                    continue
-                logger.error(f"  download failed: {e}")
-                return False
-        return False
+    def download_flatfiles(
+        self,
+        sources: Optional[List[str]] = None,
+        sample: Optional[int] = None,
+        force: bool = False,
+    ) -> Dict[str, str]:
+        """Phase 6 flat files (UniProt, InterPro, PubMed, OrthoDB, PANTHER, KEGG, Reactome).
 
-    def download_flatfiles(self) -> Dict[str, str]:
-        """Phase 6a/6b: download UniProt, InterPro, KEGG, Reactome flat files.
-
-        Each group is independent; one source's failure doesn't block the
-        others. The InterMine bio-source loaders for each will fail later
-        during project_build if a critical file is missing - we report what
-        succeeded so an operator can see in advance.
+        Streamed, restricted to the AllianceMine taxa and rewritten to Alliance gene CURIEs
+        with the ID map built from the BGI files (see flatfiles.py). One source's failure
+        doesn't stop the others; the status per source is returned.
         """
-        result = {}
-        for label, files in (
-            ("uniprot", UNIPROT_FILES),
-            ("interpro", INTERPRO_FILES),
-            ("kegg", KEGG_FILES),
-            ("reactome", REACTOME_FILES),
-        ):
-            logger.info(f"=== Phase-6 flatfile download: {label} ({len(files)} files) ===")
-            ok = 0
-            for url, target_dir, target_name in files:
-                dest = self.data_dir / target_dir / target_name
-                if dest.exists() and dest.stat().st_size > 0:
-                    logger.info(f"  cached: {dest}")
-                    ok += 1
-                    continue
-                if self._download_url(url, dest):
-                    ok += 1
-            result[label] = f"{ok}/{len(files)}"
-            logger.info(f"  {label}: {ok}/{len(files)} files present")
-        return result
+        report = flatfiles.run(self.data_dir, sources, sample=sample, force=force)
+        return {name: entry["status"] for name, entry in report.items()}
 
     def download_all(
         self,
         skip_fms: bool = False,
         skip_api: bool = False,
         skip_flatfiles: bool = False,
+        flatfile_sources: Optional[List[str]] = None,
+        flatfile_sample: Optional[int] = None,
+        force_flatfiles: bool = False,
     ) -> Dict[str, int]:
         """Download all configured data files.
 
@@ -480,7 +394,9 @@ class AllianceDataExtractor:
             logger.info("Skipping API fetchers (--skip-api)")
 
         if not skip_flatfiles:
-            stats["flatfiles"] = self.download_flatfiles()
+            stats["flatfiles"] = self.download_flatfiles(
+                flatfile_sources, flatfile_sample, force_flatfiles
+            )
         else:
             logger.info("Skipping Phase-6 flat-file downloads (--skip-flatfiles)")
 
@@ -561,7 +477,19 @@ def main():
     parser.add_argument(
         "--skip-flatfiles",
         action="store_true",
-        help="Skip the Phase-6 flat-file downloads (UniProt, InterPro, KEGG, Reactome)",
+        help="Skip the Phase-6 flat-file downloads (UniProt, InterPro, KEGG, Reactome, ...)",
+    )
+    parser.add_argument(
+        "--flatfile-sources",
+        help=f"Comma-separated subset of flat-file sources: {', '.join(flatfiles.SOURCES)}",
+    )
+    parser.add_argument(
+        "--flatfile-sample",
+        type=int,
+        help="Read at most N upstream records per flat file (local format testing only)",
+    )
+    parser.add_argument(
+        "--force-flatfiles", action="store_true", help="Re-download existing flat-file outputs"
     )
 
     args = parser.parse_args()
@@ -580,13 +508,20 @@ def main():
     extractor = AllianceDataExtractor(args.data_dir, release=release, release_type=args.release_type)
     extractor.get_release_version()
 
-    stats = extractor.download_all(skip_fms=args.skip_fms, skip_api=args.skip_api, skip_flatfiles=args.skip_flatfiles)
+    stats = extractor.download_all(
+        skip_fms=args.skip_fms,
+        skip_api=args.skip_api,
+        skip_flatfiles=args.skip_flatfiles,
+        flatfile_sources=args.flatfile_sources.split(",") if args.flatfile_sources else None,
+        flatfile_sample=args.flatfile_sample,
+        force_flatfiles=args.force_flatfiles,
+    )
     extractor.verify()
 
     logger.info(
         f"FMS: {stats['success']} succeeded, {stats['failed']} failed, "
         f"{stats['skipped']} not in the FMS file list, out of {stats['total']}. "
-        f"API fetch: {stats['api']}."
+        f"API fetch: {stats['api']}. Flat files: {stats['flatfiles']}."
     )
 
     if stats["failed"] > 0:
@@ -599,6 +534,12 @@ def main():
 
     if stats["api"] == "failed":
         logger.error("API fetchers failed - the new API-backed bio-sources will be empty")
+        sys.exit(1)
+
+    if isinstance(stats["flatfiles"], dict) and any(
+        status != "ok" for status in stats["flatfiles"].values()
+    ):
+        logger.error("Flat-file downloads failed - see flatfiles_report.json")
         sys.exit(1)
 
     if not args.skip_fms and stats["success"] == 0:
