@@ -13,7 +13,7 @@ the Alliance API, plus FlyMine-style protein, domain, pathway and homology sourc
 | Data release | The Alliance API serves one release at a time and switches 9.1.0 → 9.2.0 on 2026-10-14. Fetching all 9 species takes 1.5–3 days, so the API prefetch runs **after** the switch and FMS is pinned to 9.2.0: every source comes from the same release |
 | Scope | Phases 1–6, plus upstream FlyMine's cross-species sources |
 | Retired upstream | Drop `treefam` (TreeFam is gone) and `homologene` (NCBI froze it in 2014) |
-| Add | `ncbi-gene`, `hgnc`. Not `omim` (licensed files) or the `*-identifiers` resolvers (the Alliance API supplies IDs) |
+| Add | ~~`ncbi-gene`, `hgnc`~~ **proposed: drop** (2026-10-08, B10): both key human genes on Entrez IDs, and Alliance already supplies human genes from HGNC with symbols, names, synonyms and Entrez cross-references. Not `omim` (licensed files) or the `*-identifiers` resolvers |
 | Species | General sources limited to the 9 AllianceMine taxa: 559292 9606 10090 10116 6239 7227 7955 8364 8355 |
 | Orthologs | Keep PANTHER and OrthoDB as separate data sets. Ortholog templates get a data-set constraint so they keep returning Alliance (DIOPT) rows only |
 | Interactions | Skip `biogrid` and `psi-intact`: they duplicate the Alliance molecular/genetic interactions |
@@ -100,6 +100,7 @@ the summary.
 | B7 | Phase-6 flat files: `.gz` not unzipped, KEGG format and taxon, wrong Reactome file | Fix `download_flatfiles()` per source |
 | B8 | No downloads for interpro-go, pubmed-gene, orthodb, panther, ncbi-gene, hgnc, xlaevis FASTA | New download functions, filtered to the 9 taxa |
 | B9 | AllianceMine still patches mail **after** deploy | Bake the mail fix into the WAR (as FlyMine/YeastMine) |
+| B10 | **Gene identifiers don't match.** AllianceMine genes are keyed on Alliance CURIEs (`HGNC:8620`, `MGI:97490`, `RGD:3258`, `ZFIN:ZDB-GENE-…`, `FB:FBgn…`, `WB:WBGene…`, `SGD:S000…`, `Xenbase:XB-GENE-…`). The upstream FlyMine-style loaders key genes on what FlyMine uses: Entrez IDs for human (uniprot, ncbi-gene, hgnc, pubmed-gene, KEGG), Ensembl for zebrafish (uniprot), bare MOD IDs without the prefix (uniprot, panther, orthodb), yeast taxon 4932. Loaded as-is they create tens of thousands of **duplicate genes** next to the Alliance ones instead of attaching to them | At download time, rewrite each gene-keyed file to Alliance CURIEs using an ID map built from the release's BGI files (MOD ID, Entrez, Ensembl, UniProtKB per gene). Protein-keyed sources (reactome, protein2ipr, interpro, interpro-go, uniprot-fasta) need no rewrite |
 
 Also noted, not blocking:
 - `extract_data` still downloads FMS files nothing reads now (combined disease/variant/expression, BGI, GFF), and still
