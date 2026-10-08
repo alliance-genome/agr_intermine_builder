@@ -18,8 +18,10 @@ services:
       RDS_PASSWORD: ${RDS_PASSWORD}
 
       # Build Configuration
-      # ALLIANCE_RELEASE: auto-fetched from FMS API if not set
-      ALLIANCE_RELEASE: ${ALLIANCE_RELEASE:-}
+      # ALLIANCE_RELEASE: FMS snapshot + Alliance API release for every download.
+      # Pinned for the 9.2.0.im2 branch; set it empty to auto-resolve from FMS_RELEASE_TYPE.
+      ALLIANCE_RELEASE: ${ALLIANCE_RELEASE-9.2.0}
+      ALLIANCE_FETCH_WORKERS: ${ALLIANCE_FETCH_WORKERS:-6}
       FMS_RELEASE_TYPE: ${FMS_RELEASE_TYPE:-next}
       BUILD_TYPE: ${BUILD_TYPE:-test}
       # RC_NUMBER: auto-incremented from RDS if not set

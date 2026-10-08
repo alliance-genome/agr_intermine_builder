@@ -4,7 +4,7 @@ AllianceMine Data Extraction Script
 
 Downloads data files for InterMine integration in four passes:
   1. S3 sync of SGD/external data into /root/data/intermine/
-  2. FMS snapshot download of 49 MOD files into /root/data/fms/ and /root/data/genes/
+  2. FMS download (latest upload per file type in the release) of MOD files into /root/data/fms/ and /root/data/genes/
   3. Alliance API fetch via alliancemine-bio-sources/scripts/fetch_all.py
      into /root/data/api/ (SQLite cache in /root/data/api-cache/)
   4. Flat-file downloads for the InterMine-core protein + pathway sources
@@ -39,6 +39,9 @@ from urllib.error import HTTPError, URLError
 
 FMS_API_BASE = "https://fms.alliancegenome.org/api"
 DEFAULT_DATA_DIR = Path("/root/data")
+DEFAULT_FETCH_WORKERS = "6"
+FETCH_ALL_RELEASE_MISMATCH_EXIT = 2
+FETCH_ALL_SCRIPT = Path("/root/alliancemine-bio-sources/scripts/fetch_all.py")
 
 # SGD and external data stored in S3 (not available on FMS)
 # Downloaded from s3://agr-db-backups/alliancemine/intermine/
@@ -143,6 +146,7 @@ FILE_MAP: List[tuple] = [
     ("FASTA", "GRCm38", "fms", "FASTA_GRCm38.fa"),
     ("FASTA", "Rnor60", "fms", "FASTA_Rnor60.fa"),
     ("FASTA", "XT9.1", "fms", "FASTA_XT9.1.fa"),
+    ("FASTA", "XL10.1", "fms", "FASTA_XL10.1.fa"),
     ("FASTA", "HUMAN", "fms", "FASTA_HUMAN.fa"),
     # GO annotation files (GAF per MOD)
     ("GAF", "FB", "fms", "GAF_FB.gaf"),
@@ -176,14 +180,29 @@ FILE_MAP: List[tuple] = [
 ]
 
 
+def latest_uploads(rows: List[dict]) -> Dict[tuple, dict]:
+    """Keep the most recent upload per (dataType, dataSubType) from an FMS file list."""
+    latest: Dict[tuple, dict] = {}
+    for row in rows:
+        dt = (row.get("dataType") or {}).get("name", "")
+        ds = (row.get("dataSubType") or {}).get("name", "")
+        if not dt or not ds:
+            continue
+        key = (dt, ds)
+        if key in latest and latest[key].get("uploadDate", "") >= row.get("uploadDate", ""):
+            continue
+        latest[key] = row
+    return latest
+
+
 class AllianceDataExtractor:
-    """Downloads data files from Alliance FMS snapshot API."""
+    """Downloads data files from the Alliance FMS release file list."""
 
     def __init__(self, data_dir: Path, release: Optional[str] = None, release_type: str = "next"):
         self.data_dir = data_dir
         self.release = release
         self.release_type = release_type
-        self.snapshot_files: Dict[tuple, dict] = {}
+        self.fms_files: Dict[tuple, dict] = {}
 
     def get_release_version(self) -> str:
         """Fetch release version from FMS API if not explicitly set."""
@@ -207,39 +226,42 @@ class AllianceDataExtractor:
             logger.error(f"Failed to get release version: {e}")
             sys.exit(1)
 
-    def load_snapshot(self) -> None:
-        """Fetch the FMS snapshot for the release and index by (dataType, dataSubType)."""
+    def load_fms_files(self) -> None:
+        """Index the release's FMS files by (dataType, dataSubType).
+
+        Uses the release file list rather than the snapshot: a snapshot is frozen when it is
+        taken (9.2.0's on 2026-09-22 misses the SGD BGI uploaded 09-24), while the file list
+        holds every upload of the cycle. The latest upload per subtype wins, the same rule as
+        fms_list_files() in alliancemine-bio-sources/scripts/common.py, so the FMS files, the
+        gene ID map and the API fetcher seeds all come from the same uploads.
+        """
         release = self.get_release_version()
-        url = f"{FMS_API_BASE}/snapshot/release/{release}"
-        logger.info(f"Fetching FMS snapshot for release {release}...")
+        url = f"{FMS_API_BASE}/datafile/by/release/{release}?onlyCurrent=true"
+        logger.info(f"Fetching FMS file list for release {release}...")
 
         try:
             with urlopen(url) as response:
-                data = json.loads(response.read())
+                rows = json.loads(response.read())
         except (HTTPError, URLError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to fetch snapshot: {e}")
+            logger.error(f"Failed to fetch FMS file list: {e}")
             sys.exit(1)
 
-        if data.get("status") != "success":
-            logger.error(f"Snapshot API returned status: {data.get('status')}")
+        if not isinstance(rows, list) or not rows:
+            logger.error(f"FMS file list for release {release} is empty")
             sys.exit(1)
 
-        files = data.get("snapShot", {}).get("dataFiles", [])
-        logger.info(f"Snapshot contains {len(files)} files")
-
-        for f in files:
-            dt = f.get("dataType", {}).get("name", "")
-            ds = f.get("dataSubType", {}).get("name", "")
-            if dt and ds:
-                self.snapshot_files[(dt, ds)] = f
+        self.fms_files = latest_uploads(rows)
+        logger.info(
+            f"FMS file list: {len(rows)} uploads, {len(self.fms_files)} distinct subtypes"
+        )
 
     def download_file(self, fms_type: str, fms_subtype: str, target_dir: str, target_name: str) -> bool:
-        """Download a single file from the FMS snapshot."""
+        """Download a single file from the release's FMS file list."""
         key = (fms_type, fms_subtype)
-        file_info = self.snapshot_files.get(key)
+        file_info = self.fms_files.get(key)
 
         if not file_info:
-            logger.warning(f"  {fms_type}/{fms_subtype} not found in snapshot, skipping")
+            logger.warning(f"  {fms_type}/{fms_subtype} not in the release's FMS file list, skipping")
             return False
 
         s3_url = file_info.get("s3Url", "")
@@ -308,37 +330,61 @@ class AllianceDataExtractor:
             logger.warning("  S3 sync timed out after 600s")
             return False
 
-    def fetch_api_data(self) -> bool:
+    def fetch_api_data(self) -> str:
         """Run the alliancemine-bio-sources API fetcher orchestrator.
 
-        Outputs nine TSVs into /root/data/api/ that project.xml's API-backed
-        bio-source modules consume. The SQLite cache lives under
-        /root/data/api-cache/ via ALLIANCE_FETCH_CACHE so reruns are fast.
+        Outputs the API/FMS-derived TSVs into /root/data/api/ that project.xml's bio-source
+        modules consume. The API cache (ALLIANCE_FETCH_CACHE) and the fetchers' FMS downloads
+        (ALLIANCE_FMS_CACHE) live on the data volume so reruns are fast. Every fetcher is
+        pinned to this run's release via ALLIANCE_RELEASE.
+
+        Returns "ok", "failed" or "release-mismatch" (fetch_all exits 2 when the API does not
+        serve the pinned release yet).
         """
         api_dir = self.data_dir / "api"
         cache_dir = self.data_dir / "api-cache"
-        api_dir.mkdir(parents=True, exist_ok=True)
-        cache_dir.mkdir(parents=True, exist_ok=True)
+        fms_cache_dir = self.data_dir / "fms-cache"
+        for d in (api_dir, cache_dir, fms_cache_dir):
+            d.mkdir(parents=True, exist_ok=True)
 
-        orchestrator = Path("/root/alliancemine-bio-sources/scripts/fetch_all.py")
+        orchestrator = FETCH_ALL_SCRIPT
         if not orchestrator.exists():
             logger.error(f"  API fetcher orchestrator not found: {orchestrator}")
             logger.error("  Rebuild the image with BIO_SOURCES_BRANCH set to a branch "
                          "that includes scripts/fetch_all.py (Phase-5 work).")
-            return False
+            return "failed"
 
-        logger.info(f"Running API fetchers -> {api_dir}/")
-        env = {**os.environ, "ALLIANCE_FETCH_CACHE": str(cache_dir)}
-        try:
-            subprocess.run(
-                ["python3", str(orchestrator), "--out-dir", str(api_dir), "--verbose"],
-                check=True,
-                env=env,
+        release = self.get_release_version()
+        workers = os.environ.get("ALLIANCE_FETCH_WORKERS", DEFAULT_FETCH_WORKERS)
+        logger.info(f"Running API fetchers for release {release} ({workers} workers) -> {api_dir}/")
+        env = {
+            **os.environ,
+            "ALLIANCE_FETCH_CACHE": str(cache_dir),
+            "ALLIANCE_FMS_CACHE": str(fms_cache_dir),
+            "ALLIANCE_RELEASE": release,
+        }
+        cmd = [
+            "python3",
+            str(orchestrator),
+            "--out-dir",
+            str(api_dir),
+            "--release",
+            release,
+            "--workers",
+            str(workers),
+            "--verbose",
+        ]
+        result = subprocess.run(cmd, env=env, check=False)
+        if result.returncode == 0:
+            return "ok"
+        if result.returncode == FETCH_ALL_RELEASE_MISMATCH_EXIT:
+            logger.error(
+                f"  API not yet serving {release}: fetch_all refused to run (exit 2). "
+                "Re-run after the API switch-over, or use --skip-api for FMS/flat files only."
             )
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"  API fetch failed (exit {e.returncode})")
-            return False
+            return "release-mismatch"
+        logger.error(f"  API fetch failed (exit {result.returncode})")
+        return "failed"
 
     def _download_url(self, url: str, dest: Path) -> bool:
         """Generic URL -> file helper with one retry. Used by Phase 6 flatfile
@@ -409,11 +455,10 @@ class AllianceDataExtractor:
             # SGD/external data from S3
             self.download_s3_data()
 
-            # FMS snapshot data
-            self.load_snapshot()
+            self.load_fms_files()
 
             for fms_type, fms_subtype, target_dir, target_name in FILE_MAP:
-                if (fms_type, fms_subtype) not in self.snapshot_files:
+                if (fms_type, fms_subtype) not in self.fms_files:
                     stats["skipped"] += 1
                     continue
                 if self.download_file(fms_type, fms_subtype, target_dir, target_name):
@@ -426,11 +471,11 @@ class AllianceDataExtractor:
         # Always (re)synthesise the 14-column Gene.tsv from whatever BGI_*.json
         # files are on disk, even when --skip-fms was passed. The TSV is cheap
         # to rebuild and AllianceGenesConverter relies on it being present and
-        # current with the BGI snapshot.
+        # current with the downloaded BGI files.
         stats["genes_tsv"] = "ok" if self.build_genes_tsv() else "skipped"
 
         if not skip_api:
-            stats["api"] = "ok" if self.fetch_api_data() else "failed"
+            stats["api"] = self.fetch_api_data()
         else:
             logger.info("Skipping API fetchers (--skip-api)")
 
@@ -506,7 +551,7 @@ def main():
     parser.add_argument(
         "--skip-fms",
         action="store_true",
-        help="Skip FMS snapshot + S3 sync, run only the API fetchers",
+        help="Skip FMS download + S3 sync, run only the API fetchers",
     )
     parser.add_argument(
         "--skip-api",
@@ -540,13 +585,17 @@ def main():
 
     logger.info(
         f"FMS: {stats['success']} succeeded, {stats['failed']} failed, "
-        f"{stats['skipped']} not in snapshot, out of {stats['total']}. "
+        f"{stats['skipped']} not in the FMS file list, out of {stats['total']}. "
         f"API fetch: {stats['api']}."
     )
 
     if stats["failed"] > 0:
         logger.warning("Some FMS downloads failed - build may have incomplete data")
         sys.exit(1)
+
+    if stats["api"] == "release-mismatch":
+        logger.error(f"API not yet serving {extractor.release}; API-backed sources were not fetched")
+        sys.exit(FETCH_ALL_RELEASE_MISMATCH_EXIT)
 
     if stats["api"] == "failed":
         logger.error("API fetchers failed - the new API-backed bio-sources will be empty")
