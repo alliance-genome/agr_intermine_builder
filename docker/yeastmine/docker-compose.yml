@@ -33,7 +33,7 @@ services:
       DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
 
       # Webapp
-      WEBAPP_BASEURL: ${WEBAPP_BASEURL:-http://localhost:8080}
+      WEBAPP_BASEURL: ${WEBAPP_BASEURL:-https://yeastmine.alliancegenome.org}
       SUPERUSER_ACCOUNT: ${SUPERUSER_ACCOUNT:-superuser@mail_account}
       SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-secret}
 
