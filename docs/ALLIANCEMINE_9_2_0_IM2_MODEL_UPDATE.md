@@ -13,10 +13,11 @@ the Alliance API, plus FlyMine-style protein, domain, pathway and homology sourc
 | Data release | The Alliance API serves one release at a time and switches 9.1.0 → 9.2.0 on 2026-10-14. Fetching all 9 species takes 1.5–3 days, so the API prefetch runs **after** the switch and FMS is pinned to 9.2.0: every source comes from the same release |
 | Scope | Phases 1–6, plus upstream FlyMine's cross-species sources |
 | Retired upstream | Drop `treefam` (TreeFam is gone) and `homologene` (NCBI froze it in 2014) |
-| Add | ~~`ncbi-gene`, `hgnc`~~ **proposed: drop** (2026-10-08, B10): both key human genes on Entrez IDs, and Alliance already supplies human genes from HGNC with symbols, names, synonyms and Entrez cross-references. Not `omim` (licensed files) or the `*-identifiers` resolvers |
+| Add | ~~`ncbi-gene`, `hgnc`~~ **dropped** (2026-10-08, B10): both key human genes on Entrez IDs, and Alliance already supplies human genes from HGNC with symbols, names, synonyms and Entrez cross-references. Not `omim` (licensed files) or the `*-identifiers` resolvers |
 | Species | General sources limited to the 9 AllianceMine taxa: 559292 9606 10090 10116 6239 7227 7955 8364 8355 |
 | Orthologs | Keep PANTHER and OrthoDB as separate data sets. Ortholog templates get a data-set constraint so they keep returning Alliance (DIOPT) rows only |
 | Interactions | Skip `biogrid` and `psi-intact`: they duplicate the Alliance molecular/genetic interactions |
+| Gene IDs (B10) | Rewrite gene IDs to Alliance CURIEs in the downloaded files; upstream converters stay unpatched |
 | User profile | Test against a **copy** (`COPY_PROFILE_DB=true`); the live profile is untouched until cutover |
 | Build | Overnight (US time). Shared RDS |
 | Code | New branches + PRs in all three repos |
