@@ -18,7 +18,8 @@ docker compose run --rm alliancemine-builder build
 | `build --start-from <stage>` | Start from a specific stage |
 | `build --skip-stages <stage1> <stage2>` | Skip specific stages |
 | `build --resume` | Resume project_build from last checkpoint |
-| `extract` | Download data only |
+| `extract` | Download data only (FMS, S3, API fetchers, flat files); no RDS access |
+| `check-downloads` | Check `/root/data` against the cloned `project.xml` (exits 1 on any FAIL) |
 | `promote` | Promote RC database to production |
 | `deploy` | Deploy WAR to Tomcat |
 | `bash` | Interactive shell |
@@ -26,11 +27,27 @@ docker compose run --rm alliancemine-builder build
 ## Build Stages
 
 1. **buildDB** — Create PostgreSQL schema
-2. **extract_data** — Download from FMS (49 files) + S3 (SGD data)
+2. **extract_data** — S3 (SGD data), FMS (latest upload per file type in the release), Alliance
+   API fetchers, and the Phase-6 flat files (`scripts/flatfiles.py`), with gene IDs rewritten to
+   Alliance CURIEs using the ID map built from the BGI files (`scripts/alliance_idmap.py`)
 3. **project_build** — Data integration (4-7 hours, creates DB checkpoints)
 4. **postprocess** — Indexes, summaries, Solr search/autocomplete
 5. **war** — Build WAR file
 6. **deploy** — Deploy to Tomcat via cargoRedeployRemote
+
+## Download check
+
+Before a build, download into a separate data folder and check it:
+
+```bash
+docker compose run --rm alliancemine-builder extract
+docker compose run --rm alliancemine-builder check-downloads          # --deep scans whole files
+```
+
+`check_downloads.py` reports, per source in `project.xml`: missing or empty files, include
+patterns that match nothing, gzip files the loader cannot read, format problems (FASTA/OBO/GAF/XML
+sniffing, column counts), rows per taxon, and the share of rewritten gene IDs that are Alliance
+CURIEs in the ID map. Unit tests: `python3 -m unittest discover -s docker/alliancemine/tests`.
 
 ## Environment Variables
 

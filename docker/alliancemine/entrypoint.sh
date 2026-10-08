@@ -105,6 +105,21 @@ resolve_rc_number() {
 
 resolve_release
 
+# Download-only modes: no RDS connection, database creation or properties needed.
+case "$1" in
+    extract)
+        echo "Mode: EXTRACT DATA (no database setup)"
+        shift
+        exec python3 /root/scripts/extract_data.py --release "${ALLIANCE_RELEASE}" "$@"
+        ;;
+    check-downloads)
+        echo "Mode: CHECK DOWNLOADS"
+        shift
+        exec python3 /root/scripts/check_downloads.py \
+            --project-xml /root/alliancemine/project.xml "$@"
+        ;;
+esac
+
 echo "Build Type:       ${BUILD_TYPE:-test}"
 echo "RDS:              ${RDS_HOST}:${RDS_PORT}"
 echo "============================================"
@@ -308,15 +323,6 @@ case "$1" in
         echo "Mode: DEPLOY"
         shift
         exec python3 /root/scripts/deploy_war.py "$@"
-        ;;
-
-    extract)
-        echo ""
-        echo "Mode: EXTRACT DATA"
-        shift
-        exec python3 /root/scripts/extract_data.py \
-            --release "${ALLIANCE_RELEASE}" \
-            "$@"
         ;;
 
     release)
