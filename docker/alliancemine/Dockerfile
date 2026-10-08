@@ -78,13 +78,10 @@ RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
 RUN rm -f /root/alliancemine/alliancemine.properties && \
     ln -s /root/.intermine/alliancemine.properties /root/alliancemine/alliancemine.properties
 
-# Fake ssh wrapper for project_build's checkpoint createdb step.
-# project_build wraps every checkpoint copy in `ssh <dump_host> createdb ...`,
-# but the dump_host is the RDS endpoint which doesn't accept SSH. The inner
-# createdb already carries `-h <dump_host>` so dropping the host arg and
-# exec'ing the rest locally hits RDS correctly via libpq.
-RUN printf '#!/bin/sh\nshift\nexec "$@"\n' > /usr/local/bin/ssh && \
-    chmod +x /usr/local/bin/ssh
+# Fake ssh for project_build's checkpoint createdb step (RDS doesn't accept SSH; the inner
+# createdb already carries -h <rds>). It also drops older checkpoints once a newer one exists.
+COPY scripts/checkpoint_ssh.sh /usr/local/bin/ssh
+RUN chmod +x /usr/local/bin/ssh
 
 ARG BIO_SOURCES_BRANCH=master
 RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
