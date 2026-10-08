@@ -44,9 +44,10 @@ See `.env.example` for all variables. Key ones:
 
 ## Files
 
-- `Dockerfile` — Alpine 3.20, Java 8, Perl, Python, aws-cli. Patches upstream bugs.
+- `Dockerfile` — Alpine 3.20, Java 8, Perl, Python, aws-cli. Patches upstream bugs. The build uses
+  the `project.xml` of the cloned `alliancemine` branch (`ALLIANCEMINE_BRANCH`), including its
+  `dump="true"` checkpoints.
 - `entrypoint.sh` — Resolves release, auto-increments RC, creates DBs, configures properties
-- `project.xml` — InterMine source definitions with `dump="true"` checkpoints
 - `scripts/` — Python build pipeline (build_full.py, extract_data.py, etc.)
 - `properties/` — `envsubst` templates for InterMine properties
 

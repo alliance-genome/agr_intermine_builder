@@ -66,7 +66,7 @@ RUN mkdir -p .intermine
 # Repos are cloned at build time but compiled at runtime (first run)
 # to keep image build lightweight.
 # ============================================
-ARG ALLIANCEMINE_BRANCH=master
+ARG ALLIANCEMINE_BRANCH=alliancemine-9.2.0.im2
 RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
     https://github.com/alliance-genome/alliancemine.git
 
@@ -83,7 +83,7 @@ RUN rm -f /root/alliancemine/alliancemine.properties && \
 COPY scripts/checkpoint_ssh.sh /usr/local/bin/ssh
 RUN chmod +x /usr/local/bin/ssh
 
-ARG BIO_SOURCES_BRANCH=master
+ARG BIO_SOURCES_BRANCH=alliancemine-9.2.0.im2
 RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
     https://github.com/alliance-genome/alliancemine-bio-sources.git
 
@@ -103,9 +103,6 @@ COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.p
 
 COPY scripts/ /root/scripts/
 RUN chmod +x /root/scripts/*.py
-
-# Override project.xml with dump checkpoints for restartable builds
-COPY project.xml /root/alliancemine/project.xml
 
 # Patch alliancemine gradle.properties: hardcoded -Xmx48g overrides GRADLE_OPTS
 # Without this patch, the JVM starts with whatever the file says regardless of compose env.
