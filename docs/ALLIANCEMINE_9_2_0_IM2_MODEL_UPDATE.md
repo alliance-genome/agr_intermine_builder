@@ -1,15 +1,16 @@
-# AllianceMine 9.1.0.im2: model update (Alliance API migration, Phases 1–6)
+# AllianceMine 9.2.0.im2: model update (Alliance API migration, Phases 1–6)
 
 Status: **planning; nothing built.** Started 2026-10-08. Release only after full testing.
 
-**What it is:** AllianceMine 9.1.0 data with the expanded InterMine model and data loading moved from FMS bulk files to
+**What it is:** AllianceMine on Alliance release 9.2.0 data, with the expanded InterMine model and data loading moved from FMS bulk files to
 the Alliance API, plus FlyMine-style protein, domain, pathway and homology sources. Background: `API_MIGRATION_ROLLOUT.md`.
 
 ## Decisions (2026-10-08)
 
 | Topic | Decision |
 |---|---|
-| Version | **9.1.0.im2** (Alliance data release 9.1.0, second InterMine model). DB `alliancemine_9_1_0_im2_rc<N>` |
+| Version | **9.2.0.im2** (Alliance data release 9.2.0, second InterMine model). DB `alliancemine_9_2_0_im2_rc<N>`. First named 9.1.0.im2; moved to 9.2.0 on 2026-10-08 (see below) |
+| Data release | The Alliance API serves one release at a time and switches 9.1.0 → 9.2.0 on 2026-10-14. Fetching all 9 species takes 1.5–3 days, so the API prefetch runs **after** the switch and FMS is pinned to 9.2.0: every source comes from the same release |
 | Scope | Phases 1–6, plus upstream FlyMine's cross-species sources |
 | Retired upstream | Drop `treefam` (TreeFam is gone) and `homologene` (NCBI froze it in 2014) |
 | Add | `ncbi-gene`, `hgnc`. Not `omim` (licensed files) or the `*-identifiers` resolvers (the Alliance API supplies IDs) |
@@ -25,9 +26,9 @@ the Alliance API, plus FlyMine-style protein, domain, pathway and homology sourc
 
 | Repo (GitHub) | Branch | Local worktree | What it holds |
 |---|---|---|---|
-| `alliance-genome/alliancemine` | `alliancemine-9.1.0.im2` (from `expand-model-api-dedup` 0d80490) | `~/Projects/alliance/new_alliancemine/wt-im2/alliancemine` | `project.xml` (78 active sources), webapp config, `default-template-queries.xml` |
-| `alliance-genome/alliancemine-bio-sources` | `alliancemine-9.1.0.im2` (from `expand-model-api-dedup` e198477) | `…/wt-im2/alliancemine-bio-sources` | **The model** (`alliancemine-global_additions.xml`), one directory per bio-source (converter Java + keys + empty `_additions.xml`), and `scripts/`: the Python Alliance-API / FMS fetchers driven by `scripts/fetch_all.py` |
-| `alliance-genome/agr_intermine_builder` | `alliancemine-9.1.0.im2` (from `development` + Phase-6 `ab9f605`) | `~/Projects/alliance/agr_intermine_builder-im2` | `docker/alliancemine/`: Dockerfile, **`project.xml` (the one actually built; see B1)**, `entrypoint.sh`, `scripts/extract_data.py` (all downloads), `scripts/build_full.py` |
+| `alliance-genome/alliancemine` | `alliancemine-9.2.0.im2` (from `expand-model-api-dedup` 0d80490) | `~/Projects/alliance/new_alliancemine/wt-im2/alliancemine` | `project.xml` (78 active sources), webapp config, `default-template-queries.xml` |
+| `alliance-genome/alliancemine-bio-sources` | `alliancemine-9.2.0.im2` (from `expand-model-api-dedup` e198477) | `…/wt-im2/alliancemine-bio-sources` | **The model** (`alliancemine-global_additions.xml`), one directory per bio-source (converter Java + keys + empty `_additions.xml`), and `scripts/`: the Python Alliance-API / FMS fetchers driven by `scripts/fetch_all.py` |
+| `alliance-genome/agr_intermine_builder` | `alliancemine-9.2.0.im2` (from `development` + Phase-6 `ab9f605`) | `~/Projects/alliance/agr_intermine_builder-im2` | `docker/alliancemine/`: Dockerfile, **`project.xml` (the one actually built; see B1)**, `entrypoint.sh`, `scripts/extract_data.py` (all downloads), `scripts/build_full.py` |
 
 ## How data gets in (pipeline)
 
@@ -91,11 +92,11 @@ the summary.
 | # | Blocker | Fix |
 |---|---|---|
 | B1 | The **builder's own `docker/alliancemine/project.xml`** (old 39-source list) is copied over the alliancemine checkout, so none of the new sources would run | Replace it with the im2 project.xml (or stop copying it) |
-| B2 | Dockerfile `ALLIANCEMINE_BRANCH` / `BIO_SOURCES_BRANCH` default to `master` | Set them to `alliancemine-9.1.0.im2` |
+| B2 | Dockerfile `ALLIANCEMINE_BRANCH` / `BIO_SOURCES_BRANCH` default to `master` | Set them to `alliancemine-9.2.0.im2` |
 | B3 | `alliance-genes` and 5 other per-gene API fetchers **seed yeast genes only**. AllianceMine would lose every non-yeast gene | Seed from all MODs' gene lists (BGI / FMS) |
 | B4 | 17 sources read from a **local Mac path** (`…/alliancemine-bio-sources/data`); fetchers write `/root/data/api` | Point them at `/root/data/api` |
 | B5 | `fetch_alphafold.py` reads its input from the wrong path and exits 1, failing `fetch_all` and `extract_data` | Pass `--crossrefs /root/data/api/gene-crossrefs.tsv` |
-| B6 | Release detection picks the **newest** Alliance release (9.2.0 today), not 9.1.0 | Pin `--release 9.1.0` through `extract_data` and the fetchers |
+| B6 | Release detection picks whatever is newest by date, independently in `extract_data` and in the fetchers | Pin one release (`ALLIANCE_RELEASE=9.2.0`) through `extract_data` and every fetcher |
 | B7 | Phase-6 flat files: `.gz` not unzipped, KEGG format and taxon, wrong Reactome file | Fix `download_flatfiles()` per source |
 | B8 | No downloads for interpro-go, pubmed-gene, orthodb, panther, ncbi-gene, hgnc, xlaevis FASTA | New download functions, filtered to the 9 taxa |
 | B9 | AllianceMine still patches mail **after** deploy | Bake the mail fix into the WAR (as FlyMine/YeastMine) |
@@ -135,7 +136,8 @@ their reverse references may clash at `mergeModels`.
 
 1. **Code (branches above):** B1–B9; remove treefam/homologene/biogrid/psi-intact; add ncbi-gene, hgnc and the
    missing downloads; fix the 4 templates for the type changes. Keep each change small and documented here.
-2. **Download check (before any build):** on the build host, in a separate data folder, run `extract_data.py` only.
+2. **API prefetch (from 2026-10-14, once the API serves 9.2.0):** all 9 species, parallel but WAF-safe, into the persistent cache on the build host. 1.5–3 days; reruns hit the cache.
+3. **Download check (before any build):** on the build host, in a separate data folder, run `extract_data.py` only.
    Then a checker script confirms, for **every** source in project.xml:
    - its `src.data.dir` / file exists and is non-empty;
    - its include patterns match;
@@ -143,14 +145,14 @@ their reverse references may clash at `mergeModels`.
    - row counts per taxon are plausible against 9.1.0.
 
    Iterate until clean.
-3. **Model check:** `mergeModels` + `compileJava` for all sources (catches the Protein/UniProt clash) without loading data.
-4. **Overnight test build** into `alliancemine_9_1_0_im2_rc1`, with a copy of the user profile. The build-DB guard
+4. **Model check:** `mergeModels` + `compileJava` for all sources (catches the Protein/UniProt clash) without loading data.
+5. **Overnight test build** into `alliancemine_9_2_0_im2_rc1`, with a copy of the user profile. The build-DB guard
    checks the target name.
-5. **Verification, Phases 1→6 in order:**
+6. **Verification, Phases 1→6 in order:**
    - new classes populated per phase;
-   - `compare_mines.py` against live 9.1.0 for templates and class counts;
+   - `compare_mines.py` against live 9.1.0 (expect release-to-release differences as well as model ones) for templates and class counts;
    - the type-changed templates;
    - search and autocomplete;
    - forgot-password mail.
-6. **Release** after sign-off: AllianceMine cutover per `RUNBOOK_ALLIANCEMINE_RESTART.md` (bag-upgrade deadlock kick),
+7. **Release** after sign-off: AllianceMine cutover per `RUNBOOK_ALLIANCEMINE_RESTART.md` (bag-upgrade deadlock kick),
    with 9.1.0 kept as rollback.
