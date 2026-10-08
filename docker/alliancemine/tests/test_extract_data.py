@@ -6,7 +6,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import extract_data  # noqa: E402
+import extract_data
 
 
 def _row(dt, ds, date, url):
@@ -39,9 +39,11 @@ class FetchApiDataTest(unittest.TestCase):
             script.write_text("")
             extractor = extract_data.AllianceDataExtractor(Path(tmp) / "data", release="9.2.0")
             completed = mock.Mock(returncode=returncode)
-            with mock.patch.object(extract_data, "FETCH_ALL_SCRIPT", script), mock.patch.object(
-                extract_data.subprocess, "run", return_value=completed
-            ) as run, mock.patch.dict(extract_data.os.environ, {"ALLIANCE_FETCH_WORKERS": "3"}):
+            with (
+                mock.patch.object(extract_data, "FETCH_ALL_SCRIPT", script),
+                mock.patch.object(extract_data.subprocess, "run", return_value=completed) as run,
+                mock.patch.dict(extract_data.os.environ, {"ALLIANCE_FETCH_WORKERS": "3"}),
+            ):
                 status = extractor.fetch_api_data()
             self.assertTrue((Path(tmp) / "data" / "fms-cache").is_dir())
             return status, run.call_args
