@@ -6,7 +6,8 @@ This document describes the HTTPS configuration for AllianceMine on the multi-te
 
 ```
 alliancemine.alliancegenome.org (Route 53 CNAME)
-    → alliancemine-lb-309443304.us-east-1.elb.amazonaws.com (ALB, port 443 HTTPS)
+    → dgvlg6ao9mytc.cloudfront.net (CloudFront + WAF, since 2026-10-09)
+    → alliancemine-lb-309443304.us-east-1.elb.amazonaws.com (ALB, port 443 HTTPS; origin only)
         → Rule 150: Path = "/cdn/*" AND Host = "alliancemine.alliancegenome.org" → alliancemine-mt-cdn (port 8888)
         → Rule 250: Host = "alliancemine.alliancegenome.org" → alliancemine-multitenant (port 8080)
             → 172.31.59.87:8080 (Multi-tenant EC2)
@@ -32,14 +33,16 @@ alliancemine.alliancegenome.org (Route 53 CNAME)
 **Public Zone** (Z3IZ3D6V94JEC2):
 - **Record**: `alliancemine.alliancegenome.org`
 - **Type**: CNAME
-- **Value**: `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
+- **Value**: `dgvlg6ao9mytc.cloudfront.net`
 
 **Private Zone** (Z007692222A6W93AZVSPD):
 - **Record**: `alliancemine.alliancegenome.org`
 - **Type**: CNAME
-- **Value**: `alliancemine-lb-309443304.us-east-1.elb.amazonaws.com`
+- **Value**: `dgvlg6ao9mytc.cloudfront.net`
 
 **Important**: Both public AND private hosted zones need the CNAME record. Users on VPN/Tailscale use VPC DNS (172.31.0.2) which queries the private zone first.
+
+Since 2026-10-09 both records point at CloudFront (`dgvlg6ao9mytc.cloudfront.net`), shared with FlyMine, YeastMine, WormMine and MouseMine. The ALB accepts only CloudFront: its listener rules need CloudFront's secret origin header and its security group only allows CloudFront's range on 443. Requests sent straight to the ALB hostname or IP time out, so test through the public name.
 
 ## Required Configuration
 
@@ -113,8 +116,8 @@ docker restart alliancemine
 
 ### Test Service Endpoint
 ```bash
-# Via ALB (from server)
-curl -sk -H 'Host: alliancemine.alliancegenome.org' https://alliancemine-lb-309443304.us-east-1.elb.amazonaws.com/alliancemine/service/version
+# Public path: CloudFront -> ALB -> Tomcat (from anywhere)
+curl -s --max-time 20 https://alliancemine.alliancegenome.org/alliancemine/service/version
 
 # Direct (from server)
 curl -s http://localhost:8080/alliancemine/service/version
@@ -122,7 +125,18 @@ curl -s http://localhost:8080/alliancemine/service/version
 
 ### Test CDN
 ```bash
-curl -sk -H 'Host: alliancemine.alliancegenome.org' https://alliancemine-lb-309443304.us-east-1.elb.amazonaws.com/cdn/js/intermine/im-tables/2.0.0-beta/imtables.min.js | head -c 100
+curl -s --max-time 20 https://alliancemine.alliancegenome.org/cdn/js/intermine/im-tables/2.0.0-beta/imtables.min.js | head -c 100
+
+# Direct (from server)
+curl -s --max-time 20 http://localhost:8888/js/intermine/im-tables/2.0.0-beta/imtables.min.js | head -c 100
+```
+
+### Check CloudFront Caching
+`/cdn/*` and `/alliancemine/css|js|images|themes|model/images/*` are cached for up to a day, and `/alliancemine/service/model*` for an hour. `.do` pages, other `/service/*`, `/dwr/*` and `/bluegenes/*` are never cached. `x-cache` says whether a response came from the cache and `age` says how old it is:
+```bash
+curl -s -o /dev/null -D - https://alliancemine.alliancegenome.org/alliancemine/service/model | grep -i -e '^x-cache' -e '^age'
+```
+After a release that changes the model or keeps a CSS/JS file name, ask the infrastructure team to invalidate those paths.
 ```
 
 ### Check Base Tag (for HTTPS)
@@ -170,15 +184,16 @@ aws route53 change-resource-record-sets --hosted-zone-id Z007692222A6W93AZVSPD -
       "Name": "alliancemine.alliancegenome.org",
       "Type": "CNAME",
       "TTL": 300,
-      "ResourceRecords": [{"Value": "alliancemine-lb-309443304.us-east-1.elb.amazonaws.com"}]
+      "ResourceRecords": [{"Value": "dgvlg6ao9mytc.cloudfront.net"}]
     }
   }]
 }'
 ```
 
-**5. Bypass DNS entirely** (for testing):
+**5. Bypass DNS entirely** (for testing). Pin a CloudFront edge address; an ALB address no longer answers:
 ```bash
-curl --resolve alliancemine.alliancegenome.org:443:3.226.226.97 https://alliancemine.alliancegenome.org/alliancemine/service/version
+EDGE=$(dig +short dgvlg6ao9mytc.cloudfront.net @8.8.8.8 | head -1)
+curl --resolve alliancemine.alliancegenome.org:443:$EDGE https://alliancemine.alliancegenome.org/alliancemine/service/version
 ```
 
 ### Mixed Content (CSS/JS not loading)

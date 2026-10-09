@@ -140,8 +140,8 @@ mousemine.
 ## Verification (post-release)
 
 ```bash
-ALB_IP=$(dig +short alliancemine-lb-309443304.us-east-1.elb.amazonaws.com @8.8.8.8 | head -1)
-R="--resolve mousemine.alliancegenome.org:443:$ALB_IP --max-time 30"
+# Since 2026-10-09 the ALB only accepts CloudFront; pinning an ALB IP times out.
+R="--max-time 30"
 H="https://mousemine.alliancegenome.org/mousemine"
 
 # Smoke
