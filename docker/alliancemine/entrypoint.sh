@@ -199,6 +199,17 @@ configure_properties() {
     cp /root/.intermine/alliancemine.properties \
        /root/alliancemine/alliancemine.properties 2>/dev/null || true
 
+    # The Solr postprocesses read their URLs from these dbmodel resources, which ship
+    # pointing at localhost:8983, rather than from alliancemine.properties.
+    local res_dir
+    for res_dir in /root/alliancemine/dbmodel/resources /root/alliancemine/dbmodel/build/resources/main; do
+        [ -f "${res_dir}/keyword_search.properties" ] || continue
+        sed -i "s|^index.solrurl *=.*|index.solrurl = ${SOLR_INDEX_URL}|" \
+            "${res_dir}/keyword_search.properties"
+        sed -i "s|^autocomplete.solrurl *=.*|autocomplete.solrurl = ${SOLR_AUTOCOMPLETE_URL}|" \
+            "${res_dir}/objectstoresummary.config.properties"
+    done
+
     # Set up .pgpass for passwordless psql
     echo "${RDS_HOST}:${RDS_PORT}:*:${RDS_USER}:${RDS_PASSWORD}" > /root/.pgpass
     chmod 600 /root/.pgpass

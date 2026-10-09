@@ -116,13 +116,14 @@ COPY project.xml /root/alliancemine/project.xml
 RUN sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx48g -XX:+HeapDumpOnOutOfMemoryError/' \
     /root/alliancemine/gradle.properties
 
-# SgdConverter must skip only exact repeated child rows (the SQL repeats telomeric_repeat rows,
-# which breaks integration). The old child_id-only skip, applied here by sed until 2026-10,
-# dropped every intron and all but the first CDS segment. Fixed in alliancemine-bio-sources
-# (fix/sgd-child-dedup-allele-merge); refuse to build an image from a checkout without it.
-RUN grep -q 'String childKey = geneChildFeatureNo' \
+# SgdConverter child features: child_id/child_sgdid are the parent locus, so every subfeature
+# of a gene shared one <sgdid>_C identifier. The child_id-only skip, applied here by sed until
+# 2026-10, kept one child per gene (no introns, one CDS segment); keeping all of them without
+# unique identifiers fails integration with "Duplicate objects found". Fixed in
+# alliancemine-bio-sources #3 (<sgdid>_<type>_<start>_<end>); refuse to build without it.
+RUN grep -q '"_" + childFeatureType' \
       /root/alliancemine-bio-sources/sgd/src/main/java/org/intermine/bio/dataconversion/SgdConverter.java \
-    || { echo "alliancemine-bio-sources lacks the per-segment child dedup in SgdConverter"; exit 1; }
+    || { echo "alliancemine-bio-sources lacks the per-child identifiers in SgdConverter"; exit 1; }
 
 # Patch webconfig-model.xml: reorder Complex fieldconfig so systematicName comes
 # right after function. Without this, the Complex list view default columns hide
