@@ -120,7 +120,7 @@ docker restart alliancemine
 curl -s --max-time 20 https://alliancemine.alliancegenome.org/alliancemine/service/version
 
 # Direct (from server)
-curl -s http://localhost:8080/alliancemine/service/version
+curl -s --max-time 20 http://localhost:8086/alliancemine/service/version   # rc20 container, port 8086 since 2026-05-13
 ```
 
 ### Test CDN
