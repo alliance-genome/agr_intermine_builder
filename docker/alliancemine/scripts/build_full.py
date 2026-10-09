@@ -24,6 +24,7 @@ import time
 import subprocess
 import argparse
 import logging
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
@@ -74,6 +75,7 @@ class AllianceMineBuildPipeline:
         self.skip_solr_setup = skip_solr_setup
         self.start_time = time.time()
         self.stage_times: dict = {}
+        self.completed: List[str] = []
 
         os.chdir(ALLIANCEMINE_DIR)
 
@@ -200,12 +202,25 @@ class AllianceMineBuildPipeline:
         return self._run(cmd, "Data integration (project_build)")
 
     def stage_postprocess(self) -> bool:
-        """Stage 4: Post-processing."""
+        """Stage 4: Post-processing, one Gradle JVM per step.
+
+        A single `gradlew postprocess` JVM leaks a 20-connection pool per step and can
+        exhaust the shared RDS (locked out the production mines on 2026-09-26).
+        project_build already runs every post-process this way, so after it this stage
+        has nothing left to do; it only does work on --start-from postprocess.
+        """
         self._log_stage(4, "Running Post-Processing")
-        return self._run(
-            ["./gradlew", "postprocess", "--stacktrace"],
-            "Post-processing",
-        )
+        if "project_build" in self.completed:
+            logger.info("project_build already ran each post-process in its own JVM")
+            return True
+        root = ET.parse(ALLIANCEMINE_DIR / "project.xml").getroot()
+        for step in [e.get("name") for e in root.iter("post-process")]:
+            if not self._run(
+                ["./gradlew", "postprocess", f"-Pprocess={step}", "--stacktrace"],
+                f"Post-process {step}",
+            ):
+                return False
+        return True
 
     def stage_war(self) -> bool:
         """Stage 5: Build WAR file."""
@@ -270,7 +285,6 @@ class AllianceMineBuildPipeline:
         if not self.start_from or STAGES.index(self.start_from) <= STAGES.index("postprocess"):
             self.preflight_solr()
 
-        completed = []
         failed_stage = None
 
         for stage in STAGES:
@@ -286,7 +300,7 @@ class AllianceMineBuildPipeline:
                 break
 
             self.stage_times[stage] = time.time() - stage_start
-            completed.append(stage)
+            self.completed.append(stage)
 
         # Summary
         total = time.time() - self.start_time
@@ -302,7 +316,7 @@ class AllianceMineBuildPipeline:
             logger.info("BUILD COMPLETED SUCCESSFULLY")
         logger.info("=" * 60)
         logger.info(f"Duration: {hours}h {minutes}m {seconds}s")
-        logger.info(f"Completed stages: {', '.join(completed)}")
+        logger.info(f"Completed stages: {', '.join(self.completed)}")
         for stage, elapsed in self.stage_times.items():
             logger.info(f"  {stage}: {elapsed:.0f}s ({elapsed/3600:.2f}h)")
         logger.info("=" * 60)
