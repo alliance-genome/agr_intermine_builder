@@ -35,8 +35,6 @@ compile_if_needed() {
     echo "Compilation complete."
 }
 
-compile_if_needed
-
 # ============================================
 # Resolve Alliance Release from FMS API
 # ============================================
@@ -254,6 +252,9 @@ wait_for_postgres
 resolve_rc_number
 construct_db_names
 configure_properties
+# After configure_properties: webapp/build.gradle reads alliancemine.properties, and before
+# it is rendered the file still holds the raw template (webapp.port=${DEPLOY_PORT}).
+compile_if_needed
 setup_databases
 
 # Handle commands
