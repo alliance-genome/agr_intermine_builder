@@ -274,12 +274,13 @@ case "$1" in
         echo ""
         echo "Mode: BUILD"
         shift
+        # DEPLOY_HOST is not passed: configure_properties defaults it to localhost, which made
+        # every build try to deploy into this container. Builds stop after the WAR; deploy is a
+        # separate step (the deploy command, or --deploy-host on the build command line).
         exec python3 /root/scripts/build_full.py \
             --build-type "${BUILD_TYPE:-test}" \
             --release "${ALLIANCE_RELEASE}" \
             ${RC_NUMBER:+--rc "${RC_NUMBER}"} \
-            ${DEPLOY_HOST:+--deploy-host "${DEPLOY_HOST}"} \
-            ${DEPLOY_PORT:+--deploy-port "${DEPLOY_PORT}"} \
             "$@"
         ;;
 

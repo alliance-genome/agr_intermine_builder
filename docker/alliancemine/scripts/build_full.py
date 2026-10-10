@@ -8,7 +8,7 @@ Executes the complete InterMine build pipeline (6 stages):
 3. project_build - Data integration (4-7 hours)
 4. postprocess   - Indexing, summary tables, Solr indexes
 5. war           - Build WAR file
-6. deploy        - Deploy WAR to Tomcat via cargoRedeployRemote
+6. deploy        - Deploy WAR to Tomcat via cargoRedeployRemote (only with --deploy-host)
 
 Usage:
     python3 build_full.py --build-type test            # release auto-resolved from FMS
