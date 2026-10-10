@@ -193,6 +193,18 @@ class AllianceMineBuildPipeline:
             return False
 
         if self.resume:
+            # project_build -l treats this file as "build finished" and exits 0 without
+            # loading anything; a leftover from an earlier release must not end the build.
+            final_dump = Path("/root/data/dump.final")
+            if final_dump.exists():
+                logger.error(f"{final_dump} is left from an earlier build; move it away to resume")
+                return False
+            # genomic_keyDefs.properties is only written by generateKeys, which only buildDB
+            # depends on. -l skips buildDB, so a fresh container would integrate without it.
+            if not self._run(
+                ["./gradlew", ":dbmodel:generateKeys", "--stacktrace"], "Generate integration keys"
+            ):
+                return False
             logger.info("Resuming from last dump checkpoint (-l)")
             cmd = ["./project_build", "-l", "-E", "UTF8", "localhost", "/root/data/dump"]
         else:
