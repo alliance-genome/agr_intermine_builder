@@ -201,8 +201,11 @@ class AllianceMineBuildPipeline:
                 return False
             # genomic_keyDefs.properties is only written by generateKeys, which only buildDB
             # depends on. -l skips buildDB, so a fresh container would integrate without it.
+            # initConfig is named first because addSourceDependencies, which generateKeys also
+            # depends on, would otherwise run before initConfig has created its DBModelUtils.
             if not self._run(
-                ["./gradlew", ":dbmodel:generateKeys", "--stacktrace"], "Generate integration keys"
+                ["./gradlew", ":dbmodel:initConfig", ":dbmodel:generateKeys", "--stacktrace"],
+                "Generate integration keys",
             ):
                 return False
             logger.info("Resuming from last dump checkpoint (-l)")
