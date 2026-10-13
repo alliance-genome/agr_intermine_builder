@@ -49,6 +49,27 @@ STAGES = [
 ]
 
 
+def drop_checkpoints(db: str) -> None:
+    """Drop every <db>:<step> checkpoint copy left by project_build."""
+    if not db or os.environ.get("KEEP_ALL_CHECKPOINTS", "false") == "true":
+        return
+    conn = ["-h", os.environ["RDS_HOST"], "-p", os.environ.get("RDS_PORT", "5432"),
+            "-U", os.environ["RDS_USER"]]
+    listing = subprocess.run(
+        ["psql", *conn, "-d", "postgres", "-At", "-c",
+         f"SELECT datname FROM pg_database WHERE starts_with(datname, '{db}:')"],
+        capture_output=True, text=True,
+    )
+    if listing.returncode != 0:
+        logger.warning(f"Could not list checkpoints of {db}, drop them by hand: {listing.stderr.strip()}")
+        return
+    for name in listing.stdout.split():
+        logger.info(f"Postprocess passed - dropping checkpoint {name}")
+        result = subprocess.run(["dropdb", *conn, name], capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.warning(f"Could not drop {name}: {result.stderr.strip()}")
+
+
 class AllianceMineBuildPipeline:
     """Manages the complete AllianceMine build process."""
 
@@ -217,7 +238,7 @@ class AllianceMineBuildPipeline:
         return self._run(cmd, "Data integration (project_build)")
 
     def stage_postprocess(self) -> bool:
-        """Stage 4: Post-processing, one Gradle JVM per step.
+        """Stage 4: Post-processing, one Gradle JVM per step; drops the last checkpoint once it passes.
 
         A single `gradlew postprocess` JVM leaks a 20-connection pool per step and can
         exhaust the shared RDS (locked out the production mines on 2026-09-26).
@@ -225,16 +246,17 @@ class AllianceMineBuildPipeline:
         has nothing left to do; it only does work on --start-from postprocess.
         """
         self._log_stage(4, "Running Post-Processing")
-        if "project_build" in self.completed:
+        if "project_build" not in self.completed:
+            root = ET.parse(ALLIANCEMINE_DIR / "project.xml").getroot()
+            for step in [e.get("name") for e in root.iter("post-process")]:
+                if not self._run(
+                    ["./gradlew", "postprocess", f"-Pprocess={step}", "--stacktrace"],
+                    f"Post-process {step}",
+                ):
+                    return False
+        else:
             logger.info("project_build already ran each post-process in its own JVM")
-            return True
-        root = ET.parse(ALLIANCEMINE_DIR / "project.xml").getroot()
-        for step in [e.get("name") for e in root.iter("post-process")]:
-            if not self._run(
-                ["./gradlew", "postprocess", f"-Pprocess={step}", "--stacktrace"],
-                f"Post-process {step}",
-            ):
-                return False
+        drop_checkpoints(os.environ.get("RDS_DB_NAME", ""))
         return True
 
     def stage_war(self) -> bool:
