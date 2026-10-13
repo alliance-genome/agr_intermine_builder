@@ -199,9 +199,8 @@ class AllianceMineBuildPipeline:
             return True
 
         cmd = ["python3", str(script)]
-        release_env = os.environ.get("ALLIANCE_RELEASE", self.release)
-        if release_env:
-            cmd.extend(["--release", release_env])
+        if self.release:
+            cmd.extend(["--release", self.release])
 
         return self._run(cmd, "Data extraction", cwd="/root")
 
