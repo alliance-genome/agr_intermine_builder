@@ -55,12 +55,15 @@ def drop_checkpoints(db: str) -> None:
         return
     conn = ["-h", os.environ["RDS_HOST"], "-p", os.environ.get("RDS_PORT", "5432"),
             "-U", os.environ["RDS_USER"]]
-    names = subprocess.run(
+    listing = subprocess.run(
         ["psql", *conn, "-d", "postgres", "-At", "-c",
          f"SELECT datname FROM pg_database WHERE starts_with(datname, '{db}:')"],
-        capture_output=True, text=True, check=True,
-    ).stdout.split()
-    for name in names:
+        capture_output=True, text=True,
+    )
+    if listing.returncode != 0:
+        logger.warning(f"Could not list checkpoints of {db}, drop them by hand: {listing.stderr.strip()}")
+        return
+    for name in listing.stdout.split():
         logger.info(f"Postprocess passed - dropping checkpoint {name}")
         result = subprocess.run(["dropdb", *conn, name], capture_output=True, text=True)
         if result.returncode != 0:
