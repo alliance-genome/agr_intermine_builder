@@ -1,6 +1,8 @@
 # AllianceMine 9.2.0.im2: model update (Alliance API migration, Phases 1–6)
 
-Status: **planning; nothing built.** Started 2026-10-08. Release only after full testing.
+Status: **model check passed 2026-10-13; no data build yet.** Started 2026-10-08. Release only after full testing.
+
+State on 2026-10-13: FMS serves release 9.2.0 (423 files in the snapshot). The Alliance API still reports 9.1.0, so the API prefetch waits for its switch.
 
 **What it is:** AllianceMine on Alliance release 9.2.0 data, with the expanded InterMine model and data loading moved from FMS bulk files to
 the Alliance API, plus FlyMine-style protein, domain, pathway and homology sources. Background: `API_MIGRATION_ROLLOUT.md`.
@@ -148,6 +150,11 @@ their reverse references may clash at `mergeModels`.
 
    Iterate until clean.
 4. **Model check:** `mergeModels` + `compileJava` for all sources (catches the Protein/UniProt clash) without loading data.
+   **Passed 2026-10-13** in an `eclipse-temurin:8-jdk` container from the branch heads (alliancemine 3c2dd6d, bio-sources c7cb9ca):
+   bio-sources `install` 5 min 10 s, alliancemine `install` 1 min 14 s. The merged `genomic_model.xml` has 234 classes,
+   all 19 new classes, and the Integer/Boolean retypes. No Protein/UniProt clash. Outside the builder image, two
+   setup steps are needed: `~/.intermine/alliancemine.properties` with `${DEPLOY_*}` filled (webapp/build.gradle reads it),
+   and `dbmodel/resources/so_terms` reachable from the forked Gradle JVM's working directory.
 5. **Overnight test build** into `alliancemine_9_2_0_im2_rc1`, with a copy of the user profile. The build-DB guard
    checks the target name.
 6. **Verification, Phases 1→6 in order:**
@@ -158,3 +165,10 @@ their reverse references may clash at `mergeModels`.
    - forgot-password mail.
 7. **Release** after sign-off: AllianceMine cutover per `RUNBOOK_ALLIANCEMINE_RESTART.md` (bag-upgrade deadlock kick),
    with 9.1.0 kept as rollback.
+
+## YeastMine and FlyMine on 9.2.0 (2026-10-13)
+
+Both keep their own models. Only their Alliance inputs move to 9.2.0:
+- FlyMine: `docker/flymine/scripts/extract_data.py` takes FMS files (disease, orthology, expression, variant-allele, GAF_FB, GFF_FB, BGI_FB, ontologies) for `ALLIANCE_RELEASE` (default `releaseversion/next`). Set `ALLIANCE_RELEASE=9.2.0`; clear `/data/fms` and `/data/genes` first, because existing files are skipped.
+- YeastMine: copies `s3://agr-db-backups/alliancemine/intermine/` (incl. `ORTHOLOGY-ALLIANCE_COMBINED.tsv`) with no release choice. It picks up 9.2.0 after an AllianceMine 9.2.0 build stages its files there.
+
