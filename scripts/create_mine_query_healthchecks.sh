@@ -49,12 +49,13 @@ JSON
     [ "$DRY" = --dry-run ] && continue
 
     # Route53 health-check metrics live in us-east-1; Minimum < 1 over 2 x 60 s = failing for 2 minutes.
+    # notBreaching: a new check has no datapoints for its first minutes, and breaching fired the alarm at creation.
     # shellcheck disable=SC2086
     aws cloudwatch put-metric-alarm --region us-east-1 --alarm-name "$name" \
         --alarm-description "$mine: a 1-row query through CloudFront did not return wasSuccessful=true" \
         --namespace AWS/Route53 --metric-name HealthCheckStatus --dimensions Name=HealthCheckId,Value="$id" \
         --statistic Minimum --period 60 --evaluation-periods 2 --threshold 1 \
-        --comparison-operator LessThanThreshold --treat-missing-data breaching \
+        --comparison-operator LessThanThreshold --treat-missing-data notBreaching \
         --alarm-actions $TOPICS
     echo "$mine: alarm $name set"
 done
