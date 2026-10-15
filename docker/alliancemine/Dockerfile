@@ -134,8 +134,11 @@ new = '''            <fieldconfig fieldExpr="function" label="Complex Function" 
 
             <fieldconfig fieldExpr="systematicName" label="Complex Systematic Name" />
             <fieldconfig fieldExpr="properties" label="Complex Properties" />'''
-assert old in s, 'webconfig Complex block not found - upstream may have changed'
-open(p, 'w').write(s.replace(old, new))
+if new in s:
+    print('webconfig Complex block already in the target order; no patch needed')
+else:
+    assert old in s, 'webconfig Complex block not found - upstream may have changed'
+    open(p, 'w').write(s.replace(old, new))
 PYEOF
 
 # Patch class_keys.properties: add Complex key + fix taxonif typo. Without a
