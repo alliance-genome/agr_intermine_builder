@@ -144,6 +144,7 @@ InterMine does NOT auto-create Solr cores. The build container does, via a prefl
 - `docs/INTERMINE_GO_BACKEND_MIGRATION.md` — Sibling plan, Go+chi+pgx stack (same scope, different language tradeoffs); §21 has the decision matrix
 - `docs/INTERMINE_TOMCAT_DOCKER.md` — 4 patches every InterMine Tomcat container needs + path to baked-in `intermine-tomcat:agr-runtime` image (resolves Tier 1 of POST_9_0_0_PLANNING)
 - `docs/RUNBOOK_ALLIANCEMINE_RESTART.md` — Restart procedure with `pg_terminate_backend` kick to break the bag-upgrade deadlock that bites every restart (until Tier 2 JDBC keepalive lands)
+- `docs/INCIDENT_2026_10_14_QUERY_HEALTHCHECKS.md` — Route53 query checks tripped WAF rule 21 via the query.xsd self-fetch; queries down on 4 mines for 2.5 h
 - `docs/INCIDENT_2026_04_30_to_05_01.md` — Bot scraper / disk-full / accidental prune timeline + lessons
 - `docs/PRODUCTION_CUTOVER_9_0_0.md` — How 9.0.0 went live (ALB target swap 8080 → 8082)
 - `docs/ALLIANCEMINE_PUBLIC_URLS.md` — Public URL routing: `alliancemine.alliancegenome.org/alliancemine/` works; `www.alliancegenome.org/alliancemine/` returns CloudFront 502 (frontend team owns)
