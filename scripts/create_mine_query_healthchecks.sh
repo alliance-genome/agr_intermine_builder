@@ -12,7 +12,9 @@
 # the incident-response topic the /service/version alarms use. ALARM only, no OK actions.
 set -euo pipefail
 
-MINES="alliancemine yeastmine flymine wormmine mousemine"
+# alliancemine, yeastmine, flymine and wormmine fetch query.xsd through the WAF on every query; checks on them
+# tripped WAF rule 21 and blocked all their queries (docs/INCIDENT_2026_10_14_QUERY_HEALTHCHECKS.md).
+MINES="mousemine"
 QUERY='%3Cquery%20model%3D%22genomic%22%20view%3D%22Organism.taxonId%22/%3E'   # <query model="genomic" view="Organism.taxonId"/>
 SEARCH='"wasSuccessful":true'
 TOPICS="arn:aws:sns:us-east-1:100225593120:intermine-alerts arn:aws:sns:us-east-1:100225593120:alliance-alerts-warning"
