@@ -2,9 +2,10 @@
 """
 Create versioned Solr cores for a new AllianceMine release.
 
-Copies the schema from existing production cores, clears data,
-and registers them with Solr. Cores must exist before the
-postprocess step runs create-search-index and create-autocomplete-index.
+Copies conf/ from the live alliancemine-search / alliancemine-autocomplete cores into an
+empty instance dir and registers it with CoreAdmin CREATE; Solr is not restarted.
+Cores must exist before the postprocess step runs create-search-index and
+create-autocomplete-index.
 
 Usually invoked automatically as a preflight step from build_full.py.
 The standalone CLI exists for ops use when a build is half-broken
@@ -37,18 +38,43 @@ SOLR_DATA_DIR = "/var/solr/data"
 SOURCE_CORES = ["alliancemine-search", "alliancemine-autocomplete"]
 
 
-def run_ssh(host: str, cmd: str, ssh_key: str = None, sudo: bool = False) -> str:
+# One remote run per core. Copies only conf/ from the live core (the live index is ~14M docs), lets
+# CoreAdmin CREATE write core.properties and load the core, so Solr is never restarted.
+# Exit codes: 2 source has no config, 3 target dir has core.properties but Solr does not know the core,
+# 4 CREATE failed.
+CREATE_CORE_SH = """
+set -eu
+D={data_dir}; S=http://localhost:8983/solr/admin/cores; src=$D/{source}; t={target}
+if curl -s --max-time 30 "$S?action=STATUS&core=$t&wt=json" | grep -q "\\"name\\":\\"$t\\""; then
+  echo exists; exit 0
+fi
+sudo test -f "$src/conf/solrconfig.xml" || {{ echo "no conf/solrconfig.xml in $src" >&2; exit 2; }}
+if sudo test -e "$D/$t"; then
+  if sudo test -f "$D/$t/core.properties"; then
+    echo "$D/$t has core.properties but Solr has no core $t" >&2; exit 3
+  fi
+  sudo rm -rf "$D/$t"
+  echo "removed leftover $D/$t"
+fi
+sudo mkdir -p "$D/$t/data"
+sudo cp -r "$src/conf" "$D/$t/conf"
+sudo chown -R solr:solr "$D/$t"
+r=$(curl -s --max-time 120 "$S?action=CREATE&name=$t&instanceDir=$t&wt=json")
+echo "$r" | grep -q '"status":0' || {{ echo "CREATE failed: $r" >&2; exit 4; }}
+echo created
+"""
+
+
+def run_ssh_script(host: str, script: str, ssh_key: str = None) -> str:
     ssh_cmd = ["ssh"]
     if ssh_key:
         ssh_cmd.extend(["-i", ssh_key])
-    ssh_cmd.extend(["-o", "ConnectTimeout=10", f"ec2-user@{host}"])
-    if sudo:
-        cmd = f"sudo {cmd}"
-    ssh_cmd.append(cmd)
-
-    result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=60)
+    ssh_cmd.extend(["-o", "ConnectTimeout=10", f"ec2-user@{host}", "bash", "-s"])
+    result = subprocess.run(
+        ssh_cmd, input=script, capture_output=True, text=True, timeout=180, check=False
+    )
     if result.returncode != 0:
-        raise RuntimeError(f"SSH command failed: {result.stderr.strip()}")
+        raise RuntimeError(f"exit {result.returncode}: {result.stderr.strip()}")
     return result.stdout.strip()
 
 
@@ -63,74 +89,22 @@ def core_suffix(release: str, rc: int = None) -> str:
 
 
 def create_cores(host: str, release: str, rc: int = None, ssh_key: str = None) -> bool:
-    """Create the versioned search + autocomplete cores. Idempotent."""
+    """Create the versioned search + autocomplete cores with the live cores' config. Idempotent.
+
+    A target dir without core.properties is a leftover from a failed CREATE and is replaced.
+    """
     success = True
     suffix = core_suffix(release, rc)
-    created_any = False
 
     for source in SOURCE_CORES:
         target = f"{source}-{suffix}"
-        logger.info(f"Creating core: {target} from {source}")
-
+        script = CREATE_CORE_SH.format(data_dir=SOLR_DATA_DIR, source=source, target=target)
         try:
-            # Check if target already exists
-            exists = run_ssh(host, f"test -d {SOLR_DATA_DIR}/{target} && echo yes || echo no", ssh_key, sudo=True)
-            if exists == "yes":
-                logger.info(f"  Core {target} already exists, skipping")
-                continue
-
-            # Copy production core config
-            run_ssh(host, f"cp -r {SOLR_DATA_DIR}/{source} {SOLR_DATA_DIR}/{target}", ssh_key, sudo=True)
-
-            # Update core.properties
-            run_ssh(host, f"sh -c 'echo name={target} > {SOLR_DATA_DIR}/{target}/core.properties'", ssh_key, sudo=True)
-
-            # Clear data (keep only schema/config)
-            run_ssh(host, f"rm -rf {SOLR_DATA_DIR}/{target}/data", ssh_key, sudo=True)
-            run_ssh(host, f"mkdir {SOLR_DATA_DIR}/{target}/data", ssh_key, sudo=True)
-
-            # Fix ownership
-            run_ssh(host, f"chown -R solr:solr {SOLR_DATA_DIR}/{target}", ssh_key, sudo=True)
-
-            logger.info(f"  Created {target}")
-            created_any = True
-
+            out = run_ssh_script(host, script, ssh_key)
+            logger.info(f"  {target}: {out.replace(chr(10), '; ')}")
         except (RuntimeError, subprocess.TimeoutExpired) as e:
-            logger.error(f"  Failed to create {target}: {e}")
+            logger.error(f"  {target} from {source} failed: {e}")
             success = False
-
-    if not success:
-        return False
-
-    # Skip Solr restart if everything was already in place — saves a multi-second
-    # restart on every build invocation in the common case.
-    if not created_any:
-        logger.info("All target cores already existed; skipping Solr restart.")
-        return True
-
-    # Restart Solr to pick up new cores
-    logger.info("Restarting Solr...")
-    try:
-        run_ssh(host, "-u solr /opt/solr/bin/solr restart", ssh_key, sudo=True)
-        logger.info("Solr restarted")
-    except (RuntimeError, subprocess.TimeoutExpired) as e:
-        logger.error(f"Failed to restart Solr: {e}")
-        return False
-
-    # Verify cores
-    logger.info("Verifying cores...")
-    try:
-        output = run_ssh(host, f"python3 -c \"import urllib.request,json; data=json.loads(urllib.request.urlopen('http://localhost:8983/solr/admin/cores?action=STATUS').read()); [print(k) for k in sorted(data['status'])]\"", ssh_key)
-        for source in SOURCE_CORES:
-            target = f"{source}-{suffix}"
-            if target in output:
-                logger.info(f"  {target}: OK")
-            else:
-                logger.error(f"  {target}: NOT FOUND")
-                success = False
-    except (RuntimeError, subprocess.TimeoutExpired) as e:
-        logger.error(f"Failed to verify cores: {e}")
-        success = False
 
     return success
 
