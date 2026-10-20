@@ -16,6 +16,7 @@ RUN apk add --no-cache \
     git \
     bash \
     postgresql-client \
+    openssh-client \
     wget \
     curl \
     ca-certificates \

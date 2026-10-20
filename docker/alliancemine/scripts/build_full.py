@@ -136,9 +136,9 @@ class AllianceMineBuildPipeline:
 
         Idempotent — skips cores that already exist. Naming mirrors the DB
         side (alliancemine-search-{release}[-rc{N}], same for autocomplete).
-        Failure is non-fatal: postprocess will fail later with a clearer
-        'core not found' error, and the operator can recreate cores manually
-        and resume with --start-from postprocess.
+        Returns False when SOLR_HOST is set and the cores could not be created,
+        so the build stops before the hours of project_build that precede a
+        'core not found' failure in postprocess.
         """
         if self.skip_solr_setup:
             logger.info("Skipping Solr core setup (--skip-solr-setup)")
@@ -161,21 +161,19 @@ class AllianceMineBuildPipeline:
         try:
             from create_solr_cores import create_cores  # type: ignore
         except ImportError as e:
-            logger.warning(f"Could not import create_solr_cores ({e}); skipping preflight")
-            return True
+            logger.error(f"Could not import create_solr_cores ({e})")
+            return False
 
         try:
             ok = create_cores(solr_host, self.release, self.rc, ssh_key)
         except Exception as e:  # network blip, SSH timeout, etc.
-            logger.warning(f"Solr core preflight raised {type(e).__name__}: {e}")
+            logger.error(f"Solr core preflight raised {type(e).__name__}: {e}")
             ok = False
 
         if not ok:
-            logger.warning("Solr core preflight reported failures. Continuing — "
-                           "if postprocess fails on missing cores, run "
-                           "create_solr_cores.py manually and re-run with "
-                           "--start-from postprocess --resume.")
-        return True  # always continue
+            logger.error("Solr core preflight failed. Create the cores with "
+                         "create_solr_cores.py or pass --skip-solr-setup.")
+        return ok
 
     def stage_build_db(self) -> bool:
         """Stage 1: Create database schema."""
@@ -316,10 +314,10 @@ class AllianceMineBuildPipeline:
             "deploy": self.stage_deploy,
         }
 
-        # Preflight: ensure Solr cores exist. Always non-fatal — postprocess
-        # surfaces the real failure if cores are missing.
+        # Preflight: ensure Solr cores exist before any stage runs.
         if not self.start_from or STAGES.index(self.start_from) <= STAGES.index("postprocess"):
-            self.preflight_solr()
+            if not self.preflight_solr():
+                return 1
 
         failed_stage = None
 

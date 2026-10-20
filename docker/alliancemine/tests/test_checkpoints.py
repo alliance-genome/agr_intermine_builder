@@ -73,6 +73,44 @@ class CheckpointSshTest(unittest.TestCase):
                                  env={"KEEP_ALL_CHECKPOINTS": "true"})
         self.assertEqual(lines, ["createdb -U u -h rds -T am_rc1 am_rc1:go-slim"])
 
+    def test_option_or_user_at_host_calls_go_to_real_ssh(self):
+        for args in [("-i", "k.pem", "-o", "ConnectTimeout=10", "ec2-user@solr", "bash", "-s"),
+                     ("ec2-user@solr", "ls")]:
+            with TemporaryDirectory() as tmp:
+                real = Path(tmp) / "realssh"
+                real.write_text(f'#!/bin/sh\necho "$*" > {tmp}/log\n')
+                real.chmod(0o755)
+                subprocess.run(["sh", str(SCRIPTS / "checkpoint_ssh.sh"), *args],
+                               env={"PATH": "/usr/bin:/bin", "SSH_REAL": str(real)},
+                               check=True, capture_output=True)
+                self.assertEqual((Path(tmp) / "log").read_text().split(), list(args))
+
+
+class PreflightSolrTest(unittest.TestCase):
+    def pipeline(self):
+        with mock.patch.object(build_full, "ALLIANCEMINE_DIR", Path(".")):
+            return build_full.AllianceMineBuildPipeline(release="9.2.0", rc=1)
+
+    def test_failed_core_creation_is_fatal_when_solr_host_set(self):
+        with mock.patch.dict(os.environ, {"SOLR_HOST": "solr"}), \
+                mock.patch("create_solr_cores.create_cores", return_value=False):
+            self.assertFalse(self.pipeline().preflight_solr())
+
+    def test_exception_is_fatal_when_solr_host_set(self):
+        with mock.patch.dict(os.environ, {"SOLR_HOST": "solr"}), \
+                mock.patch("create_solr_cores.create_cores", side_effect=OSError("no ssh")):
+            self.assertFalse(self.pipeline().preflight_solr())
+
+    def test_created_cores_pass(self):
+        with mock.patch.dict(os.environ, {"SOLR_HOST": "solr"}), \
+                mock.patch("create_solr_cores.create_cores", return_value=True):
+            self.assertTrue(self.pipeline().preflight_solr())
+
+    def test_unset_solr_host_skips(self):
+        env = {k: v for k, v in os.environ.items() if k != "SOLR_HOST"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertTrue(self.pipeline().preflight_solr())
+
 
 if __name__ == "__main__":
     unittest.main()
