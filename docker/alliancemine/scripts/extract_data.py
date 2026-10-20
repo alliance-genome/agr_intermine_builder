@@ -46,6 +46,11 @@ DEFAULT_DATA_DIR = Path("/root/data")
 DEFAULT_FETCH_WORKERS = "6"
 FETCH_ALL_RELEASE_MISMATCH_EXIT = 2
 FETCH_ALL_SCRIPT = Path("/root/alliancemine-bio-sources/scripts/fetch_all.py")
+DEFAULT_API_BASE = "https://www.alliancegenome.org/api"
+RELEASE_MARKER = ".release"
+# FMS types that feed Gene.tsv, the ID map and the integration; a release without one of
+# them must stop the build instead of leaving the previous release's file in place.
+REQUIRED_FMS_TYPES = ("BGI", "GFF", "DISEASE-ALLIANCE", "ORTHOLOGY-ALLIANCE")
 
 # SGD and external data stored in S3 (not available on FMS)
 # Downloaded from s3://agr-db-backups/alliancemine/intermine/
@@ -198,6 +203,48 @@ class AllianceDataExtractor:
         logger.info(
             f"FMS file list: {len(rows)} uploads, {len(self.fms_files)} distinct subtypes"
         )
+
+    def missing_required(self) -> List[tuple]:
+        """Required FILE_MAP entries that the release's FMS file list does not carry."""
+        return [
+            (fms_type, fms_subtype)
+            for fms_type, fms_subtype, _, _ in FILE_MAP
+            if fms_type in REQUIRED_FMS_TYPES and (fms_type, fms_subtype) not in self.fms_files
+        ]
+
+    def clear_other_release(self) -> None:
+        """Remove FILE_MAP outputs left by another release, then stamp the release.
+
+        A type missing from this release's file list is skipped, so without this its
+        file from the previous release would be loaded as this release's data.
+        """
+        release = self.get_release_version()
+        for target_dir in sorted({entry[2] for entry in FILE_MAP}):
+            directory = self.data_dir / target_dir
+            marker = directory / RELEASE_MARKER
+            stamped = marker.read_text().strip() if marker.exists() else None
+            if stamped != release:
+                for _, _, entry_dir, target_name in FILE_MAP:
+                    leftover = directory / target_name
+                    if entry_dir == target_dir and leftover.exists():
+                        logger.info(f"  removing {leftover} (release {stamped or 'unknown'})")
+                        leftover.unlink()
+            directory.mkdir(parents=True, exist_ok=True)
+            marker.write_text(release + "\n")
+
+    def check_api_release(self) -> bool:
+        """True when /api/releaseInfo serves the pinned release (fetch_all's own check)."""
+        release = self.get_release_version()
+        base = os.environ.get("ALLIANCE_API_BASE", DEFAULT_API_BASE).rstrip("/")
+        try:
+            with urlopen(f"{base}/releaseInfo", timeout=60) as response:
+                served = json.loads(response.read()).get("releaseVersion")
+        except (HTTPError, URLError, OSError, ValueError, AttributeError) as e:
+            logger.error(f"Could not read {base}/releaseInfo: {e}")
+            return False
+        if served != release:
+            logger.error(f"API serves {served or 'unknown'}, pinned release is {release}")
+        return served == release
 
     def download_file(self, fms_type: str, fms_subtype: str, target_dir: str, target_name: str) -> bool:
         """Download a single file from the release's FMS file list."""
@@ -365,11 +412,21 @@ class AllianceDataExtractor:
         stats = {"success": 0, "failed": 0, "skipped": 0, "total": len(FILE_MAP),
                  "api": "skipped", "genes_tsv": "skipped", "flatfiles": "skipped"}
 
+        if not skip_api and not self.check_api_release():
+            stats["api"] = "release-mismatch"
+            return stats
+
         if not skip_fms:
+            self.load_fms_files()
+            missing = self.missing_required()
+            if missing:
+                logger.error(f"Required FMS types missing from release {self.release}: {missing}")
+                stats["failed"] += len(missing)
+                return stats
+            self.clear_other_release()
+
             # SGD/external data from S3
             self.download_s3_data()
-
-            self.load_fms_files()
 
             for fms_type, fms_subtype, target_dir, target_name in FILE_MAP:
                 if (fms_type, fms_subtype) not in self.fms_files:

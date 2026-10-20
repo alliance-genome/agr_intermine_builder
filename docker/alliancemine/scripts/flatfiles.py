@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import io
 import json
 import logging
@@ -82,6 +83,7 @@ class Context:
     sample: int | None = None
     force: bool = False
     report: dict = field(default_factory=dict)
+    idmap_hash: str = ""
 
     def path(self, relative: str) -> Path:
         return self.data_dir / relative
@@ -89,10 +91,37 @@ class Context:
     def limit(self, items: Iterable) -> Iterable:
         return islice(items, self.sample) if self.sample else items
 
+    def meta(self) -> dict:
+        return {"idmap_sha256": self.idmap_hash, "sample": self.sample}
+
+    def stamp(self, *paths: Path) -> None:
+        """Record the ID map hash and sample flag the outputs were written with."""
+        for p in paths:
+            meta_path(p).write_text(json.dumps(self.meta(), sort_keys=True), encoding="utf-8")
+
     def cached(self, *paths: Path) -> bool:
         if self.force:
             return False
-        return all(p.exists() and p.stat().st_size > 0 for p in paths)
+        return all(p.exists() and p.stat().st_size > 0 and self.stamped(p) for p in paths)
+
+    def stamped(self, path: Path) -> bool:
+        try:
+            recorded = json.loads(meta_path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return recorded == self.meta()
+
+
+def meta_path(path: Path) -> Path:
+    return path.with_name(path.name + ".meta")
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def open_url(url: str) -> IO[bytes]:
@@ -178,6 +207,7 @@ def fetch_uniprot(ctx: Context) -> dict:
                 dest.unlink()
                 raise ValueError(f"{dest.name}: truncated UniProt stream (no </uniprot>)")
             write_atomic(acc_file, (f"{a}\n" for a in sorted(accessions)))
+            ctx.stamp(dest, acc_file)
     stats.log()
     return {"files": files, "gene_ids": stats.summary()}
 
@@ -327,7 +357,7 @@ def fetch_orthodb(ctx: Context) -> dict:
 
 def kegg_raw(ctx: Context, operation: str, name: str) -> list[str]:
     dest = ctx.path("kegg/raw") / name
-    if not ctx.cached(dest):
+    if ctx.force or not (dest.exists() and dest.stat().st_size > 0):
         time.sleep(KEGG_REQUEST_GAP)
         with open_url(f"{KEGG_REST}/{operation}") as resp:
             write_atomic(dest, text_lines(resp))
@@ -386,7 +416,13 @@ def run(
     if unknown:
         raise ValueError(f"unknown flat-file sources: {', '.join(unknown)}")
     idmap = load_or_build(data_dir / "genes", data_dir / "idmap" / "gene_idmap.tsv")
-    ctx = Context(data_dir=data_dir, idmap=idmap, sample=sample, force=force)
+    ctx = Context(
+        data_dir=data_dir,
+        idmap=idmap,
+        sample=sample,
+        force=force,
+        idmap_hash=file_sha256(data_dir / "idmap" / "gene_idmap.tsv"),
+    )
     remove_stale(ctx)
     report: dict[str, dict] = {}
     for name in selected:
@@ -395,6 +431,7 @@ def run(
         try:
             entry = SOURCES[name](ctx)
             entry["status"] = "ok"
+            ctx.stamp(*(Path(f) for f in entry.get("files", [])))
         except DOWNLOAD_ERRORS as exc:
             logger.error("  %s failed: %s", name, exc)
             entry = {"status": "failed", "error": str(exc)}
