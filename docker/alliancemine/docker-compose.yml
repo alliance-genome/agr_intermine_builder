@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-alliancemine-9.2.0.im2}
-        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-alliancemine-9.2.0.im2}
+        ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-im2-model-links}
+        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-im2-model-links}
 
     image: alliancemine-builder:${IMAGE_TAG:-latest}
     container_name: alliancemine-builder

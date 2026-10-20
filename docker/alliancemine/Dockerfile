@@ -66,7 +66,7 @@ RUN mkdir -p .intermine
 # Repos are cloned at build time but compiled at runtime (first run)
 # to keep image build lightweight.
 # ============================================
-ARG ALLIANCEMINE_BRANCH=alliancemine-9.2.0.im2
+ARG ALLIANCEMINE_BRANCH=im2-model-links
 RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
     https://github.com/alliance-genome/alliancemine.git
 
@@ -83,9 +83,13 @@ RUN rm -f /root/alliancemine/alliancemine.properties && \
 COPY scripts/checkpoint_ssh.sh /usr/local/bin/ssh
 RUN chmod +x /usr/local/bin/ssh
 
-ARG BIO_SOURCES_BRANCH=alliancemine-9.2.0.im2
+ARG BIO_SOURCES_BRANCH=im2-model-links
 RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
     https://github.com/alliance-genome/alliancemine-bio-sources.git
+
+RUN { echo "alliancemine ${ALLIANCEMINE_BRANCH} $(git -C /root/alliancemine rev-parse HEAD)"; \
+      echo "alliancemine-bio-sources ${BIO_SOURCES_BRANCH} $(git -C /root/alliancemine-bio-sources rev-parse HEAD)"; \
+    } > /root/clone-shas.txt
 
 # ============================================
 # Install project_build from intermine-scripts

@@ -4,6 +4,10 @@ set -e
 echo "============================================"
 echo "AllianceMine Build Container"
 echo "============================================"
+if [ -f /root/clone-shas.txt ]; then
+    echo "Cloned repositories:"
+    sed 's/^/  /' /root/clone-shas.txt
+fi
 
 # ============================================
 # Compile bio-sources and alliancemine (first run only)
