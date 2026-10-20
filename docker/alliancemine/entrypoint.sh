@@ -87,6 +87,15 @@ resolve_rc_number() {
         return
     fi
 
+    # A resume continues an existing database; auto-incrementing would start an empty rc instead.
+    local arg
+    for arg in "$@"; do
+        if [ "${arg}" = "--resume" ]; then
+            echo "ERROR: --resume needs RC_NUMBER (the rc to continue); auto-detection would create a new rc."
+            exit 1
+        fi
+    done
+
     local ver_sanitized
     ver_sanitized=$(echo "${ALLIANCE_RELEASE}" | tr '.' '_')
     local pattern="alliancemine_${ver_sanitized}_rc"
@@ -101,7 +110,10 @@ resolve_rc_number() {
             substring(datname from '${pattern}([0-9]+)$')::int
         ), 0)
         FROM pg_database
-        WHERE datname ~ '^${pattern}[0-9]+$'" 2>/dev/null) || max_rc=0
+        WHERE datname ~ '^${pattern}[0-9]+$'") || {
+        echo "ERROR: could not list RC databases on ${RDS_HOST}; set RC_NUMBER or fix the connection."
+        exit 1
+    }
 
     export RC_NUMBER=$(( ${max_rc:-0} + 1 ))
     echo "RC Number: ${RC_NUMBER} (auto-incremented, found rc${max_rc:-0} on RDS)"
@@ -247,7 +259,7 @@ setup_databases() {
 
     # Helper: check if a database exists
     db_exists() {
-        ${PSQL} -d postgres -lqt | cut -d \| -f 1 | grep -qw "$1"
+        [ "$(${PSQL} -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$1'")" = 1 ]
     }
 
     # Create main DB and items DB if they don't exist
@@ -279,7 +291,7 @@ setup_databases() {
 # ============================================
 
 wait_for_postgres
-resolve_rc_number
+resolve_rc_number "$@"
 construct_db_names
 configure_properties
 # After configure_properties: webapp/build.gradle reads alliancemine.properties, and before

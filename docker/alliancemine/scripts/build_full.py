@@ -70,6 +70,43 @@ def drop_checkpoints(db: str) -> None:
             logger.warning(f"Could not drop {name}: {result.stderr.strip()}")
 
 
+PROPERTIES_FILE = Path("/root/.intermine/alliancemine.properties")
+DB_NAME_KEY = "db.production.datasource.databaseName"
+
+
+def check_build_db_target() -> Optional[str]:
+    """Return an error message unless buildDB would run on the intended, empty database."""
+    expected = os.environ.get("RDS_DB_NAME", "")
+    configured = ""
+    for line in PROPERTIES_FILE.read_text().splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == DB_NAME_KEY:
+            configured = value.strip()
+    if not expected or configured != expected:
+        return f"{DB_NAME_KEY} is '{configured}' in {PROPERTIES_FILE}, RDS_DB_NAME is '{expected}'"
+    conn = ["psql", "-h", os.environ["RDS_HOST"], "-p", os.environ.get("RDS_PORT", "5432"),
+            "-U", os.environ["RDS_USER"], "-At"]
+    exists = subprocess.run(
+        [*conn, "-d", "postgres", "-c", f"SELECT 1 FROM pg_database WHERE datname = '{expected}'"],
+        capture_output=True, text=True,
+    )
+    if exists.returncode != 0:
+        return f"could not look up {expected}: {exists.stderr.strip()}"
+    if not exists.stdout.strip():
+        return None
+    tables = subprocess.run(
+        [*conn, "-d", expected, "-c",
+         "SELECT count(*) FROM information_schema.tables "
+         "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')"],
+        capture_output=True, text=True,
+    )
+    if tables.returncode != 0:
+        return f"could not count tables in {expected}: {tables.stderr.strip()}"
+    if tables.stdout.strip() != "0":
+        return f"{expected} already has {tables.stdout.strip()} tables, buildDB would wipe it"
+    return None
+
+
 class AllianceMineBuildPipeline:
     """Manages the complete AllianceMine build process."""
 
@@ -178,6 +215,10 @@ class AllianceMineBuildPipeline:
     def stage_build_db(self) -> bool:
         """Stage 1: Create database schema."""
         self._log_stage(1, "Building Database Schema")
+        problem = check_build_db_target()
+        if problem:
+            logger.error(f"Refusing to run buildDB: {problem}")
+            return False
         return self._run(
             ["./gradlew", "buildDB", "--stacktrace"],
             "Database schema build",
