@@ -103,7 +103,7 @@ def check_build_db_target() -> Optional[str]:
     if tables.returncode != 0:
         return f"could not count tables in {expected}: {tables.stderr.strip()}"
     if tables.stdout.strip() != "0":
-        return f"{expected} already has {tables.stdout.strip()} tables, buildDB would wipe it"
+        return f"{expected} already has {tables.stdout.strip()} tables, buildDB would wipe it (drop the database by hand or resume with --start-from project_build)"
     return None
 
 

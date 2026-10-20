@@ -69,7 +69,7 @@ def run_ssh_script(host: str, script: str, ssh_key: str = None) -> str:
     ssh_cmd = ["ssh"]
     if ssh_key:
         ssh_cmd.extend(["-i", ssh_key])
-    ssh_cmd.extend(["-o", "ConnectTimeout=10", f"ec2-user@{host}", "bash", "-s"])
+    ssh_cmd.extend(["-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", f"ec2-user@{host}", "bash", "-s"])
     result = subprocess.run(
         ssh_cmd, input=script, capture_output=True, text=True, timeout=180, check=False
     )
