@@ -10,6 +10,17 @@ The system has two layers:
 - **Docker build container** (`docker/alliancemine/`): Runs the InterMine build pipeline inside a container. This is the primary build system, proven with 9.0.0.
 - **Host-side orchestration** (`src/`): Python CLI tools for RDS management, release versioning, and multi-mine orchestration via Docker SDK.
 
+## Build Host Layout (AllianceMineDev, 172.31.60.197)
+
+- `~/agr_intermine_builder`: this repo; the only builder checkout used for AllianceMine builds.
+  Build data lives in `docker/alliancemine/data/` (gitignored), run logs in `runs/` (gitignored).
+- `~/intermine/alliancemine` and `~/intermine/alliancemine-bio-sources`: the InterMine repos,
+  separate git checkouts. The Dockerfile clones them from GitHub by branch, so push before building.
+- `tools/api_fetch/run.sh`: Alliance API prefetch outside the container into `data/api` + `data/api-cache`.
+- `tools/model_audit/model_links.py`: one-way references, unreferenced classes and ID-string
+  attributes in the merged model.
+- `~/yeastmine-build` and `~/flymine-deploy` stay separate: the weekly YeastMine and FlyMine jobs use them.
+
 ## Quick Start — Docker Build (Primary)
 
 ```bash

@@ -56,3 +56,6 @@ dumps/
 
 # Local Claude Code state
 .claude/
+
+# Build-host run logs and one-off scripts
+runs/
