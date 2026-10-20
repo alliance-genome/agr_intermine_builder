@@ -152,6 +152,26 @@ class UniprotTest(unittest.TestCase):
         out, _, _ = rewrite(text, "7955")
         self.assertIn('value="ZFIN:ZDB-GENE-990415-200"', out)
 
+    def test_zebrafish_zfin_dbreference_to_curie(self):
+        text = (
+            '<dbReference type="ZFIN" id="ZDB-GENE-990415-200">\n'
+            '  <property type="gene designation" value="pax6a"/>\n'
+            "</dbReference>\n"
+            '<dbReference type="ZFIN" id="ZDB-GENE-000000-1"/>\n'
+        )
+        out, stats, _ = rewrite(text, "7955")
+        self.assertIn('<dbReference type="ZFIN" id="ZFIN:ZDB-GENE-990415-200">', out)
+        self.assertIn('<dbReference type="ZFIN-unmapped" id="ZDB-GENE-000000-1"/>', out)
+        self.assertEqual(stats.summary(), {"7955": {"mapped": 1, "unmapped": 1}})
+
+    def test_xenopus_xenbase_dbreference_to_curie(self):
+        text = '<dbReference type="Xenbase" id="XB-GENE-865046"/>\n'
+        out, stats, _ = rewrite(text, "8364")
+        self.assertIn('<dbReference type="Xenbase" id="Xenbase:XB-GENE-865046"/>', out)
+        self.assertEqual(stats.summary(), {"8364": {"mapped": 1, "unmapped": 0}})
+        out, stats, _ = rewrite(text, "8355")
+        self.assertIn('<dbReference type="Xenbase-unmapped" id="XB-GENE-865046"/>', out)
+
 
 class FlatFilesTest(unittest.TestCase):
     def test_varsplic_filters_taxa_and_fixes_yeast(self):
