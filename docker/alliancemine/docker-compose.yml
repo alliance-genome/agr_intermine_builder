@@ -6,6 +6,8 @@ services:
       args:
         ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-im2-model-links}
         BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-im2-model-links}
+        ALLIANCEMINE_SHA: ${ALLIANCEMINE_SHA:-}
+        BIO_SOURCES_SHA: ${BIO_SOURCES_SHA:-}
 
     image: alliancemine-builder:${IMAGE_TAG:-latest}
     container_name: alliancemine-builder

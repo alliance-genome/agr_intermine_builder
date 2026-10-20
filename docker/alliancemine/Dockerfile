@@ -67,8 +67,12 @@ RUN mkdir -p .intermine
 # Repos are cloned at build time but compiled at runtime (first run)
 # to keep image build lightweight.
 # ============================================
+# The *_SHA args carry the expected branch head. A new head changes the RUN line's
+# cache key, so a push to the branch re-clones instead of reusing the cached layer.
 ARG ALLIANCEMINE_BRANCH=im2-model-links
-RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
+ARG ALLIANCEMINE_SHA=
+RUN echo "alliancemine ${ALLIANCEMINE_BRANCH} expected ${ALLIANCEMINE_SHA}" && \
+    git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
     https://github.com/alliance-genome/alliancemine.git
 
 # Symlink the in-project alliancemine.properties to the InterMine-convention
@@ -85,7 +89,9 @@ COPY scripts/checkpoint_ssh.sh /usr/local/bin/ssh
 RUN chmod +x /usr/local/bin/ssh
 
 ARG BIO_SOURCES_BRANCH=im2-model-links
-RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
+ARG BIO_SOURCES_SHA=
+RUN echo "alliancemine-bio-sources ${BIO_SOURCES_BRANCH} expected ${BIO_SOURCES_SHA}" && \
+    git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
     https://github.com/alliance-genome/alliancemine-bio-sources.git
 
 RUN { echo "alliancemine ${ALLIANCEMINE_BRANCH} $(git -C /root/alliancemine rev-parse HEAD)"; \
