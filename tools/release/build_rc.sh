@@ -80,7 +80,7 @@ step_preflight() {
 update_checkout() {
     local dir=$1 branch=$2
     [ -d "$dir/.git" ] || die "$dir is not a git checkout"
-    [ -z "$(git -C "$dir" status --porcelain)" ] || die "$dir has local changes; commit or stash them first"
+    [ -z "$(git -C "$dir" status --porcelain --untracked-files=no)" ] || die "$dir has local changes; commit or stash them first"
     git -C "$dir" fetch -q origin
     git -C "$dir" checkout -q "$branch"
     git -C "$dir" pull -q --ff-only origin "$branch"
