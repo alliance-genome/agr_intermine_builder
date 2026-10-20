@@ -20,6 +20,8 @@ GZIP_MAGIC = b"\x1f\x8b"
 FULL_SCAN_BYTES = 512 * 1024 * 1024
 CURIE_FAIL_BELOW = 0.95
 CURIE_WARN_BELOW = 0.995
+REWRITE_FAIL_BELOW = 0.90
+REWRITE_WARN_BELOW = 0.99
 
 GENE_CURIE = re.compile(
     r"^(HGNC:\d+|MGI:\d+|RGD:\d+|ZFIN:ZDB-GENE-[\d-]+|FB:FBgn\d+|WB:WBGene\d+|SGD:S\d+"
@@ -125,7 +127,7 @@ def report_taxa(result: Result, counts: Counter, expected: list[str], sampled: b
     expected = ["559292" if t == YEAST_UPSTREAM_TAXON else t for t in expected]
     missing = [t for t in expected if not counts.get(t)]
     if missing and not sampled:
-        result.add(WARN, f"no rows for taxa {' '.join(missing)}")
+        result.add(FAIL, f"no rows for taxa {' '.join(missing)}")
 
 
 def report_flat_stats(checker: Checker, source: Source, result: Result) -> None:
@@ -139,11 +141,16 @@ def report_flat_stats(checker: Checker, source: Source, result: Result) -> None:
     rewrites = entry.get("gene_ids") or {}
     if rewrites:
         parts = []
+        status = OK
         for taxon, counts in sorted(rewrites.items()):
             total = counts["mapped"] + counts["unmapped"]
-            pct = 100.0 * counts["mapped"] / total if total else 0.0
-            parts.append(f"{taxon}={pct:.0f}%")
-        result.add(OK, "rewrite mapped: " + " ".join(parts))
+            fraction = counts["mapped"] / total if total else 0.0
+            parts.append(f"{taxon}={100 * fraction:.0f}%")
+            if fraction < REWRITE_FAIL_BELOW:
+                status = FAIL
+            elif fraction < REWRITE_WARN_BELOW and status == OK:
+                status = WARN
+        result.add(status, "rewrite mapped: " + " ".join(parts))
 
 
 def check_yeast_taxon(source: Source, result: Result, prop: str, has_yeast: bool) -> None:
