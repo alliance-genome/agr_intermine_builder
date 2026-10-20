@@ -35,6 +35,15 @@ services:
       DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
       DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
 
+      # Data sources and checkpoints
+      ALLIANCE_API_BASE: ${ALLIANCE_API_BASE:-https://www.alliancegenome.org/api}
+      ORTHODB_VERSION: ${ORTHODB_VERSION:-odb12v2}
+      ORTHODB_LEVEL: ${ORTHODB_LEVEL:-2759}
+      ORTHODB_MAX_GROUP: ${ORTHODB_MAX_GROUP:-200}
+      PANTHER_ORTHOLOG_FILE: ${PANTHER_ORTHOLOG_FILE:-AllOrthologs}
+      KEEP_ALL_CHECKPOINTS: ${KEEP_ALL_CHECKPOINTS:-false}
+      MAIL_SERVER_PASSWORD: ${MAIL_SERVER_PASSWORD:-}
+
       # Webapp
       WEBAPP_BASEURL: ${WEBAPP_BASEURL:-https://alliancemine.alliancegenome.org}
       SUPERUSER_ACCOUNT: ${SUPERUSER_ACCOUNT:-superuser@mail_account}

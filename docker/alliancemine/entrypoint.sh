@@ -208,6 +208,12 @@ configure_properties() {
     export DEPLOY_PASSWORD="${DEPLOY_PASSWORD:-manager}"
     export SUPERUSER_ACCOUNT="${SUPERUSER_ACCOUNT:-superuser@mail_account}"
     export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-secret}"
+    if [ "${BUILD_TYPE}" = "production" ]; then
+        if [ "${DEPLOY_PASSWORD}" = "manager" ] || [ "${SUPERUSER_PASSWORD}" = "secret" ]; then
+            echo "ERROR: production build with a default DEPLOY_PASSWORD or SUPERUSER_PASSWORD; set both in .env."
+            exit 1
+        fi
+    fi
     # Derive Solr URLs from release/RC so they line up with the cores the
     # build_full.py preflight will create (alliancemine-search-{release}[-rc{N}]).
     # Honor explicit overrides from .env if the operator wants to point at
