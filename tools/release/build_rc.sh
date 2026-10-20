@@ -94,14 +94,16 @@ step_update() {
 }
 
 step_image() {
-    ALLIANCEMINE_BRANCH=$AM_BRANCH BIO_SOURCES_BRANCH=$BS_BRANCH compose build --pull alliancemine-builder
     local shas am_sha bs_sha want_am want_bs
+    want_am=$(git ls-remote https://github.com/alliance-genome/alliancemine.git "refs/heads/$AM_BRANCH" | cut -f1)
+    want_bs=$(git ls-remote https://github.com/alliance-genome/alliancemine-bio-sources.git "refs/heads/$BS_BRANCH" | cut -f1)
+    [ -n "$want_am" ] && [ -n "$want_bs" ] || die "could not read the $AM_BRANCH / $BS_BRANCH heads from GitHub"
+    ALLIANCEMINE_BRANCH=$AM_BRANCH BIO_SOURCES_BRANCH=$BS_BRANCH \
+        ALLIANCEMINE_SHA=$want_am BIO_SOURCES_SHA=$want_bs compose build --pull alliancemine-builder
     shas=$(compose run --rm -T --entrypoint cat alliancemine-builder /root/clone-shas.txt | tr -d '\r')
     echo "$shas"
     am_sha=$(echo "$shas" | awk '$1=="alliancemine"{print $3}')
     bs_sha=$(echo "$shas" | awk '$1=="alliancemine-bio-sources"{print $3}')
-    want_am=$(git ls-remote https://github.com/alliance-genome/alliancemine.git "refs/heads/$AM_BRANCH" | cut -f1)
-    want_bs=$(git ls-remote https://github.com/alliance-genome/alliancemine-bio-sources.git "refs/heads/$BS_BRANCH" | cut -f1)
     [ "$am_sha" = "$want_am" ] || die "image has alliancemine $am_sha, GitHub $AM_BRANCH is $want_am"
     [ "$bs_sha" = "$want_bs" ] || die "image has bio-sources $bs_sha, GitHub $BS_BRANCH is $want_bs"
     echo "image matches GitHub heads"
