@@ -32,8 +32,7 @@ SPECIES_NAME = {
 # converter itself, so they stay bare. Zebrafish and Xenopus fall back to
 # 'default.primaryIdentifier.dbref = Ensembl', which only reads Ensembl 'gene ID' properties when
 # a gene-designation is configured for the taxon; none is, so those entries get no gene until the
-# config is patched. Their Ensembl gene IDs and their ZFIN / Xenbase dbReference ids are rewritten
-# anyway so a patched config (gene-designation or dbref) just works.
+# config is patched. Their Ensembl gene IDs are rewritten anyway so a patched config just works.
 # ---------------------------------------------------------------------------------------------
 
 UNIPROT_GENE_DBREF = {
@@ -42,9 +41,6 @@ UNIPROT_GENE_DBREF = {
     "10116": ("RGD", "rgd"),
     "7227": ("FlyBase", "native"),
     "559292": ("SGD", "native"),
-    "7955": ("ZFIN", "native"),
-    "8364": ("Xenbase", "native"),
-    "8355": ("Xenbase", "native"),
 }
 UNIPROT_GENE_PROPERTY = {
     "6239": ("WormBase", "native"),
