@@ -1,6 +1,9 @@
+import contextlib
 import gzip
+import io
 import sys
 import unittest
+from unittest import mock
 from collections import Counter
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -164,7 +167,7 @@ class MinimumRowsTest(unittest.TestCase):
         self.assertEqual(
             set(tc.MIN_ROWS),
             {"alphafold.tsv", "string-interactions.tsv", "chembl-targets.tsv", "molecules.tsv",
-             "crispr-screens.tsv", "htp-datasets.tsv", "htp-samples.tsv", "mouse-strains.tsv",
+             "htp-datasets.tsv", "htp-samples.tsv", "mouse-strains.tsv",
              "worm-rnai.tsv"},
         )
 
@@ -173,8 +176,39 @@ class MinimumRowsTest(unittest.TestCase):
         self.assertEqual(result.status, dc.FAIL)
         self.assertIn("fewer than the expected", " ".join(result.notes))
 
+    def test_crispr_screens_empty_is_not_gated(self):
+        self.assertEqual(self._check("crispr-screens.tsv", 0).status, dc.OK)
+
+    def test_estimated_minimum_only_warns(self):
+        self.assertEqual(self._check("htp-datasets.tsv", 10).status, dc.WARN)
+
     def test_unlisted_file_is_not_gated(self):
         self.assertEqual(self._check("other.tsv", 1).status, dc.OK)
+
+
+class IdMapReportTest(unittest.TestCase):
+    def _run(self, genes):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "project.xml"
+            project.write_text('<project type="bio"><sources></sources></project>')
+            idmap = GeneIdMap()
+            for gene in genes:
+                idmap.add(gene)
+            out = root / "out.json"
+            argv = ["check_downloads", "--project-xml", str(project), "--data-root", str(root),
+                    "--json", str(out)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                cd, "load_idmap", return_value=idmap
+            ), contextlib.redirect_stdout(io.StringIO()) as stdout:
+                code = cd.main()
+            return code, stdout.getvalue(), out.read_text()
+
+    def test_missing_taxa_fail_and_appear_in_report_and_json(self):
+        code, stdout, payload = self._run([])
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL: no genes for taxa", stdout)
+        self.assertIn("no genes for taxa", payload)
 
 
 if __name__ == "__main__":

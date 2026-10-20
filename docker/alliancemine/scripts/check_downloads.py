@@ -224,21 +224,21 @@ def main() -> int:
         wanted = set(args.only.split(","))
         sources = [s for s in sources if s.name in wanted]
     results = [check_source(checker, s) for s in sources]
-    id_map_incomplete = False
+    if checker.idmap is not None:
+        id_map = Result("gene-id-map", "idmap")
+        taxa = ", ".join(f"{t}={n}" for t, n in sorted(checker.idmap.taxon_counts().items()))
+        id_map.add(OK, f"{len(checker.idmap)} genes ({taxa})")
+        missing = [t for t in TAXON_PREFIX if t not in checker.idmap.taxon_counts()]
+        if missing:
+            id_map.add(FAIL, f"no genes for taxa {' '.join(missing)}")
+        results.append(id_map)
     print(render(results))
     if checker.idmap is None:
         print("note: no gene ID map found; CURIE checks were skipped")
-    else:
-        taxa = ", ".join(f"{t}={n}" for t, n in sorted(checker.idmap.taxon_counts().items()))
-        print(f"gene ID map: {len(checker.idmap)} genes ({taxa})")
-        missing = [t for t in TAXON_PREFIX if t not in checker.idmap.taxon_counts()]
-        if missing:
-            print(f"FAIL: gene ID map has no genes for taxa {' '.join(missing)}")
-            id_map_incomplete = True
     if args.json:
         payload = [{**r.__dict__, "files": [str(p) for p in r.files]} for r in results]
         args.json.write_text(json.dumps(payload, indent=2))
-    return 1 if id_map_incomplete or any(r.status == FAIL for r in results) else 0
+    return 1 if any(r.status == FAIL for r in results) else 0
 
 
 if __name__ == "__main__":

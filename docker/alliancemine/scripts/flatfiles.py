@@ -76,6 +76,9 @@ STALE_FILES = {
 }
 
 
+META_DIR = ".flatfile-meta"
+
+
 @dataclass
 class Context:
     data_dir: Path
@@ -97,23 +100,29 @@ class Context:
     def stamp(self, *paths: Path) -> None:
         """Record the ID map hash and sample flag the outputs were written with."""
         for p in paths:
-            meta_path(p).write_text(json.dumps(self.meta(), sort_keys=True), encoding="utf-8")
+            sidecar = self.meta_path(p)
+            sidecar.parent.mkdir(parents=True, exist_ok=True)
+            sidecar.write_text(json.dumps(self.meta(), sort_keys=True), encoding="utf-8")
 
     def cached(self, *paths: Path) -> bool:
         if self.force:
             return False
         return all(p.exists() and p.stat().st_size > 0 and self.stamped(p) for p in paths)
 
+    def meta_path(self, path: Path) -> Path:
+        """Sidecar under data_dir/.flatfile-meta, outside every converter source dir."""
+        try:
+            relative = path.resolve().relative_to(self.data_dir.resolve())
+        except ValueError:
+            relative = Path(path.name)
+        return self.data_dir / META_DIR / relative.parent / (relative.name + ".meta")
+
     def stamped(self, path: Path) -> bool:
         try:
-            recorded = json.loads(meta_path(path).read_text(encoding="utf-8"))
+            recorded = json.loads(self.meta_path(path).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return False
         return recorded == self.meta()
-
-
-def meta_path(path: Path) -> Path:
-    return path.with_name(path.name + ".meta")
 
 
 def file_sha256(path: Path) -> str:

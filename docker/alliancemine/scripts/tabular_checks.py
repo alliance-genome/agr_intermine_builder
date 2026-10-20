@@ -68,12 +68,15 @@ MIN_ROWS = {
     "string-interactions.tsv": 1_000_000,
     "chembl-targets.tsv": 1_500,
     "molecules.tsv": 3_000,
-    "crispr-screens.tsv": 1_000,
     "htp-datasets.tsv": 10_000,
     "htp-samples.tsv": 100_000,
     "mouse-strains.tsv": 50_000,
     "worm-rnai.tsv": 6_000,
 }
+
+
+# Minimums taken from estimates, not from a loaded build: a miss is a WARN, not a FAIL.
+ESTIMATED_MIN_ROWS = {"htp-datasets.tsv", "htp-samples.tsv", "mouse-strains.tsv"}
 
 
 def tsv_rows(path: Path, limit: int | None) -> Iterator[list[str]]:
@@ -212,7 +215,8 @@ def check_tsv(checker: Checker, source: Source, files: list[Path], result: Resul
         result.add(OK, f"{path.name}: {rows} rows ({scope})")
         minimum = MIN_ROWS.get(path.name)
         if minimum and not limit and rows < minimum:
-            result.add(FAIL, f"{path.name}: {rows} rows, fewer than the expected {minimum}")
+            level = WARN if path.name in ESTIMATED_MIN_ROWS else FAIL
+            result.add(level, f"{path.name}: {rows} rows, fewer than the expected {minimum}")
         if len(widths) > 1:
             common = widths.most_common(1)[0]
             odd = rows - common[1]

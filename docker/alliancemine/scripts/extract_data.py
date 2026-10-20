@@ -47,7 +47,8 @@ DEFAULT_FETCH_WORKERS = "6"
 FETCH_ALL_RELEASE_MISMATCH_EXIT = 2
 FETCH_ALL_SCRIPT = Path("/root/alliancemine-bio-sources/scripts/fetch_all.py")
 DEFAULT_API_BASE = "https://www.alliancegenome.org/api"
-RELEASE_MARKER = ".release"
+# Markers live under data_dir/.release-markers, outside the dirs project.xml gives to converters.
+RELEASE_MARKER_DIR = ".release-markers"
 # FMS types that feed Gene.tsv, the ID map and the integration; a release without one of
 # them must stop the build instead of leaving the previous release's file in place.
 REQUIRED_FMS_TYPES = ("BGI", "GFF", "DISEASE-ALLIANCE", "ORTHOLOGY-ALLIANCE")
@@ -221,7 +222,7 @@ class AllianceDataExtractor:
         release = self.get_release_version()
         for target_dir in sorted({entry[2] for entry in FILE_MAP}):
             directory = self.data_dir / target_dir
-            marker = directory / RELEASE_MARKER
+            marker = self.data_dir / RELEASE_MARKER_DIR / target_dir / "release"
             stamped = marker.read_text().strip() if marker.exists() else None
             if stamped != release:
                 for _, _, entry_dir, target_name in FILE_MAP:
@@ -230,7 +231,13 @@ class AllianceDataExtractor:
                         logger.info(f"  removing {leftover} (release {stamped or 'unknown'})")
                         leftover.unlink()
             directory.mkdir(parents=True, exist_ok=True)
+            marker.parent.mkdir(parents=True, exist_ok=True)
             marker.write_text(release + "\n")
+
+    def drop_release_markers(self) -> None:
+        """Unstamp every directory so a rerun after a failed download clears partial files."""
+        for marker in (self.data_dir / RELEASE_MARKER_DIR).glob("*/release"):
+            marker.unlink()
 
     def check_api_release(self) -> bool:
         """True when /api/releaseInfo serves the pinned release (fetch_all's own check)."""
@@ -436,6 +443,8 @@ class AllianceDataExtractor:
                     stats["success"] += 1
                 else:
                     stats["failed"] += 1
+            if stats["failed"]:
+                self.drop_release_markers()
         else:
             logger.info("Skipping FMS / S3 downloads (--skip-fms)")
 

@@ -112,14 +112,17 @@ class RequiredFmsTypesTest(unittest.TestCase):
 
 
 class ClearOtherReleaseTest(unittest.TestCase):
+    def _marker(self, data):
+        return data / extract_data.RELEASE_MARKER_DIR / "fms" / "release"
+
     def _seed(self, tmp, stamp):
         data = Path(tmp) / "data"
         for _, _, target_dir, name in extract_data.FILE_MAP[:3]:
             (data / target_dir).mkdir(parents=True, exist_ok=True)
             (data / target_dir / name).write_text("old")
         if stamp:
-            (data / "fms").mkdir(parents=True, exist_ok=True)
-            (data / "fms" / extract_data.RELEASE_MARKER).write_text(stamp)
+            self._marker(data).parent.mkdir(parents=True, exist_ok=True)
+            self._marker(data).write_text(stamp)
         return data
 
     def test_other_release_files_removed_and_marker_stamped(self):
@@ -128,7 +131,16 @@ class ClearOtherReleaseTest(unittest.TestCase):
             _extractor(tmp, []).clear_other_release()
             name = extract_data.FILE_MAP[0][3]
             self.assertFalse((data / "fms" / name).exists())
-            self.assertEqual((data / "fms" / extract_data.RELEASE_MARKER).read_text().strip(), "9.2.0")
+            self.assertEqual(self._marker(data).read_text().strip(), "9.2.0")
+
+    def test_no_marker_inside_source_dirs(self):
+        with TemporaryDirectory() as tmp:
+            data = self._seed(tmp, "9.1.0\n")
+            _extractor(tmp, []).clear_other_release()
+            for target_dir in {e[2] for e in extract_data.FILE_MAP}:
+                self.assertEqual(
+                    [p.name for p in (data / target_dir).iterdir() if p.name.startswith(".")], []
+                )
 
     def test_same_release_keeps_files(self):
         with TemporaryDirectory() as tmp:
@@ -141,6 +153,21 @@ class ClearOtherReleaseTest(unittest.TestCase):
             data = self._seed(tmp, None)
             _extractor(tmp, []).clear_other_release()
             self.assertFalse((data / "fms" / extract_data.FILE_MAP[0][3]).exists())
+
+
+class FailedDownloadTest(unittest.TestCase):
+    def test_failed_download_unstamps_so_rerun_clears_partials(self):
+        keys = [(t, s) for t, s, _, _ in extract_data.FILE_MAP]
+        with TemporaryDirectory() as tmp:
+            extractor = _extractor(tmp, keys)
+            with (
+                mock.patch.object(extractor, "load_fms_files"),
+                mock.patch.object(extractor, "download_s3_data"),
+                mock.patch.object(extractor, "download_file", return_value=False),
+            ):
+                extractor.download_all(skip_api=True, skip_flatfiles=True)
+            markers = list((Path(tmp) / "data" / extract_data.RELEASE_MARKER_DIR).glob("*/release"))
+            self.assertEqual(markers, [])
 
 
 class CheckApiReleaseTest(unittest.TestCase):
@@ -159,6 +186,20 @@ class CheckApiReleaseTest(unittest.TestCase):
 
     def test_other_release(self):
         self.assertFalse(self._check("9.1.0"))
+
+    def test_unreachable_api_fails(self):
+        with TemporaryDirectory() as tmp:
+            extractor = _extractor(tmp, [])
+            error = extract_data.URLError("down")
+            with mock.patch.object(extract_data, "urlopen", side_effect=error):
+                self.assertFalse(extractor.check_api_release())
+
+    def test_malformed_body_fails(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b"<html>"
+        with TemporaryDirectory() as tmp:
+            with mock.patch.object(extract_data, "urlopen", return_value=response):
+                self.assertFalse(_extractor(tmp, []).check_api_release())
 
     def test_download_all_checks_release_before_any_download(self):
         with TemporaryDirectory() as tmp:
@@ -198,6 +239,15 @@ class FlatfileCacheTest(unittest.TestCase):
             ctx.stamp(out)
             self.assertTrue(ctx.cached(out))
             self.assertFalse(self._ctx(tmp, force=True).cached(out))
+
+    def test_sidecar_is_outside_output_dir(self):
+        with TemporaryDirectory() as tmp:
+            out = self._output(tmp)
+            self._ctx(tmp).stamp(out)
+            self.assertEqual([p.name for p in out.parent.iterdir()], ["gene2pubmed"])
+            self.assertTrue(
+                (Path(tmp) / flatfiles.META_DIR / "pubmed" / "gene2pubmed.meta").is_file()
+            )
 
     def test_idmap_change_invalidates(self):
         with TemporaryDirectory() as tmp:
