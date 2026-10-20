@@ -1,12 +1,18 @@
+import contextlib
 import gzip
+import io
 import sys
 import unittest
+from unittest import mock
+from collections import Counter
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import check_downloads as cd
+import download_checks as dc
+import tabular_checks as tc
 from alliance_idmap import GeneIdMap, GeneIds
 
 PROJECT = """<project type="bio"><sources>
@@ -118,6 +124,91 @@ class CheckDownloadsTest(unittest.TestCase):
         notes = self.notes("interactions")
         self.assertIn("9606=2", notes)
         self.assertIn("gene-like CURIEs in ID map: 50.0%", notes)
+
+
+class RewriteGateTest(unittest.TestCase):
+    def _flat(self, mapped, unmapped):
+        checker = dc.Checker(
+            Path("."), None, 1000, False,
+            {"pubmed-gene": {"status": "ok", "gene_ids": {"9606": {"mapped": mapped, "unmapped": unmapped}}}},
+        )
+        result = dc.Result("pubmed-gene", "pubmed-gene")
+        dc.report_flat_stats(checker, dc.Source("pubmed-gene", "pubmed-gene", {}), result)
+        return result.status
+
+    def test_mapped_percentage_thresholds(self):
+        self.assertEqual(self._flat(995, 5), dc.OK)
+        self.assertEqual(self._flat(95, 5), dc.WARN)
+        self.assertEqual(self._flat(89, 11), dc.FAIL)
+
+    def test_missing_taxon_fails(self):
+        result = dc.Result("s", "t")
+        dc.report_taxa(result, Counter({"9606": 5}), ["9606", "7955"], sampled=False)
+        self.assertEqual(result.status, dc.FAIL)
+        self.assertIn("7955", " ".join(result.notes))
+
+    def test_missing_taxon_in_sample_is_not_checked(self):
+        result = dc.Result("s", "t")
+        dc.report_taxa(result, Counter({"9606": 5}), ["9606", "7955"], sampled=True)
+        self.assertEqual(result.status, dc.OK)
+
+
+class MinimumRowsTest(unittest.TestCase):
+    def _check(self, name, rows):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / name
+            path.write_text("h\n" + "r\n" * rows)
+            checker = dc.Checker(Path(tmp), None, 1000, False, {})
+            result = dc.Result("s", "alliance-x")
+            tc.check_tsv(checker, dc.Source("s", "alliance-x", {}), [path], result)
+            return result
+
+    def test_all_new_tsvs_have_a_minimum(self):
+        self.assertEqual(
+            set(tc.MIN_ROWS),
+            {"alphafold.tsv", "string-interactions.tsv", "chembl-targets.tsv", "molecules.tsv",
+             "htp-datasets.tsv", "htp-samples.tsv", "mouse-strains.tsv",
+             "worm-rnai.tsv"},
+        )
+
+    def test_short_file_fails(self):
+        result = self._check("molecules.tsv", 10)
+        self.assertEqual(result.status, dc.FAIL)
+        self.assertIn("fewer than the expected", " ".join(result.notes))
+
+    def test_crispr_screens_empty_is_not_gated(self):
+        self.assertEqual(self._check("crispr-screens.tsv", 0).status, dc.OK)
+
+    def test_estimated_minimum_only_warns(self):
+        self.assertEqual(self._check("htp-datasets.tsv", 10).status, dc.WARN)
+
+    def test_unlisted_file_is_not_gated(self):
+        self.assertEqual(self._check("other.tsv", 1).status, dc.OK)
+
+
+class IdMapReportTest(unittest.TestCase):
+    def _run(self, genes):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "project.xml"
+            project.write_text('<project type="bio"><sources></sources></project>')
+            idmap = GeneIdMap()
+            for gene in genes:
+                idmap.add(gene)
+            out = root / "out.json"
+            argv = ["check_downloads", "--project-xml", str(project), "--data-root", str(root),
+                    "--json", str(out)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                cd, "load_idmap", return_value=idmap
+            ), contextlib.redirect_stdout(io.StringIO()) as stdout:
+                code = cd.main()
+            return code, stdout.getvalue(), out.read_text()
+
+    def test_missing_taxa_fail_and_appear_in_report_and_json(self):
+        code, stdout, payload = self._run([])
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL: no genes for taxa", stdout)
+        self.assertIn("no genes for taxa", payload)
 
 
 if __name__ == "__main__":
