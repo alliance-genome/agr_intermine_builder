@@ -70,6 +70,43 @@ def drop_checkpoints(db: str) -> None:
             logger.warning(f"Could not drop {name}: {result.stderr.strip()}")
 
 
+PROPERTIES_FILE = Path("/root/.intermine/alliancemine.properties")
+DB_NAME_KEY = "db.production.datasource.databaseName"
+
+
+def check_build_db_target() -> Optional[str]:
+    """Return an error message unless buildDB would run on the intended, empty database."""
+    expected = os.environ.get("RDS_DB_NAME", "")
+    configured = ""
+    for line in PROPERTIES_FILE.read_text().splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == DB_NAME_KEY:
+            configured = value.strip()
+    if not expected or configured != expected:
+        return f"{DB_NAME_KEY} is '{configured}' in {PROPERTIES_FILE}, RDS_DB_NAME is '{expected}'"
+    conn = ["psql", "-h", os.environ["RDS_HOST"], "-p", os.environ.get("RDS_PORT", "5432"),
+            "-U", os.environ["RDS_USER"], "-At"]
+    exists = subprocess.run(
+        [*conn, "-d", "postgres", "-c", f"SELECT 1 FROM pg_database WHERE datname = '{expected}'"],
+        capture_output=True, text=True,
+    )
+    if exists.returncode != 0:
+        return f"could not look up {expected}: {exists.stderr.strip()}"
+    if not exists.stdout.strip():
+        return None
+    tables = subprocess.run(
+        [*conn, "-d", expected, "-c",
+         "SELECT count(*) FROM information_schema.tables "
+         "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')"],
+        capture_output=True, text=True,
+    )
+    if tables.returncode != 0:
+        return f"could not count tables in {expected}: {tables.stderr.strip()}"
+    if tables.stdout.strip() != "0":
+        return f"{expected} already has {tables.stdout.strip()} tables, buildDB would wipe it (drop the database by hand or resume with --start-from project_build)"
+    return None
+
+
 class AllianceMineBuildPipeline:
     """Manages the complete AllianceMine build process."""
 
@@ -136,9 +173,9 @@ class AllianceMineBuildPipeline:
 
         Idempotent — skips cores that already exist. Naming mirrors the DB
         side (alliancemine-search-{release}[-rc{N}], same for autocomplete).
-        Failure is non-fatal: postprocess will fail later with a clearer
-        'core not found' error, and the operator can recreate cores manually
-        and resume with --start-from postprocess.
+        Returns False when SOLR_HOST is set and the cores could not be created,
+        so the build stops before the hours of project_build that precede a
+        'core not found' failure in postprocess.
         """
         if self.skip_solr_setup:
             logger.info("Skipping Solr core setup (--skip-solr-setup)")
@@ -161,25 +198,27 @@ class AllianceMineBuildPipeline:
         try:
             from create_solr_cores import create_cores  # type: ignore
         except ImportError as e:
-            logger.warning(f"Could not import create_solr_cores ({e}); skipping preflight")
-            return True
+            logger.error(f"Could not import create_solr_cores ({e})")
+            return False
 
         try:
             ok = create_cores(solr_host, self.release, self.rc, ssh_key)
         except Exception as e:  # network blip, SSH timeout, etc.
-            logger.warning(f"Solr core preflight raised {type(e).__name__}: {e}")
+            logger.error(f"Solr core preflight raised {type(e).__name__}: {e}")
             ok = False
 
         if not ok:
-            logger.warning("Solr core preflight reported failures. Continuing — "
-                           "if postprocess fails on missing cores, run "
-                           "create_solr_cores.py manually and re-run with "
-                           "--start-from postprocess --resume.")
-        return True  # always continue
+            logger.error("Solr core preflight failed. Create the cores with "
+                         "create_solr_cores.py or pass --skip-solr-setup.")
+        return ok
 
     def stage_build_db(self) -> bool:
         """Stage 1: Create database schema."""
         self._log_stage(1, "Building Database Schema")
+        problem = check_build_db_target()
+        if problem:
+            logger.error(f"Refusing to run buildDB: {problem}")
+            return False
         return self._run(
             ["./gradlew", "buildDB", "--stacktrace"],
             "Database schema build",
@@ -316,10 +355,10 @@ class AllianceMineBuildPipeline:
             "deploy": self.stage_deploy,
         }
 
-        # Preflight: ensure Solr cores exist. Always non-fatal — postprocess
-        # surfaces the real failure if cores are missing.
+        # Preflight: ensure Solr cores exist before any stage runs.
         if not self.start_from or STAGES.index(self.start_from) <= STAGES.index("postprocess"):
-            self.preflight_solr()
+            if not self.preflight_solr():
+                return 1
 
         failed_stage = None
 

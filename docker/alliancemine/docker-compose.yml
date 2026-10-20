@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-alliancemine-9.2.0.im2}
-        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-alliancemine-9.2.0.im2}
+        ALLIANCEMINE_BRANCH: ${ALLIANCEMINE_BRANCH:-im2-model-links}
+        BIO_SOURCES_BRANCH: ${BIO_SOURCES_BRANCH:-im2-model-links}
 
     image: alliancemine-builder:${IMAGE_TAG:-latest}
     container_name: alliancemine-builder
@@ -34,6 +34,15 @@ services:
       DEPLOY_PORT: ${DEPLOY_PORT:-8080}
       DEPLOY_MANAGER: ${DEPLOY_MANAGER:-manager}
       DEPLOY_PASSWORD: ${DEPLOY_PASSWORD:-manager}
+
+      # Data sources and checkpoints
+      ALLIANCE_API_BASE: ${ALLIANCE_API_BASE:-https://www.alliancegenome.org/api}
+      ORTHODB_VERSION: ${ORTHODB_VERSION:-odb12v2}
+      ORTHODB_LEVEL: ${ORTHODB_LEVEL:-2759}
+      ORTHODB_MAX_GROUP: ${ORTHODB_MAX_GROUP:-200}
+      PANTHER_ORTHOLOG_FILE: ${PANTHER_ORTHOLOG_FILE:-AllOrthologs}
+      KEEP_ALL_CHECKPOINTS: ${KEEP_ALL_CHECKPOINTS:-false}
+      MAIL_SERVER_PASSWORD: ${MAIL_SERVER_PASSWORD:-}
 
       # Webapp
       WEBAPP_BASEURL: ${WEBAPP_BASEURL:-https://alliancemine.alliancegenome.org}
