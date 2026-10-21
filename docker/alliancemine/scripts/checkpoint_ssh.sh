@@ -6,6 +6,12 @@
 # previous checkpoint has passed, so the older <db>:* copies are dropped: `project_build -l`
 # only ever restores the newest one, and each copy is a full copy of the build database.
 # Set KEEP_ALL_CHECKPOINTS=true to keep them all.
+#
+# Any other ssh call (the Solr core preflight passes -i/-o options and user@host first) goes to
+# the real client; the dump host project_build passes is a bare hostname.
+case "$1" in
+    -* | *@*) exec "${SSH_REAL:-/usr/bin/ssh}" "$@" ;;
+esac
 shift
 "$@" || exit $?
 
