@@ -137,18 +137,22 @@ step_verify() {
     }
     info() { echo "info $1 = $(rds_sql "$DB" "$2" | tr '\n' ' ')"; }
     check "Gene without organism" "select count(*) from gene where organismid is null" 0
-    check "Allele.gene dangling" "select count(*) from allele a left join gene g on g.id=a.geneid where a.geneid is not null and g.id is null" 0
+    # A gene reference to a missing object is dangling; one to a non-Gene feature is an SGD quirk
+    # (rc3: 5 alleles of origins of replication and a centromere), reported below as info.
+    check "Allele.gene dangling" "select count(*) from allele a left join intermineobject o on o.id=a.geneid where a.geneid is not null and o.id is null" 0
     check "Homologue.gene dangling" "select count(*) from homologue h left join gene g on g.id=h.geneid where h.geneid is not null and g.id is null" 0
     check "Allele without primaryIdentifier" "select count(*) from allele where primaryidentifier is null" 0
-    check "DiseaseModel without disease" "select count(*) from diseasemodel where diseaseid is null" 0
+    # Phenotype-only models (hasDiseaseAnnotations false, 1,016,477 in rc3) have no disease by design.
+    check "DiseaseModel with disease annotations but no disease" "select count(*) from diseasemodel where hasdiseaseannotations and diseaseid is null" 0
     check "Publication pubMedId with prefix" "select count(*) from publication where pubmedid like '%:%'" 0
     check "Gene on chromosome 'null'" "select count(*) from gene g join chromosome c on c.id=g.chromosomeid where c.primaryidentifier='null'" 0
-    info "Yeast organisms (4932 stays until review item 12 is decided)" "select taxonid, count(*) from organism where taxonid in (4932,559292) group by 1"
+    info "Yeast organisms (4932 stays until review item 12 is decided)" "select taxonid, count(*) from organism where taxonid in ('4932','559292') group by 1"
     info "DiseaseEvidence orphans (no annotation)" "select count(*) from diseaseevidence e where not exists (select 1 from evidenceontologyannotation x where x.evidence=e.id)"
     info "Samples total / with characteristics" "select (select count(*) from sample), (select count(distinct sample) from characteristicssample)"
+    info "Allele.gene pointing at a non-Gene feature" "select o.class, count(*) from allele a join intermineobject o on o.id=a.geneid left join gene g on g.id=a.geneid where g.id is null group by 1"
     info "Proteins without gene, by taxon" "select o.taxonid, count(*) from protein p join organism o on o.id=p.organismid where not exists (select 1 from genesproteins gp where gp.proteins=p.id) group by 1 order by 1"
     info "Alleles with gene, by organism" "select o.shortname, count(*) from allele a join gene g on g.id=a.geneid join organism o on o.id=g.organismid group by 1 order by 2 desc"
-    info "UTR with sequence on 559292" "select count(*) from utr u join organism o on o.id=u.organismid where o.taxonid=559292 and u.sequenceid is not null"
+    info "UTR with sequence on 559292" "select count(*) from utr u join organism o on o.id=u.organismid where o.taxonid='559292' and u.sequenceid is not null"
     info "Class counts" "select 'Gene',count(*) from gene union all select 'Allele',count(*) from allele union all select 'Protein',count(*) from protein union all select 'Publication',count(*) from publication union all select 'DiseaseAnnotation',count(*) from diseaseannotation union all select 'Homologue',count(*) from homologue union all select 'Interaction',count(*) from interaction union all select 'Organism',count(*) from organism union all select 'Chromosome',count(*) from chromosome"
     [ "$fails" -eq 0 ] || die "$fails hard check(s) failed on $DB"
     echo "verify ok on $DB"
