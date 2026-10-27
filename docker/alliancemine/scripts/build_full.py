@@ -21,6 +21,7 @@ Usage:
 import os
 import sys
 import time
+import shutil
 import subprocess
 import argparse
 import logging
@@ -68,6 +69,47 @@ def drop_checkpoints(db: str) -> None:
         result = subprocess.run(["dropdb", *conn, name], capture_output=True, text=True)
         if result.returncode != 0:
             logger.warning(f"Could not drop {name}: {result.stderr.strip()}")
+
+
+# update-publications keeps its Berkeley DB of fetched PubMed records in java.io.tmpdir, which
+# the --rm container loses. A cold fetch of 2.3M records took 3 h on rc3 (2026-10-26);
+# with the cache seeded, the retriever asks NCBI only for PMIDs it has not seen.
+PUBLICATIONS_TMP = Path("/tmp")
+PUBLICATIONS_CACHE = Path("/root/data/publications-cache/bdb")
+
+
+def seed_publications_cache() -> None:
+    """Copy the saved Berkeley DB log files into /tmp before project_build."""
+    saved = sorted(PUBLICATIONS_CACHE.glob("*.jdb"))
+    if not saved:
+        logger.info(f"No publications cache in {PUBLICATIONS_CACHE}; update-publications fetches every PMID")
+        return
+    if any(PUBLICATIONS_TMP.glob("*.jdb")):
+        logger.info(f"{PUBLICATIONS_TMP} already holds a publications cache; not seeding")
+        return
+    for f in saved:
+        shutil.copy2(f, PUBLICATIONS_TMP / f.name)
+    logger.info(f"Seeded the publications cache: {len(saved)} files from {PUBLICATIONS_CACHE}")
+
+
+def save_publications_cache() -> None:
+    """Replace the saved cache with /tmp's after project_build, whether it passed or failed.
+
+    A failed update-publications still saves what it fetched, so the retry starts from there.
+    The copy goes to a sibling directory first: Berkeley DB deletes old log files as it
+    cleans, so merging into the old set could leave stale logs next to the new ones.
+    """
+    current = sorted(PUBLICATIONS_TMP.glob("*.jdb"))
+    if not current:
+        return
+    staging = PUBLICATIONS_CACHE.with_name(PUBLICATIONS_CACHE.name + ".new")
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    for f in current:
+        shutil.copy2(f, staging / f.name)
+    shutil.rmtree(PUBLICATIONS_CACHE, ignore_errors=True)
+    staging.rename(PUBLICATIONS_CACHE)
+    logger.info(f"Saved the publications cache: {len(current)} files to {PUBLICATIONS_CACHE}")
 
 
 PROPERTIES_FILE = Path("/root/.intermine/alliancemine.properties")
@@ -273,7 +315,11 @@ class AllianceMineBuildPipeline:
             logger.info("This will take 2-4 hours...")
             cmd = ["./project_build", "-b", "-E", "UTF8", "localhost", "/root/data/dump"]
 
-        return self._run(cmd, "Data integration (project_build)")
+        seed_publications_cache()
+        try:
+            return self._run(cmd, "Data integration (project_build)")
+        finally:
+            save_publications_cache()
 
     def stage_postprocess(self) -> bool:
         """Stage 4: Post-processing, one Gradle JVM per step; drops the last checkpoint once it passes.
