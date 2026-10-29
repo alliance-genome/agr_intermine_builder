@@ -8,12 +8,15 @@
 # Set KEEP_ALL_CHECKPOINTS=true to keep them all.
 #
 # Any other ssh call (the Solr core preflight passes -i/-o options and user@host first) goes to
-# the real client; the dump host project_build passes is a bare hostname.
+# the real client; the dump host project_build passes is a bare hostname. project_build calls
+# ssh only when that host is not "localhost", so build_full.py passes "rds".
 case "$1" in
     -* | *@*) exec "${SSH_REAL:-/usr/bin/ssh}" "$@" ;;
 esac
 shift
-"$@" || exit $?
+# Like real ssh, join the words and run them in a shell: dump_db and the restart-file lookup
+# pass the whole command as one string ("pg_dump -F c ...", "ls -1 /root/data/dump.*").
+sh -c "$*" || exit $?
 
 [ "$1" = createdb ] || exit 0
 [ "${KEEP_ALL_CHECKPOINTS:-false}" = true ] && exit 0
@@ -37,7 +40,8 @@ esac
 psql -U "$user" -h "$host" -d postgres -At -c \
     "SELECT datname FROM pg_database WHERE starts_with(datname, '${template}:') AND datname <> '${target}'" |
 while read -r old; do
-    echo "checkpoint $target done - dropping older checkpoint $old"
-    dropdb -U "$user" -h "$host" "$old" || echo "WARN: could not drop $old"
+    # stderr: project_build dies when a spawned command prints "error" on stdout
+    echo "checkpoint $target done - dropping older checkpoint $old" >&2
+    dropdb -U "$user" -h "$host" "$old" || echo "WARN: could not drop $old" >&2
 done
 exit 0

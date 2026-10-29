@@ -73,6 +73,14 @@ class CheckpointSshTest(unittest.TestCase):
                                  env={"KEEP_ALL_CHECKPOINTS": "true"})
         self.assertEqual(lines, ["createdb -U u -h rds -T am_rc1 am_rc1:go-slim"])
 
+    def test_single_string_command_runs_in_a_shell(self):
+        lines = self.run_wrapper("rds", "createdb -U u -h rds am_rc1")
+        self.assertEqual(lines, ["createdb -U u -h rds am_rc1"])
+
+    def test_project_build_goes_through_the_wrapper(self):
+        # project_build skips ssh (and so the pruning) when the dump host is "localhost"
+        self.assertNotEqual(build_full.DUMP_HOST, "localhost")
+
     def test_option_or_user_at_host_calls_go_to_real_ssh(self):
         for args in [("-i", "k.pem", "-o", "ConnectTimeout=10", "ec2-user@solr", "bash", "-s"),
                      ("ec2-user@solr", "ls")]:
