@@ -40,6 +40,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# project_build runs its checkpoint createdb/dropdb/pg_dump calls as `ssh <dump_host> ...` unless
+# the host is "localhost", when it runs them in sh and skips checkpoint_ssh.sh (/usr/local/bin/ssh),
+# which drops the older checkpoints. With "localhost" no checkpoint was ever dropped, and rc4's
+# per-source copies filled RDS on 2026-10-28.
+DUMP_HOST = "rds"
+
 STAGES = [
     "buildDB",
     "extract_data",
@@ -310,10 +316,10 @@ class AllianceMineBuildPipeline:
             ):
                 return False
             logger.info("Resuming from last dump checkpoint (-l)")
-            cmd = ["./project_build", "-l", "-E", "UTF8", "localhost", "/root/data/dump"]
+            cmd = ["./project_build", "-l", "-E", "UTF8", DUMP_HOST, "/root/data/dump"]
         else:
             logger.info("This will take 2-4 hours...")
-            cmd = ["./project_build", "-b", "-E", "UTF8", "localhost", "/root/data/dump"]
+            cmd = ["./project_build", "-b", "-E", "UTF8", DUMP_HOST, "/root/data/dump"]
 
         seed_publications_cache()
         try:
