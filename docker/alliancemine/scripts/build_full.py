@@ -21,6 +21,7 @@ Usage:
 import os
 import sys
 import time
+import shutil
 import subprocess
 import argparse
 import logging
@@ -38,6 +39,12 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# project_build runs its checkpoint createdb/dropdb/pg_dump calls as `ssh <dump_host> ...` unless
+# the host is "localhost", when it runs them in sh and skips checkpoint_ssh.sh (/usr/local/bin/ssh),
+# which drops the older checkpoints. With "localhost" no checkpoint was ever dropped, and rc4's
+# per-source copies filled RDS on 2026-10-28.
+DUMP_HOST = "rds"
 
 STAGES = [
     "buildDB",
@@ -68,6 +75,84 @@ def drop_checkpoints(db: str) -> None:
         result = subprocess.run(["dropdb", *conn, name], capture_output=True, text=True)
         if result.returncode != 0:
             logger.warning(f"Could not drop {name}: {result.stderr.strip()}")
+
+
+# update-publications keeps its Berkeley DB of fetched PubMed records in java.io.tmpdir, which
+# the --rm container loses. A cold fetch of 2.3M records took 3 h on rc3 (2026-10-26);
+# with the cache seeded, the retriever asks NCBI only for PMIDs it has not seen.
+PUBLICATIONS_TMP = Path("/tmp")
+PUBLICATIONS_CACHE = Path("/root/data/publications-cache/bdb")
+
+
+def seed_publications_cache() -> None:
+    """Copy the saved Berkeley DB log files into /tmp before project_build."""
+    saved = sorted(PUBLICATIONS_CACHE.glob("*.jdb"))
+    if not saved:
+        logger.info(f"No publications cache in {PUBLICATIONS_CACHE}; update-publications fetches every PMID")
+        return
+    if any(PUBLICATIONS_TMP.glob("*.jdb")):
+        logger.info(f"{PUBLICATIONS_TMP} already holds a publications cache; not seeding")
+        return
+    for f in saved:
+        shutil.copy2(f, PUBLICATIONS_TMP / f.name)
+    logger.info(f"Seeded the publications cache: {len(saved)} files from {PUBLICATIONS_CACHE}")
+
+
+def save_publications_cache() -> None:
+    """Replace the saved cache with /tmp's after project_build, whether it passed or failed.
+
+    A failed update-publications still saves what it fetched, so the retry starts from there.
+    The copy goes to a sibling directory first: Berkeley DB deletes old log files as it
+    cleans, so merging into the old set could leave stale logs next to the new ones.
+    """
+    current = sorted(PUBLICATIONS_TMP.glob("*.jdb"))
+    if not current:
+        return
+    staging = PUBLICATIONS_CACHE.with_name(PUBLICATIONS_CACHE.name + ".new")
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    for f in current:
+        shutil.copy2(f, staging / f.name)
+    shutil.rmtree(PUBLICATIONS_CACHE, ignore_errors=True)
+    staging.rename(PUBLICATIONS_CACHE)
+    logger.info(f"Saved the publications cache: {len(current)} files to {PUBLICATIONS_CACHE}")
+
+
+PROPERTIES_FILE = Path("/root/.intermine/alliancemine.properties")
+DB_NAME_KEY = "db.production.datasource.databaseName"
+
+
+def check_build_db_target() -> Optional[str]:
+    """Return an error message unless buildDB would run on the intended, empty database."""
+    expected = os.environ.get("RDS_DB_NAME", "")
+    configured = ""
+    for line in PROPERTIES_FILE.read_text().splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == DB_NAME_KEY:
+            configured = value.strip()
+    if not expected or configured != expected:
+        return f"{DB_NAME_KEY} is '{configured}' in {PROPERTIES_FILE}, RDS_DB_NAME is '{expected}'"
+    conn = ["psql", "-h", os.environ["RDS_HOST"], "-p", os.environ.get("RDS_PORT", "5432"),
+            "-U", os.environ["RDS_USER"], "-At"]
+    exists = subprocess.run(
+        [*conn, "-d", "postgres", "-c", f"SELECT 1 FROM pg_database WHERE datname = '{expected}'"],
+        capture_output=True, text=True,
+    )
+    if exists.returncode != 0:
+        return f"could not look up {expected}: {exists.stderr.strip()}"
+    if not exists.stdout.strip():
+        return None
+    tables = subprocess.run(
+        [*conn, "-d", expected, "-c",
+         "SELECT count(*) FROM information_schema.tables "
+         "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')"],
+        capture_output=True, text=True,
+    )
+    if tables.returncode != 0:
+        return f"could not count tables in {expected}: {tables.stderr.strip()}"
+    if tables.stdout.strip() != "0":
+        return f"{expected} already has {tables.stdout.strip()} tables, buildDB would wipe it (drop the database by hand or resume with --start-from project_build)"
+    return None
 
 
 class AllianceMineBuildPipeline:
@@ -136,9 +221,9 @@ class AllianceMineBuildPipeline:
 
         Idempotent — skips cores that already exist. Naming mirrors the DB
         side (alliancemine-search-{release}[-rc{N}], same for autocomplete).
-        Failure is non-fatal: postprocess will fail later with a clearer
-        'core not found' error, and the operator can recreate cores manually
-        and resume with --start-from postprocess.
+        Returns False when SOLR_HOST is set and the cores could not be created,
+        so the build stops before the hours of project_build that precede a
+        'core not found' failure in postprocess.
         """
         if self.skip_solr_setup:
             logger.info("Skipping Solr core setup (--skip-solr-setup)")
@@ -161,25 +246,27 @@ class AllianceMineBuildPipeline:
         try:
             from create_solr_cores import create_cores  # type: ignore
         except ImportError as e:
-            logger.warning(f"Could not import create_solr_cores ({e}); skipping preflight")
-            return True
+            logger.error(f"Could not import create_solr_cores ({e})")
+            return False
 
         try:
             ok = create_cores(solr_host, self.release, self.rc, ssh_key)
         except Exception as e:  # network blip, SSH timeout, etc.
-            logger.warning(f"Solr core preflight raised {type(e).__name__}: {e}")
+            logger.error(f"Solr core preflight raised {type(e).__name__}: {e}")
             ok = False
 
         if not ok:
-            logger.warning("Solr core preflight reported failures. Continuing — "
-                           "if postprocess fails on missing cores, run "
-                           "create_solr_cores.py manually and re-run with "
-                           "--start-from postprocess --resume.")
-        return True  # always continue
+            logger.error("Solr core preflight failed. Create the cores with "
+                         "create_solr_cores.py or pass --skip-solr-setup.")
+        return ok
 
     def stage_build_db(self) -> bool:
         """Stage 1: Create database schema."""
         self._log_stage(1, "Building Database Schema")
+        problem = check_build_db_target()
+        if problem:
+            logger.error(f"Refusing to run buildDB: {problem}")
+            return False
         return self._run(
             ["./gradlew", "buildDB", "--stacktrace"],
             "Database schema build",
@@ -199,9 +286,8 @@ class AllianceMineBuildPipeline:
             return True
 
         cmd = ["python3", str(script)]
-        release_env = os.environ.get("ALLIANCE_RELEASE", self.release)
-        if release_env:
-            cmd.extend(["--release", release_env])
+        if self.release:
+            cmd.extend(["--release", self.release])
 
         return self._run(cmd, "Data extraction", cwd="/root")
 
@@ -230,12 +316,16 @@ class AllianceMineBuildPipeline:
             ):
                 return False
             logger.info("Resuming from last dump checkpoint (-l)")
-            cmd = ["./project_build", "-l", "-E", "UTF8", "localhost", "/root/data/dump"]
+            cmd = ["./project_build", "-l", "-E", "UTF8", DUMP_HOST, "/root/data/dump"]
         else:
             logger.info("This will take 2-4 hours...")
-            cmd = ["./project_build", "-b", "-E", "UTF8", "localhost", "/root/data/dump"]
+            cmd = ["./project_build", "-b", "-E", "UTF8", DUMP_HOST, "/root/data/dump"]
 
-        return self._run(cmd, "Data integration (project_build)")
+        seed_publications_cache()
+        try:
+            return self._run(cmd, "Data integration (project_build)")
+        finally:
+            save_publications_cache()
 
     def stage_postprocess(self) -> bool:
         """Stage 4: Post-processing, one Gradle JVM per step; drops the last checkpoint once it passes.
@@ -317,10 +407,10 @@ class AllianceMineBuildPipeline:
             "deploy": self.stage_deploy,
         }
 
-        # Preflight: ensure Solr cores exist. Always non-fatal — postprocess
-        # surfaces the real failure if cores are missing.
+        # Preflight: ensure Solr cores exist before any stage runs.
         if not self.start_from or STAGES.index(self.start_from) <= STAGES.index("postprocess"):
-            self.preflight_solr()
+            if not self.preflight_solr():
+                return 1
 
         failed_stage = None
 
