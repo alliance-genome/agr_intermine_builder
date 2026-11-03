@@ -32,15 +32,30 @@ status() {  # state db detail
     aws s3 cp --quiet "$STATE/last-deploy-status.json" "$S3/last-deploy-status.json" || true
     say "DEPLOY $1 $2: $3"
 }
+swapped_cores=()
+swap_core() {
+    local k=$1
+    curl -sf --max-time 120 "$SOLR/admin/cores?action=SWAP&core=yeastmine-$k&other=yeastmine-$k-next&wt=json" >/dev/null \
+        || { say "Solr SWAP yeastmine-$k failed"; return 1; }
+}
 swap_cores() {
+    local k
+    swapped_cores=()
     for k in search autocomplete; do
-        curl -sf --max-time 120 "$SOLR/admin/cores?action=SWAP&core=yeastmine-$k&other=yeastmine-$k-next&wt=json" >/dev/null \
-            || { say "Solr SWAP yeastmine-$k failed"; return 1; }
+        swap_core "$k" || return 1
+        swapped_cores+=("$k")
     done
+}
+restore_cores() {
+    local i failed=0
+    for ((i=${#swapped_cores[@]}-1; i>=0; i--)); do
+        swap_core "${swapped_cores[$i]}" || failed=1
+    done
+    return "$failed"
 }
 restart_with() {  # war-file
     cat "$1" > "$WAR" || return 1                 # keep the inode: the container bind-mounts this file
-    docker exec "$CONTAINER" rm -rf /usr/local/tomcat/webapps/yeastmine
+    docker exec "$CONTAINER" rm -rf /usr/local/tomcat/webapps/yeastmine || return 1
     docker restart -t 60 "$CONTAINER" >/dev/null
 }
 verify() {  # expected release (may be empty); returns 0 when the site works
@@ -67,8 +82,11 @@ verify() {  # expected release (may be empty); returns 0 when the site works
 
 if [ "${1:-}" = "--rollback" ]; then
     [ -s "$STATE/rollback.war" ] || { say "no rollback.war"; exit 1; }
+    cp -f "$WAR" "$STATE/before-manual-rollback.war" || { say "could not save current WAR"; exit 1; }
     swap_cores && restart_with "$STATE/rollback.war" && verify \
         && { cp -f "$STATE/previous-live.json" "$STATE/live.json" 2>/dev/null; aws s3 cp --quiet "$STATE/live.json" "$S3/live.json"; status ROLLED_BACK "$(jget "$STATE/live.json" db)" "manual rollback"; exit 0; }
+    restore_cores || say "could not restore all cores after failed manual rollback"
+    restart_with "$STATE/before-manual-rollback.war" || say "could not restore current WAR"
     status ROLLBACK_FAILED "" "manual rollback did not verify - check the container"; exit 1
 fi
 
@@ -93,7 +111,8 @@ for c in yeastmine-search-next yeastmine-autocomplete-next; do
         || { status FAILED "$NEW" "standby core $c missing"; exit 1; }
 done
 
-cp -f "$WAR" "$STATE/rollback.war" && cp -f "$STATE/live.json" "$STATE/previous-live.json"
+cp -f "$WAR" "$STATE/rollback.war" && cp -f "$STATE/live.json" "$STATE/previous-live.json" \
+    || { status FAILED "$NEW" "could not save the rollback WAR and manifest"; exit 1; }
 status DEPLOYING "$NEW" "swapping Solr cores + WAR, restarting $CONTAINER"
 if swap_cores && restart_with "$STATE/new.war" && verify; then
     python3 -c 'import json,sys; print(json.dumps({"db": sys.argv[1], "previous": sys.argv[2], "deployed": sys.argv[3]}))' \
@@ -105,7 +124,9 @@ fi
 
 say "deploy of $NEW failed verification - rolling back to $LIVE"
 touch "$STATE/failed-$NEW"
-swap_cores; restart_with "$STATE/rollback.war"
-if verify; then status ROLLED_BACK "$NEW" "failed verification; $LIVE restored"
+rollback_ok=1
+restore_cores || rollback_ok=0
+restart_with "$STATE/rollback.war" || rollback_ok=0
+if [ "$rollback_ok" = 1 ] && verify; then status ROLLED_BACK "$NEW" "failed verification; $LIVE restored"
 else status ROLLBACK_FAILED "$NEW" "failed verification AND rollback did not verify - check $CONTAINER now"; fi
 exit 1

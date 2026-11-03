@@ -19,12 +19,14 @@ Usage:
     python3 promote_to_production.py --release 9.0.0 --rc 2 --db-only
 """
 
-import os
-import sys
-import subprocess
 import argparse
 import logging
+import subprocess
+import sys
 from pathlib import Path
+
+from promote_db import promote as promote_database
+from promote_db import sanitize_version
 
 ALLIANCEMINE_DIR = Path("/root/alliancemine")
 PROPERTIES_FILE = Path("/root/.intermine/alliancemine.properties")
@@ -37,84 +39,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-
-def sanitize_version(version: str) -> str:
-    return version.replace(".", "_")
-
-
-def run_sql(sql: str, database: str = "postgres") -> tuple:
-    host = os.environ.get("RDS_HOST", "localhost")
-    port = os.environ.get("RDS_PORT", "5432")
-    user = os.environ.get("RDS_USER", "postgres")
-
-    result = subprocess.run(
-        ["psql", "-h", host, "-p", port, "-U", user, "-d", database, "-tAc", sql],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        env={**os.environ, "PGPASSWORD": os.environ.get("RDS_PASSWORD", "")},
-    )
-    return result.returncode == 0, result.stdout.strip()
-
-
-def db_exists(db_name: str) -> bool:
-    ok, result = run_sql(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'")
-    return ok and result == "1"
-
-
-def terminate_connections(db_name: str) -> None:
-    sql = (
-        "SELECT pg_terminate_backend(pid) "
-        "FROM pg_stat_activity "
-        f"WHERE datname = '{db_name}' AND pid <> pg_backend_pid()"
-    )
-    run_sql(sql)
-    logger.info(f"Terminated active connections to {db_name}")
-
-
-def promote_database(release: str, rc: int, dry_run: bool = False) -> bool:
-    """Rename RC database to production name."""
-    ver = sanitize_version(release)
-    rc_name = f"alliancemine_{ver}_rc{rc}"
-    prod_name = f"alliancemine_{ver}"
-
-    logger.info(f"  RC database:   {rc_name}")
-    logger.info(f"  Prod database: {prod_name}")
-
-    if not db_exists(rc_name):
-        logger.error(f"RC database '{rc_name}' does not exist")
-        return False
-
-    if db_exists(prod_name):
-        logger.warning(f"Production database '{prod_name}' already exists")
-        if dry_run:
-            logger.info("[DRY RUN] Would drop existing production database")
-        else:
-            logger.info(f"Dropping existing {prod_name}...")
-            terminate_connections(prod_name)
-            ok, _ = run_sql(f'DROP DATABASE "{prod_name}"')
-            if not ok:
-                logger.error(f"Failed to drop {prod_name}")
-                return False
-
-    if dry_run:
-        logger.info(f"[DRY RUN] Would rename {rc_name} -> {prod_name}")
-        return True
-
-    terminate_connections(rc_name)
-    logger.info(f"Renaming {rc_name} -> {prod_name}...")
-    ok, _ = run_sql(f'ALTER DATABASE "{rc_name}" RENAME TO "{prod_name}"')
-    if not ok:
-        logger.error("Database rename failed")
-        return False
-
-    if db_exists(prod_name):
-        logger.info(f"Database promoted: {prod_name}")
-        return True
-    else:
-        logger.error("Verification failed - production database not found after rename")
-        return False
 
 
 def update_properties_for_production(release: str, deploy_host: str) -> None:
@@ -166,6 +90,7 @@ def rebuild_war() -> bool:
     logger.info("Rebuilding WAR file with production properties...")
     result = subprocess.run(
         ["./gradlew", "war", "--stacktrace"],
+        check=False,
         cwd=str(ALLIANCEMINE_DIR),
     )
     if result.returncode == 0:
@@ -182,18 +107,25 @@ def deploy_to_production(deploy_host: str, manager: str, password: str) -> bool:
     if deploy_script.exists():
         result = subprocess.run(
             [
-                "python3", str(deploy_script),
-                "--host", deploy_host,
-                "--port", str(PRODUCTION_PORT),
-                "--manager", manager,
-                "--password", password,
+                "python3",
+                str(deploy_script),
+                "--host",
+                deploy_host,
+                "--port",
+                str(PRODUCTION_PORT),
+                "--manager",
+                manager,
+                "--password",
+                password,
             ],
+            check=False,
         )
         return result.returncode == 0
 
     # Fallback: direct Gradle deploy
     result = subprocess.run(
         ["./gradlew", "cargoRedeployRemote", "--stacktrace"],
+        check=False,
         cwd=str(ALLIANCEMINE_DIR),
     )
     return result.returncode == 0
@@ -273,7 +205,7 @@ def main():
     logger.info("=" * 60)
     ver = sanitize_version(args.release)
     logger.info(f"  Database:  alliancemine_{ver}")
-    logger.info(f"  Profile:   alliancemine_userprofile")
+    logger.info("  Profile:   alliancemine_userprofile")
     logger.info(f"  URL:       http://{args.deploy_host}:{PRODUCTION_PORT}/alliancemine")
     logger.info("=" * 60)
 

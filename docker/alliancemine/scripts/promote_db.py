@@ -12,11 +12,11 @@ Example:
     python3 promote_db.py --release 8.3.0 --rc 2 --dry-run
 """
 
-import os
-import sys
 import argparse
-import subprocess
 import logging
+import os
+import subprocess
+import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +39,7 @@ def run_sql(sql: str, database: str = "postgres") -> tuple:
 
     result = subprocess.run(
         ["psql", "-h", host, "-p", port, "-U", user, "-d", database, "-tAc", sql],
+        check=False,
         capture_output=True,
         text=True,
         timeout=30,
@@ -85,16 +86,12 @@ def promote(release: str, rc: int, dry_run: bool = False) -> bool:
 
     # Check if prod name already exists
     if db_exists(prod_name):
-        logger.warning(f"Production database '{prod_name}' already exists")
-        if dry_run:
-            logger.info("[DRY RUN] Would drop existing production database")
-        else:
-            logger.info(f"Dropping existing {prod_name}...")
-            terminate_connections(prod_name)
-            ok, _ = run_sql(f'DROP DATABASE "{prod_name}"')
-            if not ok:
-                logger.error(f"Failed to drop {prod_name}")
-                return False
+        logger.error(
+            "Production database '%s' already exists. Archive it before promoting; "
+            "no databases or connections were changed.",
+            prod_name,
+        )
+        return False
 
     if dry_run:
         logger.info(f"[DRY RUN] Would rename {rc_name} -> {prod_name}")

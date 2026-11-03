@@ -35,11 +35,17 @@ cannot SSH to the multitenant host.
 **Deploy** (minutes, early Saturday):
 1. Downloads the WAR and checks its sha256 and database name.
 2. Keeps the current WAR as `rollback.war`.
-3. Solr `SWAP`s the standby and live cores. The swap is atomic, and the old index stays in `-next`.
+3. Solr `SWAP`s each standby/live core pair and records which swaps completed.
+   Each pair swaps atomically; the two pairs are separate operations. Old indexes stay in `-next`.
 4. Replaces `mine-wars/yeastmine.war` in place, removes the exploded webapp and restarts `yeastmine`.
 5. Checks the site: release, `begin.do`, search for ACT1, templates, and the yeast gene count.
-6. On success: `live.json` records the new build. On failure: WAR and cores are restored,
-   the container restarts, and that build is never retried.
+6. On success: `live.json` records the new build. On failure: completed swaps are reversed,
+   the previous WAR is restored, and that build is never retried. A failed reversal or
+   restart reports `ROLLBACK_FAILED`, even if the site still responds to health checks.
+
+Manual rollback saves the current WAR before attempting the switch. If that attempt
+fails, it reverses completed swaps and restores the saved WAR; inspect the deployment
+log whenever `ROLLBACK_FAILED` is reported.
 
 ## Status
 

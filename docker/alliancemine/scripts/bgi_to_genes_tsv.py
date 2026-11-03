@@ -40,8 +40,8 @@ import argparse
 import json
 import logging
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 logger = logging.getLogger("bgi-to-tsv")
 
@@ -173,17 +173,17 @@ def emit_tsv(input_files: list[Path], out_path: Path, so_names: dict[str, str]) 
         fh.write("\t".join(HEADER) + "\n")
         for f in input_files:
             logger.info("Reading %s", f.name)
-            try:
-                payload = json.loads(f.read_text(encoding="utf-8"))
-            except Exception as exc:
-                logger.warning("Skipping %s: %s", f.name, exc)
-                continue
-            genes = payload.get("data") or []
+            payload = json.loads(f.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                raise TypeError(f"{f.name} must contain a data array")
+            genes = payload["data"]
             for g in genes:
                 if not isinstance(g, dict):
-                    continue
+                    raise TypeError(f"{f.name} contains a non-object gene record")
                 fh.write("\t".join(row_for_gene(g, so_names)) + "\n")
                 rows_written += 1
+    if rows_written == 0:
+        raise ValueError("BGI inputs produced no gene rows")
     tmp.replace(out_path)
     return rows_written
 
@@ -229,7 +229,11 @@ def main() -> int:
     so_names = load_so_id_to_name(Path(args.so_obo))
 
     out_path = data_dir / args.out
-    n = emit_tsv(bgi_files, out_path, so_names)
+    try:
+        n = emit_tsv(bgi_files, out_path, so_names)
+    except (OSError, ValueError, TypeError) as exc:
+        logger.error("Gene.tsv generation failed: %s", exc)
+        return 1
     size_mb = out_path.stat().st_size / (1024 * 1024)
     logger.info("Wrote %d rows to %s (%.1f MB)", n, out_path, size_mb)
     return 0

@@ -23,6 +23,19 @@ docker compose run --rm alliancemine-builder build
 | `deploy` | Deploy WAR to Tomcat |
 | `bash` | Interactive shell |
 
+## Failure Handling
+
+`promote` and `promote-db` refuse to proceed if the production database name
+already exists, including in dry runs. Archive the existing production database
+using the [release promotion protocol](../../docs/RELEASE_PROMOTION_PROTOCOL.md)
+before retrying. Both commands share the same promotion implementation and never
+drop the existing production database.
+
+Extraction returns a nonzero exit status when S3 downloads or `Gene.tsv` generation
+fail, including empty S3 output and empty or malformed BGI inputs. Failed conversion
+preserves the previous `Gene.tsv`. `--skip-fms` intentionally skips S3/FMS downloads but still requires local
+BGI inputs for `Gene.tsv`; `--skip-api` skips only the API fetchers.
+
 ## Build Stages
 
 1. **buildDB** — Create PostgreSQL schema

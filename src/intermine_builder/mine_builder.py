@@ -12,15 +12,17 @@ Main orchestrator that coordinates the complete InterMine build process:
 This is the primary interface for building InterMines.
 """
 
-import logging
-from pathlib import Path
-from typing import Optional, List, Dict, Any
-from datetime import datetime
+from __future__ import annotations
 
-from .mine_config import MineType, BuildStage, get_mine_config
-from .docker_manager import DockerManager
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 from .build_executor import BuildExecutor
 from .config import Config, DatabaseConfig
+from .docker_manager import DockerManager
+from .mine_config import BuildStage, MineType, get_mine_config
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +30,7 @@ logger = logging.getLogger(__name__)
 class MineBuilder:
     """Main orchestrator for InterMine builds."""
 
-    def __init__(
-        self,
-        config: Config,
-        base_dir: Optional[Path] = None,
-        log_level: str = "INFO"
-    ):
+    def __init__(self, config: Config, base_dir: Path | None = None, log_level: str = "INFO"):
         """
         Initialize mine builder.
 
@@ -45,26 +42,24 @@ class MineBuilder:
         self.config = config
         self.base_dir = base_dir or Path.cwd()
 
-        # Setup logging
         logging.basicConfig(
             level=getattr(logging, log_level.upper()),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
 
-        # Initialize Docker manager
         self.docker_manager = DockerManager(self.base_dir)
 
         # Track build status
-        self.build_history: List[Dict[str, Any]] = []
-        self.current_builds: Dict[MineType, BuildExecutor] = {}
+        self.build_history: list[dict[str, Any]] = []
+        self.current_builds: dict[MineType, BuildExecutor] = {}
 
     def build_mine(
         self,
         mine_type: MineType,
         force_rebuild_image: bool = False,
-        skip_stages: Optional[List[BuildStage]] = None,
-        rds_config: Optional[DatabaseConfig] = None
-    ) -> Dict[str, Any]:
+        skip_stages: list[BuildStage] | None = None,
+        rds_config: DatabaseConfig | None = None,
+    ) -> dict[str, Any]:
         """
         Build a complete InterMine instance.
 
@@ -79,47 +74,36 @@ class MineBuilder:
         """
         logger.info(f"Starting build for {mine_type.value}")
 
-        # Get mine configuration
         mine_config = get_mine_config(mine_type)
 
-        # Get RDS configuration
         if not rds_config:
             rds_config = self.config.database
 
         try:
-            # Step 1: Create Docker network
             self.docker_manager.create_network()
 
-            # Step 2: Build Docker image
             logger.info(f"Building Docker image for {mine_type.value}...")
-            self.docker_manager.build_image(
-                mine_config,
-                force_rebuild=force_rebuild_image
-            )
+            self.docker_manager.build_image(mine_config, force_rebuild=force_rebuild_image)
 
-            # Step 3: Create container
             logger.info(f"Creating container for {mine_type.value}...")
             self.docker_manager.create_container(
                 mine_config,
                 rds_host=rds_config.host,
                 rds_port=rds_config.port,
                 rds_user=rds_config.user,
-                rds_password=rds_config.password
+                rds_password=rds_config.password,
             )
 
-            # Step 4: Start container
             self.docker_manager.start_container(mine_type)
 
             # Wait for container to be ready
             logger.info("Waiting for container to be ready...")
             import time
+
             time.sleep(5)
 
-            # Step 5: Execute build
             build_executor = BuildExecutor(
-                self.docker_manager,
-                mine_config,
-                progress_callback=self._progress_callback
+                self.docker_manager, mine_config, progress_callback=self._progress_callback
             )
             self.current_builds[mine_type] = build_executor
 
@@ -139,22 +123,21 @@ class MineBuilder:
                 "display_name": mine_config.display_name,
                 "start_time": datetime.now().isoformat(),
                 "success": False,
-                "error": str(e)
+                "error": str(e),
             }
             self.build_history.append(failure_summary)
             raise
 
         finally:
-            # Cleanup
             if mine_type in self.current_builds:
                 del self.current_builds[mine_type]
 
     def build_all_mines(
         self,
         force_rebuild_images: bool = False,
-        rds_config: Optional[DatabaseConfig] = None,
-        stop_on_failure: bool = True
-    ) -> List[Dict[str, Any]]:
+        rds_config: DatabaseConfig | None = None,
+        stop_on_failure: bool = True,
+    ) -> list[dict[str, Any]]:
         """
         Build all configured mines in sequence.
 
@@ -174,36 +157,38 @@ class MineBuilder:
             MineType.ALLIANCEMINE,
             MineType.WORMMINE,
             MineType.MOUSEMINE,
-            MineType.FLYMINE
+            MineType.FLYMINE,
         ]
 
         for mine_type in mines_to_build:
             try:
                 summary = self.build_mine(
-                    mine_type,
-                    force_rebuild_image=force_rebuild_images,
-                    rds_config=rds_config
+                    mine_type, force_rebuild_image=force_rebuild_images, rds_config=rds_config
                 )
                 summaries.append(summary)
 
             except Exception as e:
-                logger.error(f"Failed to build {mine_type.value}: {e}")
+                logger.exception("Failed to build %s", mine_type.value)
+                summaries.append(
+                    {
+                        "mine_type": mine_type.value,
+                        "display_name": get_mine_config(mine_type).display_name,
+                        "success": False,
+                        "error": str(e),
+                    }
+                )
                 if stop_on_failure:
                     logger.error("Stopping build sequence due to failure")
                     break
                 else:
                     logger.warning("Continuing to next mine despite failure")
 
-        # Print summary
         self._print_build_summary(summaries)
 
         return summaries
 
     def execute_stage(
-        self,
-        mine_type: MineType,
-        stage: BuildStage,
-        rds_config: Optional[DatabaseConfig] = None
+        self, mine_type: MineType, stage: BuildStage, rds_config: DatabaseConfig | None = None
     ) -> None:
         """
         Execute a single build stage for a mine.
@@ -227,17 +212,16 @@ class MineBuilder:
                 rds_host=rds_config.host,
                 rds_port=rds_config.port,
                 rds_user=rds_config.user,
-                rds_password=rds_config.password
+                rds_password=rds_config.password,
             )
             self.docker_manager.start_container(mine_type)
         elif status != "running":
             self.docker_manager.start_container(mine_type)
 
-        # Execute stage
         build_executor = BuildExecutor(self.docker_manager, mine_config)
         build_executor.execute_single_stage(stage)
 
-    def get_mine_status(self, mine_type: MineType) -> Dict[str, Any]:
+    def get_mine_status(self, mine_type: MineType) -> dict[str, Any]:
         """
         Get current status of a mine.
 
@@ -257,15 +241,15 @@ class MineBuilder:
 
         if mine_type in self.current_builds:
             executor = self.current_builds[mine_type]
-            status["current_stage"] = getattr(executor, 'current_stage', 'unknown')
+            status["current_stage"] = getattr(executor, "current_stage", "unknown")
 
         return status
 
-    def get_build_history(self) -> List[Dict[str, Any]]:
+    def get_build_history(self) -> list[dict[str, Any]]:
         """Get build history."""
         return self.build_history
 
-    def cleanup(self, mine_type: Optional[MineType] = None) -> None:
+    def cleanup(self, mine_type: MineType | None = None) -> None:
         """
         Cleanup containers and resources.
 
@@ -277,13 +261,13 @@ class MineBuilder:
 
     def _progress_callback(self, stage: str, progress: float) -> None:
         """Handle progress updates from build executor."""
-        logger.info(f"Stage: {stage}, Progress: {progress*100:.0f}%")
+        logger.info(f"Stage: {stage}, Progress: {progress * 100:.0f}%")
 
-    def _print_build_summary(self, summaries: List[Dict[str, Any]]) -> None:
+    def _print_build_summary(self, summaries: list[dict[str, Any]]) -> None:
         """Print summary of all builds."""
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info("BUILD SUMMARY")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         total_success = sum(1 for s in summaries if s.get("success", False))
         total_failed = len(summaries) - total_success
@@ -294,10 +278,10 @@ class MineBuilder:
             duration = summary.get("total_duration_hours", 0)
             logger.info(f"{summary['display_name']:15} {status:12} {duration:.2f} hours")
 
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info(f"Total: {total_success} succeeded, {total_failed} failed")
-        logger.info(f"Total time: {total_time/3600:.2f} hours")
-        logger.info("="*70)
+        logger.info(f"Total time: {total_time / 3600:.2f} hours")
+        logger.info("=" * 70)
 
     def __enter__(self):
         """Context manager entry."""

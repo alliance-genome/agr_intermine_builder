@@ -20,18 +20,20 @@ Usage:
     python3 extract_data.py --skip-api                # legacy FMS-only behaviour
 """
 
+from __future__ import annotations
+
+import argparse
 import gzip
+import json
+import logging
 import os
 import shutil
 import subprocess
 import sys
-import json
-import argparse
-import logging
 from pathlib import Path
-from typing import Dict, List, Optional
-from urllib.request import urlopen, urlretrieve, Request
+from typing import TypedDict
 from urllib.error import HTTPError, URLError
+from urllib.request import urlopen, urlretrieve
 
 FMS_API_BASE = "https://fms.alliancegenome.org/api"
 DEFAULT_DATA_DIR = Path("/root/data")
@@ -53,7 +55,7 @@ logger = logging.getLogger(__name__)
 # target_dir is relative to data_dir (e.g., "fms" -> /root/data/fms/)
 #
 # project.xml references these files in /root/data/fms/ and /root/data/genes/
-FILE_MAP: List[tuple] = [
+FILE_MAP: list[tuple] = [
     # Combined Alliance data files (TSV)
     ("DISEASE-ALLIANCE", "COMBINED", "fms", "DISEASE-ALLIANCE_COMBINED.tsv"),
     ("ORTHOLOGY-ALLIANCE", "COMBINED", "fms", "ORTHOLOGY-ALLIANCE_COMBINED.tsv"),
@@ -112,14 +114,24 @@ FILE_MAP: List[tuple] = [
 ]
 
 
+class DownloadStats(TypedDict):
+    success: int
+    failed: int
+    skipped: int
+    total: int
+    api: str
+    genes_tsv: str
+    s3: str
+
+
 class AllianceDataExtractor:
     """Downloads data files from Alliance FMS snapshot API."""
 
-    def __init__(self, data_dir: Path, release: Optional[str] = None, release_type: str = "next"):
+    def __init__(self, data_dir: Path, release: str | None = None, release_type: str = "next"):
         self.data_dir = data_dir
         self.release = release
         self.release_type = release_type
-        self.snapshot_files: Dict[tuple, dict] = {}
+        self.snapshot_files: dict[tuple, dict] = {}
 
     def get_release_version(self) -> str:
         """Fetch release version from FMS API if not explicitly set."""
@@ -169,7 +181,9 @@ class AllianceDataExtractor:
             if dt and ds:
                 self.snapshot_files[(dt, ds)] = f
 
-    def download_file(self, fms_type: str, fms_subtype: str, target_dir: str, target_name: str) -> bool:
+    def download_file(
+        self, fms_type: str, fms_subtype: str, target_dir: str, target_name: str
+    ) -> bool:
         """Download a single file from the FMS snapshot."""
         key = (fms_type, fms_subtype)
         file_info = self.snapshot_files.get(key)
@@ -197,9 +211,8 @@ class AllianceDataExtractor:
                 # Download to temp, then decompress
                 tmp_path = out_path.with_suffix(out_path.suffix + ".gz")
                 urlretrieve(s3_url, tmp_path)
-                with gzip.open(tmp_path, "rb") as f_in:
-                    with open(out_path, "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
+                with gzip.open(tmp_path, "rb") as f_in, open(out_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
                 tmp_path.unlink()
             else:
                 urlretrieve(s3_url, out_path)
@@ -223,6 +236,7 @@ class AllianceDataExtractor:
         try:
             result = subprocess.run(
                 ["aws", "s3", "cp", s3_uri, str(target_dir), "--recursive"],
+                check=False,
                 capture_output=True,
                 text=True,
                 timeout=600,
@@ -234,6 +248,9 @@ class AllianceDataExtractor:
             # Count downloaded files
             file_count = sum(1 for _ in target_dir.rglob("*") if _.is_file())
             total_size = sum(f.stat().st_size for f in target_dir.rglob("*") if f.is_file())
+            if total_size == 0:
+                logger.error("S3 download produced no nonempty files in %s", target_dir)
+                return False
             logger.info(f"  S3 sync complete: {file_count} files, {total_size / (1024**2):.1f} MB")
             return True
 
@@ -259,8 +276,10 @@ class AllianceDataExtractor:
         orchestrator = Path("/root/alliancemine-bio-sources/scripts/fetch_all.py")
         if not orchestrator.exists():
             logger.error(f"  API fetcher orchestrator not found: {orchestrator}")
-            logger.error("  Rebuild the image with BIO_SOURCES_BRANCH set to a branch "
-                         "that includes scripts/fetch_all.py (Phase-5 work).")
+            logger.error(
+                "  Rebuild the image with BIO_SOURCES_BRANCH set to a branch "
+                "that includes scripts/fetch_all.py (Phase-5 work)."
+            )
             return False
 
         logger.info(f"Running API fetchers -> {api_dir}/")
@@ -276,18 +295,25 @@ class AllianceDataExtractor:
             logger.error(f"  API fetch failed (exit {e.returncode})")
             return False
 
-    def download_all(self, skip_fms: bool = False, skip_api: bool = False) -> Dict[str, int]:
+    def download_all(self, skip_fms: bool = False, skip_api: bool = False) -> DownloadStats:
         """Download all configured data files.
 
         Order matters: FMS first, since some API fetchers reuse FMS artefacts
         (BGI gene seeds, EXPRESSION-ALLIANCE per-MOD files, allele/disease seeds).
         """
-        stats = {"success": 0, "failed": 0, "skipped": 0, "total": len(FILE_MAP),
-                 "api": "skipped", "genes_tsv": "skipped"}
+        stats: DownloadStats = {
+            "success": 0,
+            "failed": 0,
+            "skipped": 0,
+            "total": len(FILE_MAP),
+            "api": "skipped",
+            "genes_tsv": "skipped",
+            "s3": "skipped",
+        }
 
         if not skip_fms:
             # SGD/external data from S3
-            self.download_s3_data()
+            stats["s3"] = "ok" if self.download_s3_data() else "failed"
 
             # FMS snapshot data
             self.load_snapshot()
@@ -307,7 +333,7 @@ class AllianceDataExtractor:
         # files are on disk, even when --skip-fms was passed. The TSV is cheap
         # to rebuild and AllianceGenesConverter relies on it being present and
         # current with the BGI snapshot.
-        stats["genes_tsv"] = "ok" if self.build_genes_tsv() else "skipped"
+        stats["genes_tsv"] = "ok" if self.build_genes_tsv() else "failed"
 
         if not skip_api:
             stats["api"] = "ok" if self.fetch_api_data() else "failed"
@@ -330,11 +356,18 @@ class AllianceDataExtractor:
             return False
         logger.info("Building Gene.tsv from BGI_*.json in %s", target_dir)
         try:
-            subprocess.check_call([
-                sys.executable, str(script),
-                "--data-dir", str(target_dir),
-                "--out", "Gene.tsv",
-            ])
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    str(script),
+                    "--data-dir",
+                    str(target_dir),
+                    "--out",
+                    "Gene.tsv",
+                    "--so-obo",
+                    str(self.data_dir / "fms" / "ONTOLOGY_SO.obo"),
+                ]
+            )
             return True
         except subprocess.CalledProcessError as exc:
             logger.error("Gene.tsv build failed: %s", exc)
@@ -365,7 +398,11 @@ class AllianceDataExtractor:
 
 def main():
     parser = argparse.ArgumentParser(description="Download AllianceMine data from FMS")
-    parser.add_argument("--release", default=None, help="Specific release version (e.g., 9.0.0); omit to auto-resolve from FMS")
+    parser.add_argument(
+        "--release",
+        default=None,
+        help="Specific release version (e.g., 9.0.0); omit to auto-resolve from FMS",
+    )
     parser.add_argument(
         "--release-type",
         choices=["next", "current"],
@@ -402,7 +439,9 @@ def main():
     logger.info("AllianceMine Data Extraction")
     logger.info("=" * 50)
 
-    extractor = AllianceDataExtractor(args.data_dir, release=release, release_type=args.release_type)
+    extractor = AllianceDataExtractor(
+        args.data_dir, release=release, release_type=args.release_type
+    )
     extractor.get_release_version()
 
     stats = extractor.download_all(skip_fms=args.skip_fms, skip_api=args.skip_api)
@@ -411,8 +450,12 @@ def main():
     logger.info(
         f"FMS: {stats['success']} succeeded, {stats['failed']} failed, "
         f"{stats['skipped']} not in snapshot, out of {stats['total']}. "
-        f"API fetch: {stats['api']}."
+        f"S3: {stats['s3']}. Gene.tsv: {stats['genes_tsv']}. API fetch: {stats['api']}."
     )
+
+    if stats["s3"] == "failed" or stats["genes_tsv"] == "failed":
+        logger.error("Required S3 data or Gene.tsv generation failed; refusing incomplete inputs")
+        sys.exit(1)
 
     if stats["failed"] > 0:
         logger.warning("Some FMS downloads failed - build may have incomplete data")

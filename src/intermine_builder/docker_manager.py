@@ -9,12 +9,16 @@ Manages Docker container lifecycle for InterMine builds:
 - Managing volumes and networks
 """
 
-import docker
+from __future__ import annotations
+
+import codecs
 import logging
-from typing import Dict, Optional
 from pathlib import Path
+
 from docker.models.containers import Container
 from docker.models.images import Image
+
+import docker
 
 from .mine_config import MineConfig, MineType
 
@@ -33,14 +37,14 @@ class DockerManager:
         """
         self.base_dir = base_dir
         self.client = docker.from_env()
-        self.containers: Dict[MineType, Container] = {}
-        self.images: Dict[MineType, Image] = {}
+        self.containers: dict[MineType, Container] = {}
+        self.images: dict[MineType, Image] = {}
 
     def build_image(
         self,
         mine_config: MineConfig,
         force_rebuild: bool = False,
-        build_args: Optional[Dict[str, str]] = None
+        build_args: dict[str, str] | None = None,
     ) -> Image:
         """
         Build Docker image for a mine.
@@ -93,10 +97,10 @@ class DockerManager:
 
             # Log build output
             for log in build_logs:
-                if 'stream' in log:
-                    logger.debug(log['stream'].strip())
-                elif 'error' in log:
-                    logger.error(log['error'])
+                if "stream" in log:
+                    logger.debug(log["stream"].strip())
+                elif "error" in log:
+                    logger.error(log["error"])
 
             logger.info(f"Successfully built image: {image_tag}")
             self.images[mine_type] = image
@@ -113,8 +117,8 @@ class DockerManager:
         rds_port: int,
         rds_user: str,
         rds_password: str,
-        environment: Optional[Dict[str, str]] = None,
-        volumes: Optional[Dict[str, Dict[str, str]]] = None
+        environment: dict[str, str] | None = None,
+        volumes: dict[str, dict[str, str]] | None = None,
     ) -> Container:
         """
         Create container for a mine.
@@ -143,8 +147,8 @@ class DockerManager:
             "RDS_DB_NAME": mine_config.db_name,
             "RDS_PROFILE_DB_NAME": mine_config.profile_db_name,
             "GRADLE_OPTS": f"-Xmx{mine_config.resources.gradle_heap_gb}g "
-                          f"-Xms{mine_config.resources.heap_size_gb}g "
-                          f"-Dorg.gradle.daemon=false",
+            f"-Xms{mine_config.resources.heap_size_gb}g "
+            f"-Dorg.gradle.daemon=false",
         }
 
         # Add release version
@@ -165,10 +169,7 @@ class DockerManager:
 
         # Add custom data directory for WormMine
         if mine_config.use_custom_data and mine_config.custom_data_dir:
-            volume_mounts[mine_config.custom_data_dir] = {
-                "bind": "/root/custom_data",
-                "mode": "ro"
-            }
+            volume_mounts[mine_config.custom_data_dir] = {"bind": "/root/custom_data", "mode": "ro"}
 
         # Merge with additional volumes
         if volumes:
@@ -231,9 +232,9 @@ class DockerManager:
         self,
         mine_type: MineType,
         command: str,
-        workdir: Optional[str] = None,
-        environment: Optional[Dict[str, str]] = None,
-        stream: bool = True
+        workdir: str | None = None,
+        environment: dict[str, str] | None = None,
+        stream: bool = True,
     ) -> tuple[int, str]:
         """
         Execute command inside container.
@@ -254,31 +255,33 @@ class DockerManager:
         container = self.containers[mine_type]
         logger.info(f"Executing in {container.name}: {command}")
 
-        exec_result = container.exec_run(
-            cmd=command,
+        exec_id = self.client.api.exec_create(
+            container.id,
+            command,
             workdir=workdir,
             environment=environment,
-            stream=stream,
-            demux=True
-        )
+        )["Id"]
+        raw_output = self.client.api.exec_start(exec_id, stream=stream, demux=True)
+        chunks = raw_output if stream else [raw_output]
+        decoders = [codecs.getincrementaldecoder("utf-8")("replace") for _ in range(2)]
+        loggers = [logger.info, logger.error]
+        output_parts = []
+        for chunk in chunks:
+            for data, decoder, log in zip(chunk, decoders, loggers):
+                text = decoder.decode(data or b"")
+                if text:
+                    log(text.rstrip())
+                    output_parts.append(text)
+        for decoder, log in zip(decoders, loggers):
+            text = decoder.decode(b"", final=True)
+            if text:
+                log(text.rstrip())
+                output_parts.append(text)
 
-        if stream:
-            output_lines = []
-            for stdout, stderr in exec_result.output:
-                if stdout:
-                    line = stdout.decode('utf-8')
-                    logger.info(line.rstrip())
-                    output_lines.append(line)
-                if stderr:
-                    line = stderr.decode('utf-8')
-                    logger.error(line.rstrip())
-                    output_lines.append(line)
-            output = ''.join(output_lines)
-        else:
-            output = exec_result.output.decode('utf-8')
-            logger.info(output)
-
-        return exec_result.exit_code, output
+        exit_code = self.client.api.exec_inspect(exec_id)["ExitCode"]
+        if exit_code is None:
+            raise RuntimeError(f"Docker exec {exec_id} ended without an exit status")
+        return exit_code, "".join(output_parts)
 
     def get_container_status(self, mine_type: MineType) -> str:
         """Get container status."""
@@ -289,12 +292,7 @@ class DockerManager:
         container.reload()
         return container.status
 
-    def get_container_logs(
-        self,
-        mine_type: MineType,
-        tail: int = 100,
-        follow: bool = False
-    ) -> str:
+    def get_container_logs(self, mine_type: MineType, tail: int = 100, follow: bool = False) -> str:
         """Get container logs."""
         if mine_type not in self.containers:
             raise ValueError(f"No container found for {mine_type.value}")
@@ -304,12 +302,12 @@ class DockerManager:
 
         if follow:
             for line in logs:
-                logger.info(line.decode('utf-8').rstrip())
+                logger.info(line.decode("utf-8").rstrip())
             return ""
         else:
-            return logs.decode('utf-8')
+            return logs.decode("utf-8")
 
-    def cleanup(self, mine_type: Optional[MineType] = None) -> None:
+    def cleanup(self, mine_type: MineType | None = None) -> None:
         """
         Cleanup containers and resources.
 
@@ -326,7 +324,7 @@ class DockerManager:
                 self.stop_container(mt)
                 self.remove_container(mt, force=True)
             except Exception as e:
-                logger.warning(f"Error cleaning up {mt.value}: {e}")
+                logger.warning(f"Error cleaning up {mt.value}: {e}", exc_info=True)
 
     def create_network(self, network_name: str = "intermine-network") -> None:
         """Create Docker network if it doesn't exist."""

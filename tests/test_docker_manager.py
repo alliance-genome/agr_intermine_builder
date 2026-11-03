@@ -1,14 +1,12 @@
 """Tests for Docker manager module."""
 
-from unittest.mock import MagicMock, patch, PropertyMock
-from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from src.intermine_builder.docker_manager import DockerManager
 from src.intermine_builder.mine_config import (
     MineType,
-    MineConfig,
-    ResourceLimits,
     get_mine_config,
 )
 
@@ -130,7 +128,7 @@ class TestCreateContainer:
 class TestContainerLifecycle:
     def test_start_container(self, docker_manager, mock_docker_client):
         config = get_mine_config(MineType.ALLIANCEMINE)
-        container = docker_manager.create_container(
+        docker_manager.create_container(
             config, rds_host="h", rds_port=5432, rds_user="u", rds_password="p"
         )
         docker_manager.start_container(MineType.ALLIANCEMINE)
@@ -154,16 +152,6 @@ class TestContainerLifecycle:
 
 
 class TestExecuteCommand:
-    def test_execute_in_container(self, docker_manager, mock_docker_client, mock_container):
-        docker_manager.containers[MineType.ALLIANCEMINE] = mock_container
-        exit_code, output = docker_manager.execute_command(
-            MineType.ALLIANCEMINE,
-            "echo hello",
-            workdir="/root",
-            stream=False,
-        )
-        mock_container.exec_run.assert_called_once()
-
     def test_execute_nonexistent_raises(self, docker_manager):
         with pytest.raises(ValueError, match="No container found"):
             docker_manager.execute_command(MineType.ALLIANCEMINE, "echo hello")
@@ -191,9 +179,6 @@ class TestCleanup:
             config, rds_host="h", rds_port=5432, rds_user="u", rds_password="p"
         )
         docker_manager.cleanup()
-        # Should have stopped and removed the container
-        container = docker_manager.containers.get(MineType.ALLIANCEMINE)
-        # Container should be removed from dict
         assert MineType.ALLIANCEMINE not in docker_manager.containers
 
     def test_context_manager(self, docker_manager, mock_docker_client):

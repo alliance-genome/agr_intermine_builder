@@ -13,6 +13,12 @@ The 9.0.0 build used `docker/alliancemine/` directly via `docker compose`. The `
 
 ## CLI Tools
 
+After `uv pip install -e '.[dev]'`, the installed `build-mines` and `rds-manager`
+commands work outside the checkout. The `python -m src.cli...` forms below remain
+supported. `build-all` includes failed attempts in its summary and exits nonzero
+if any attempt fails; `--continue-on-error` continues to the other mines without
+changing that exit-status rule.
+
 ```bash
 # RDS management
 python -m src.cli.rds_manager create

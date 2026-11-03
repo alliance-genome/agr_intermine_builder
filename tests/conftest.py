@@ -1,11 +1,11 @@
 """Shared test fixtures for AGR InterMine Builder tests."""
 
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
 import pytest
 
 from src.intermine_builder.config import Config, DatabaseConfig
-from src.intermine_builder.mine_config import MineType, MineConfig, get_mine_config
+from src.intermine_builder.mine_config import MineType, get_mine_config
 
 
 @pytest.fixture
@@ -59,19 +59,3 @@ def mock_docker_client():
     client.networks.get.side_effect = docker.errors.NotFound("not found")
     client.networks.create.return_value = MagicMock()
     return client
-
-
-@pytest.fixture
-def mock_container():
-    """Create a mock Docker container."""
-    container = MagicMock()
-    container.name = "alliancemine-builder"
-    container.status = "running"
-
-    # Mock exec_run for command execution
-    exec_result = MagicMock()
-    exec_result.exit_code = 0
-    exec_result.output = b"OK"
-    container.exec_run.return_value = exec_result
-
-    return container
