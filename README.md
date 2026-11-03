@@ -1,5 +1,7 @@
 # InterMine build tools
 
+For a detailed before-and-after comparison, read the [workflow review and operator guide](docs/compose-workflow-review.html). The standalone HTML includes a print layout for saving as PDF.
+
 Run the existing mine builds with Docker Compose from the build machine. The
 `mine` launcher selects a Compose directory and runs its commands; each mine's
 scripts remain responsible for its build pipeline.
