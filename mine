@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Run the repository's Compose launcher without installing a Python package."""
+
+from src.cli.mine import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

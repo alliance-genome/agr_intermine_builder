@@ -9,7 +9,7 @@
 # already ran (run_builddb_*.sh guard); chado-pg restore running or done; the per-release Solr cores
 # exist on multitenant (empty).
 set -uo pipefail
-cd /home/ec2-user/flymine-deploy
+cd "${FLYMINE_DIR:-/home/ec2-user/flymine-deploy}" || exit 1
 set -a; . ./.env; set +a
 : "${FLYMINE_RELEASE:?}" "${FB_RELEASE:?}" "${RC_NUMBER:?}"
 DMEL_REL=${DMEL_REL:-r6.69}

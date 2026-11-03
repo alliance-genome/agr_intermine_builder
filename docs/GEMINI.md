@@ -1,5 +1,7 @@
 ## Project Overview
 
+> Historical orchestration reference: the Compose launcher supersedes the host-side Python build API and registry described below. Use [the current build system](BUILD_SYSTEM.md) for commands and migration notes.
+
 This project is a Python-based orchestration system for building and managing InterMine instances. InterMine is an open-source data warehouse system for biological data. This project uses Docker to create reproducible build environments and can be configured to work with AWS RDS for database management.
 
 The project is structured as a Python application with a command-line interface (CLI) for interacting with the build system. The core logic is encapsulated in the `src/intermine_builder` package, which contains modules for managing Docker, executing build steps, and handling configuration.

@@ -1,47 +1,31 @@
-# Host-Side Orchestration Layer
+# Host commands
 
-Python modules that run on the host machine (not inside Docker containers). These manage infrastructure, configuration, and multi-mine orchestration via the Docker Python SDK.
-
-## Relationship to `docker/alliancemine/`
-
-This `src/` layer and `docker/alliancemine/scripts/` serve different purposes:
-
-- **`src/`** runs on the host — manages Docker containers, provisions RDS, sets release versions
-- **`docker/alliancemine/scripts/`** runs inside containers — executes Gradle builds, downloads data, integrates sources
-
-The 9.0.0 build used `docker/alliancemine/` directly via `docker compose`. The `src/` CLI tools are still useful for RDS management and release versioning.
-
-## CLI Tools
-
-After `uv pip install -e '.[dev]'`, the installed `build-mines` and `rds-manager`
-commands work outside the checkout. The `python -m src.cli...` forms below remain
-supported. `build-all` includes failed attempts in its summary and exits nonzero
-if any attempt fails; `--continue-on-error` continues to the other mines without
-changing that exit-status rule.
+`src/cli/mine.py` is the standard-library Compose launcher used by `./mine`.
+It delegates image and container management to Docker Compose and full builds to
+the existing mine scripts. It reads no database credentials or release registry.
 
 ```bash
-# RDS management
-python -m src.cli.rds_manager create
-python -m src.cli.rds_manager status
-python -m src.cli.rds_manager stop
-python -m src.cli.rds_manager start
-
-# Alliance release versioning
-python -m src.cli.set_release show
-python -m src.cli.set_release current
-python -m src.cli.set_release 9.0.0
-
-# Multi-mine build orchestration
-python -m src.cli.build_mines build --mine alliancemine
-python -m src.cli.build_mines list
+./mine list
+./mine alliancemine image
+./mine alliancemine build --skip-stages deploy
 ```
 
-## Modules
+The installed `mine` and `build-mines` entry points use the same syntax.
+`python -m src.cli.build_mines list` remains supported as an alias.
+Installed commands require `--directory /path/to/mine` outside this checkout.
+See [migration and architecture](../docs/BUILD_SYSTEM.md).
 
-- `mine_builder.py` — Top-level orchestrator (Docker networks, images, containers)
-- `docker_manager.py` — Docker container lifecycle via Python SDK
-- `build_executor.py` — Runs build stages inside containers
-- `config.py` — Aggregates configuration from environment variables
-- `mine_config.py` — Mine and stage definitions (MineType, BuildStage enums)
-- `rds_provisioner.py` — RDS instance provisioning
-- `aws/` — Advanced RDS management (stub)
+## Independent operational tools
+
+Install their dependencies with `uv pip install -e .` when needed:
+
+```bash
+python -m src.cli.rds_manager status
+python -m src.cli.set_release show
+python -m src.cli.db_admin --help
+```
+
+`src/intermine_builder/rds_provisioner.py` remains the implementation for RDS
+administration. Provisioning, release editing, and database maintenance are
+separate from routine build commands. Their existing configuration conventions
+remain unchanged; the launcher's build configuration belongs in `docker/<mine>/.env`.

@@ -1,5 +1,7 @@
 # AllianceMine Build Guide
 
+> Historical orchestration reference: the Compose launcher supersedes the host-side Python build API and registry described below. Use [the current build system](BUILD_SYSTEM.md) for commands and migration notes.
+
 Operational guide for building AllianceMine using the build-only Docker container with AWS RDS.
 
 ## Prerequisites

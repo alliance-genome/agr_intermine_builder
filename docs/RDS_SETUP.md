@@ -137,7 +137,7 @@ psql -h $RDS_HOST -U postgres -d postgres
 ### Step 5: Start Building Mines
 
 ```bash
-uv run python -m src.cli.build_mines build --mine alliancemine
+./mine alliancemine build --skip-stages deploy
 ```
 
 ## 🛠️ Custom Configuration
@@ -471,6 +471,6 @@ After RDS is created:
 
 1. ✅ Save credentials to `.env`
 2. ✅ Test connection with psql
-3. 🚀 Build first mine: `python -m src.cli.build_mines build --mine alliancemine`
+3. 🚀 Build first mine: `./mine alliancemine build --skip-stages deploy`
 4. 📊 Monitor RDS metrics in AWS Console
 5. 💾 Create snapshot after first successful build

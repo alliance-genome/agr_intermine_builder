@@ -1,16 +1,14 @@
 [project]
 name = "agr-intermine-builder"
 version = "1.0.0"
-description = "Python-based orchestration system for building InterMine instances"
+description = "Compose launcher and operational tools for InterMine builds"
 authors = [
     {name = "Alliance of Genome Resources"}
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "docker>=7.0.0",
     "boto3>=1.34.0",
     "psycopg2-binary>=2.9.9",
-    "python-dotenv>=1.0.0",
     "requests>=2.31.0",
 ]
 
@@ -26,7 +24,8 @@ dev = [
 ]
 
 [project.scripts]
-build-mines = "src.cli.build_mines:main"
+mine = "src.cli.mine:main"
+build-mines = "src.cli.mine:main"
 rds-manager = "src.cli.rds_manager:main"
 
 [build-system]

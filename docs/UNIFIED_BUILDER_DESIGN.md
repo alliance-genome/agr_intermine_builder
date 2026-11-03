@@ -1,5 +1,7 @@
 # Unified InterMine build — design proposal
 
+> Historical orchestration reference: the Compose launcher supersedes the host-side Python build API and registry described below. Use [the current build system](BUILD_SYSTEM.md) for commands and migration notes.
+
 Status: **draft for review** (branch `unified-mine-builder`, 2026-09-18)
 Method: ultracode workflow (6 build maps → 4-angle design panel → synthesis) + independent codex cross-review.
 

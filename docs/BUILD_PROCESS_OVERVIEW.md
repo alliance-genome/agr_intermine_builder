@@ -260,25 +260,20 @@ psql -h $RDS_HOST -U $RDS_USER -d postgres \
 
 ---
 
-## The Python orchestration layer (alternative path)
+## Host launcher
 
-For CI/CD or batch builds, the Python layer wraps Docker for you:
+The host launcher selects the existing Compose configuration and pipeline:
 
 ```bash
-uv pip install -e .
-
-# Builds the Docker image, creates a container, runs all 7 stages
-python -m src.cli.build_mines build --mine alliancemine
-
-# Single stage
-python -m src.cli.build_mines stage --mine alliancemine --stage buildDB
-
-# Status / cleanup
-python -m src.cli.build_mines status --mine alliancemine
-python -m src.cli.build_mines cleanup --mine alliancemine
+./mine alliancemine image
+./mine alliancemine build --skip-stages deploy
+./mine alliancemine run python3 /root/scripts/extract_data.py
+./mine alliancemine status
+./mine alliancemine logs -f
 ```
 
-This uses the same Docker image and the same entrypoint — it just manages the container lifecycle programmatically via the Docker SDK instead of `docker compose`.
+This uses Docker Compose directly; there is no second host-side stage engine.
+See [the build system](BUILD_SYSTEM.md) for pipeline support and migration notes.
 
 ---
 
@@ -294,5 +289,5 @@ This uses the same Docker image and the same entrypoint — it just manages the 
 | `sed` substitution for properties | `envsubst` templates |
 | Fixed DB names | Versioned: `alliancemine_{ver}_rcN` → `alliancemine_{ver}` |
 | No promotion workflow | `promote_db.py` with dry-run |
-| No tests | 65 unit tests, 57% coverage |
+| No tests | Launcher, packaging, extraction, promotion, and rollback regression tests |
 | Stale docs referencing deleted paths | Updated docs matching actual code |

@@ -29,8 +29,8 @@ Usage:
 """
 
 import argparse
-import sys
 import logging
+import sys
 from pathlib import Path
 
 # Add parent directory to path
@@ -45,31 +45,26 @@ def setup_logging(verbose: bool = False):
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        level=level, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
 
 def cmd_create(args):
     """Create RDS instance for all InterMines."""
     print("\n🚀 Creating RDS PostgreSQL Instance for InterMine")
-    print("="*60)
+    print("=" * 60)
 
     # Parse tags from KEY=VALUE format
     custom_tags = {}
     if args.tags:
         for tag in args.tags:
-            if '=' in tag:
-                key, value = tag.split('=', 1)
+            if "=" in tag:
+                key, value = tag.split("=", 1)
                 custom_tags[key] = value
             else:
                 print(f"⚠️  Warning: Ignoring invalid tag format: {tag} (expected KEY=VALUE)")
 
-    provisioner = RDSProvisioner(
-        region=args.region,
-        profile_name=args.profile
-    )
+    provisioner = RDSProvisioner(region=args.region, profile_name=args.profile)
 
     try:
         result = provisioner.provision_complete_setup(
@@ -79,7 +74,7 @@ def cmd_create(args):
             master_password=args.password,
             vpc_id=args.vpc_id,
             create_databases_now=not args.skip_databases,
-            custom_tags=custom_tags
+            custom_tags=custom_tags,
         )
 
         print("\n✅ SUCCESS! RDS instance created and ready to use.")
@@ -109,7 +104,7 @@ def cmd_create(args):
         print("\n⏭️  Next Steps:")
         print("   1. Save credentials to .env file")
         print("   2. Test connection: psql -h <endpoint> -U postgres -d postgres")
-        print("   3. Start building mines: python -m src.cli.build_mines build --mine alliancemine")
+        print("   3. Start building mines: ./mine alliancemine build --skip-stages deploy")
 
         return 0
 
@@ -124,37 +119,33 @@ def cmd_create(args):
 
 def cmd_status(args):
     """Check RDS instance status."""
-    provisioner = RDSProvisioner(
-        region=args.region,
-        profile_name=args.profile
-    )
+    provisioner = RDSProvisioner(region=args.region, profile_name=args.profile)
 
     try:
-        import boto3
-        rds = boto3.client('rds', region_name=args.region)
-
-        response = rds.describe_db_instances(
+        response = provisioner.rds_client.describe_db_instances(
             DBInstanceIdentifier=args.instance_id
         )
 
-        instance = response['DBInstances'][0]
+        instance = response["DBInstances"][0]
+        endpoint = instance.get("Endpoint", {})
 
         print(f"\n📊 RDS Instance Status: {args.instance_id}")
-        print("="*60)
+        print("=" * 60)
         print(f"Status: {instance['DBInstanceStatus']}")
-        print(f"Endpoint: {instance.get('Endpoint', {}).get('Address', 'N/A')}")
-        print(f"Port: {instance.get('Endpoint', {}).get('Port', 'N/A')}")
+        print(f"Endpoint: {endpoint.get('Address', 'N/A')}")
+        print(f"Port: {endpoint.get('Port', 'N/A')}")
         print(f"Engine: {instance['Engine']} {instance['EngineVersion']}")
         print(f"Instance Class: {instance['DBInstanceClass']}")
         print(f"Storage: {instance['AllocatedStorage']}GB {instance['StorageType']}")
         print(f"Multi-AZ: {instance['MultiAZ']}")
         print(f"Publicly Accessible: {instance['PubliclyAccessible']}")
         print(f"Backup Retention: {instance['BackupRetentionPeriod']} days")
-        print("="*60)
+        print("=" * 60)
 
         return 0
 
     except Exception as e:
+        logger.exception("RDS command failed")
         print(f"\n❌ ERROR: {e}")
         return 1
 
@@ -163,15 +154,14 @@ def cmd_stop(args):
     """Stop RDS instance (saves costs, can restart later)."""
     try:
         import boto3
-        rds = boto3.client('rds', region_name=args.region)
+
+        rds = boto3.client("rds", region_name=args.region)
 
         print(f"\n⏸️  Stopping RDS instance: {args.instance_id}")
         print("   💰 This will stop billing for the instance (storage still charged)")
         print("   ⚠️  Instance will auto-start after 7 days")
 
-        rds.stop_db_instance(
-            DBInstanceIdentifier=args.instance_id
-        )
+        rds.stop_db_instance(DBInstanceIdentifier=args.instance_id)
 
         print("✅ Stop initiated")
         print("   Status will change from 'available' → 'stopping' → 'stopped'")
@@ -180,6 +170,7 @@ def cmd_stop(args):
         return 0
 
     except Exception as e:
+        logger.exception("RDS command failed")
         print(f"\n❌ ERROR: {e}")
         return 1
 
@@ -188,13 +179,12 @@ def cmd_start(args):
     """Start stopped RDS instance."""
     try:
         import boto3
-        rds = boto3.client('rds', region_name=args.region)
+
+        rds = boto3.client("rds", region_name=args.region)
 
         print(f"\n▶️  Starting RDS instance: {args.instance_id}")
 
-        rds.start_db_instance(
-            DBInstanceIdentifier=args.instance_id
-        )
+        rds.start_db_instance(DBInstanceIdentifier=args.instance_id)
 
         print("✅ Start initiated")
         print("   Status will change from 'stopped' → 'starting' → 'available'")
@@ -203,6 +193,7 @@ def cmd_start(args):
         return 0
 
     except Exception as e:
+        logger.exception("RDS command failed")
         print(f"\n❌ ERROR: {e}")
         return 1
 
@@ -211,24 +202,25 @@ def cmd_modify(args):
     """Modify RDS instance (storage, instance class, etc)."""
     try:
         import boto3
-        rds = boto3.client('rds', region_name=args.region)
+
+        rds = boto3.client("rds", region_name=args.region)
 
         print(f"\n🔧 Modifying RDS instance: {args.instance_id}")
 
         modify_params = {
-            'DBInstanceIdentifier': args.instance_id,
-            'ApplyImmediately': args.apply_immediately
+            "DBInstanceIdentifier": args.instance_id,
+            "ApplyImmediately": args.apply_immediately,
         }
 
         # Track what's being modified
         modifications = []
 
         if args.storage:
-            modify_params['AllocatedStorage'] = args.storage
+            modify_params["AllocatedStorage"] = args.storage
             modifications.append(f"Storage: {args.storage}GB")
 
         if args.instance_type:
-            modify_params['DBInstanceClass'] = args.instance_type
+            modify_params["DBInstanceClass"] = args.instance_type
             modifications.append(f"Instance type: {args.instance_type}")
 
         if not modifications:
@@ -251,6 +243,7 @@ def cmd_modify(args):
         return 0
 
     except Exception as e:
+        logger.exception("RDS command failed")
         print(f"\n❌ ERROR: {e}")
         return 1
 
@@ -262,20 +255,22 @@ def cmd_delete(args):
         print(f"   Instance: {args.instance_id}")
         print(f"   Region: {args.region}")
         confirm = input("\nType 'DELETE' to confirm: ")
-        if confirm != 'DELETE':
+        if confirm != "DELETE":
             print("❌ Deletion cancelled")
             return 0
 
     try:
         import boto3
-        rds = boto3.client('rds', region_name=args.region)
+
+        rds = boto3.client("rds", region_name=args.region)
 
         print(f"\n🗑️  Deleting RDS instance: {args.instance_id}")
 
+        snapshot_id = f"{args.instance_id}-final-snapshot" if not args.skip_snapshot else None
         rds.delete_db_instance(
             DBInstanceIdentifier=args.instance_id,
             SkipFinalSnapshot=args.skip_snapshot,
-            FinalDBSnapshotIdentifier=f"{args.instance_id}-final-snapshot" if not args.skip_snapshot else None
+            FinalDBSnapshotIdentifier=snapshot_id,
         )
 
         print("✅ Deletion initiated")
@@ -285,6 +280,7 @@ def cmd_delete(args):
         return 0
 
     except Exception as e:
+        logger.exception("RDS command failed")
         print(f"\n❌ ERROR: {e}")
         return 1
 
@@ -316,135 +312,111 @@ Examples:
 
   # Delete instance (WARNING: removes all data!)
   %(prog)s delete
-        """
+        """,
     )
 
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Enable verbose output'
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    parser.add_argument(
-        '--region',
-        default='us-east-1',
-        help='AWS region (default: us-east-1)'
-    )
+    parser.add_argument("--region", default="us-east-1", help="AWS region (default: us-east-1)")
 
-    parser.add_argument(
-        '--profile',
-        help='AWS profile name (optional)'
-    )
+    parser.add_argument("--profile", help="AWS profile name (optional)")
 
-    subparsers = parser.add_subparsers(dest='command', help='Command to execute')
+    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # Create command
-    create_parser = subparsers.add_parser('create', help='Create RDS instance')
+    create_parser = subparsers.add_parser("create", help="Create RDS instance")
     create_parser.add_argument(
-        '--instance-id',
-        default='intermine-postgres',
-        help='DB instance identifier (default: intermine-postgres)'
+        "--instance-id",
+        default="intermine-postgres",
+        help="DB instance identifier (default: intermine-postgres)",
     )
     create_parser.add_argument(
-        '--instance-type',
-        default='db.t3.large',
-        choices=['db.t3.micro', 'db.t3.small', 'db.t3.medium', 'db.t3.large', 'db.t3.xlarge', 'db.t3.2xlarge'],
-        help='Instance type (default: db.t3.large - Intel x86, RECOMMENDED)'
+        "--instance-type",
+        default="db.t3.large",
+        choices=[
+            "db.t3.micro",
+            "db.t3.small",
+            "db.t3.medium",
+            "db.t3.large",
+            "db.t3.xlarge",
+            "db.t3.2xlarge",
+        ],
+        help="Instance type (default: db.t3.large - Intel x86, RECOMMENDED)",
     )
     create_parser.add_argument(
-        '--storage',
-        type=int,
-        default=500,
-        help='Storage size in GB (default: 500)'
+        "--storage", type=int, default=500, help="Storage size in GB (default: 500)"
+    )
+    create_parser.add_argument("--password", help="Master password (generated if not provided)")
+    create_parser.add_argument("--vpc-id", help="VPC ID (uses default VPC if not provided)")
+    create_parser.add_argument(
+        "--tags",
+        nargs="+",
+        metavar="KEY=VALUE",
+        help="Additional tags as KEY=VALUE pairs (e.g., --tags Owner=John Team=DevOps)",
     )
     create_parser.add_argument(
-        '--password',
-        help='Master password (generated if not provided)'
-    )
-    create_parser.add_argument(
-        '--vpc-id',
-        help='VPC ID (uses default VPC if not provided)'
-    )
-    create_parser.add_argument(
-        '--tags',
-        nargs='+',
-        metavar='KEY=VALUE',
-        help='Additional tags as KEY=VALUE pairs (e.g., --tags Owner=John Team=DevOps)'
-    )
-    create_parser.add_argument(
-        '--skip-databases',
-        action='store_true',
-        help='Skip automatic database creation'
+        "--skip-databases", action="store_true", help="Skip automatic database creation"
     )
     create_parser.set_defaults(func=cmd_create)
 
     # Status command
-    status_parser = subparsers.add_parser('status', help='Check RDS instance status')
+    status_parser = subparsers.add_parser("status", help="Check RDS instance status")
     status_parser.add_argument(
-        '--instance-id',
-        default='intermine-postgres',
-        help='DB instance identifier (default: intermine-postgres)'
+        "--instance-id",
+        default="intermine-postgres",
+        help="DB instance identifier (default: intermine-postgres)",
     )
     status_parser.set_defaults(func=cmd_status)
 
     # Stop command
-    stop_parser = subparsers.add_parser('stop', help='Stop RDS instance (saves costs)')
+    stop_parser = subparsers.add_parser("stop", help="Stop RDS instance (saves costs)")
     stop_parser.add_argument(
-        '--instance-id',
-        default='intermine-postgres',
-        help='DB instance identifier (default: intermine-postgres)'
+        "--instance-id",
+        default="intermine-postgres",
+        help="DB instance identifier (default: intermine-postgres)",
     )
     stop_parser.set_defaults(func=cmd_stop)
 
     # Start command
-    start_parser = subparsers.add_parser('start', help='Start stopped RDS instance')
+    start_parser = subparsers.add_parser("start", help="Start stopped RDS instance")
     start_parser.add_argument(
-        '--instance-id',
-        default='intermine-postgres',
-        help='DB instance identifier (default: intermine-postgres)'
+        "--instance-id",
+        default="intermine-postgres",
+        help="DB instance identifier (default: intermine-postgres)",
     )
     start_parser.set_defaults(func=cmd_start)
 
     # Modify command
-    modify_parser = subparsers.add_parser('modify', help='Modify RDS instance (storage, instance type)')
-    modify_parser.add_argument(
-        '--instance-id',
-        default='intermine-postgres',
-        help='DB instance identifier (default: intermine-postgres)'
+    modify_parser = subparsers.add_parser(
+        "modify", help="Modify RDS instance (storage, instance type)"
     )
     modify_parser.add_argument(
-        '--storage',
-        type=int,
-        help='New storage size in GB (can only increase, not decrease)'
+        "--instance-id",
+        default="intermine-postgres",
+        help="DB instance identifier (default: intermine-postgres)",
     )
     modify_parser.add_argument(
-        '--instance-type',
-        help='New instance type (e.g., db.t3.xlarge)'
+        "--storage", type=int, help="New storage size in GB (can only increase, not decrease)"
     )
+    modify_parser.add_argument("--instance-type", help="New instance type (e.g., db.t3.xlarge)")
     modify_parser.add_argument(
-        '--apply-immediately',
-        action='store_true',
-        help='Apply changes immediately (default: apply during maintenance window)'
+        "--apply-immediately",
+        action="store_true",
+        help="Apply changes immediately (default: apply during maintenance window)",
     )
     modify_parser.set_defaults(func=cmd_modify)
 
     # Delete command
-    delete_parser = subparsers.add_parser('delete', help='Delete RDS instance')
+    delete_parser = subparsers.add_parser("delete", help="Delete RDS instance")
     delete_parser.add_argument(
-        '--instance-id',
-        default='intermine-postgres',
-        help='DB instance identifier (default: intermine-postgres)'
+        "--instance-id",
+        default="intermine-postgres",
+        help="DB instance identifier (default: intermine-postgres)",
     )
     delete_parser.add_argument(
-        '--skip-snapshot',
-        action='store_true',
-        help='Skip final snapshot (data will be lost!)'
+        "--skip-snapshot", action="store_true", help="Skip final snapshot (data will be lost!)"
     )
-    delete_parser.add_argument(
-        '--confirm',
-        action='store_true',
-        help='Skip confirmation prompt'
-    )
+    delete_parser.add_argument("--confirm", action="store_true", help="Skip confirmation prompt")
     delete_parser.set_defaults(func=cmd_delete)
 
     # Parse arguments
@@ -461,5 +433,5 @@ Examples:
     return args.func(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

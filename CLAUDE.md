@@ -8,7 +8,7 @@ AGR InterMine Builder is a build and deployment system for AllianceMine, a bioin
 
 The system has two layers:
 - **Docker build container** (`docker/alliancemine/`): Runs the InterMine build pipeline inside a container. This is the primary build system, proven with 9.0.0.
-- **Host-side orchestration** (`src/`): Python CLI tools for RDS management, release versioning, and multi-mine orchestration via Docker SDK.
+- **Host commands** (`mine`, `src/`): A small Compose launcher plus independent RDS, release, and database administration tools. See `README.md` for the current interface.
 
 ## Quick Start — Docker Build (Primary)
 
@@ -30,12 +30,12 @@ docker compose run --rm -e RC_NUMBER=N alliancemine-builder build --start-from p
 uv pip install -e .                                    # Install dependencies
 python -m src.cli.rds_manager status                   # Check RDS
 python -m src.cli.set_release show                     # Show Alliance releases
-python -m src.cli.build_mines list                     # List available mines
+./mine list                                           # List available mines (no install needed)
 ```
 
 ### Testing and Linting
 ```bash
-pytest                            # Run tests (4 test files in tests/)
+python -m pytest                  # Run launcher and pipeline regression tests
 pytest --cov=src --cov-report=html
 black src/                        # Format (line-length: 100)
 ruff check src/                   # Lint (line-length: 100, target: py39)
@@ -49,25 +49,27 @@ mypy src/                         # Type checking
 ```
 Host (AllianceMineDev)                    Container (alliancemine-builder)
 ─────────────────────                     ─────────────────────────────────
-src/cli/ (CLI tools)                      scripts/build_full.py (6-stage pipeline)
-src/intermine_builder/ (orchestration)    scripts/extract_data.py (FMS + S3 data)
-  └─ RDS provisioning                    scripts/promote_to_production.py
-  └─ Docker SDK management               scripts/deploy_war.py
-  └─ Multi-mine config                   entrypoint.sh (config, DB setup)
-                                          project.xml (sources + dump checkpoints)
+mine → Docker Compose                    scripts/build_full.py (6-stage pipeline)
+src/cli/ (operational tools)              scripts/extract_data.py (FMS + S3 data)
+src/intermine_builder/                   scripts/promote_to_production.py
+  └─ RDS provisioning                    scripts/deploy_war.py
+docker/<mine>/docker-compose.yml         entrypoint.sh (config, DB setup)
+  └─ Per-mine .env                       project.xml (sources + dump checkpoints)
 ```
 
 ### Host-Side Modules (`src/`)
 
-**MineBuilder** (`mine_builder.py`) — Top-level orchestrator. Creates Docker networks, builds images, manages containers.
+**Compose launcher** (`src/cli/mine.py`) — Selects one of five mine directories;
+delegates image/run/shell/status to Compose and full builds to existing scripts.
+Build output persists in the selected directory's `logs/commands.log`.
 
-**DockerManager** (`docker_manager.py`) — Docker container lifecycle via Python SDK.
+**Operational tools** — `rds_manager.py`, `set_release.py`, and `db_admin.py`
+remain independent. The former Docker SDK orchestration and configuration
+classes were removed; do not introduce a second stage/configuration registry.
 
-**BuildExecutor** (`build_executor.py`) — Runs build stages inside containers.
-
-**Config** (`config.py`) — Aggregates 6 nested dataclass configs from env vars.
-
-**MineConfig** (`mine_config.py`) — `MineType` enum (4 mines), `BuildStage` enum, `MINE_CONFIGS` registry.
+**Configuration** — Each mine's Compose file and `.env` are authoritative for
+builds. The existing `AGENTS.md` is preserved; its older orchestration references
+are superseded by `README.md` and `docs/BUILD_SYSTEM.md` on this branch.
 
 ### Container-Side Scripts (`docker/alliancemine/scripts/`)
 
@@ -154,6 +156,6 @@ InterMine does NOT auto-create Solr cores. The build container does, via a prefl
 - Build times: 5-8 hours total, `project_build` is ~70% (fbbt and xlaevis-fasta are bottlenecks)
 - RDS: 500 GB gp3, checkpoint copies consume ~30-60 GB each — monitor storage during builds
 - `legacy/` folder contains all deprecated approaches (reference only)
-- Tests exist in `tests/` (4 files, 663 LOC) testing the `src/` orchestration layer
+- Tests in `tests/` cover launcher processes, installed commands, extraction, promotion, and rollback
 - Python target: >=3.9 (black targets py39-py311)
 - Upstream fixes needed: alliancemine (`gradle.properties`, Solr URLs) and alliancemine-bio-sources (`SgdConverter` dedup)

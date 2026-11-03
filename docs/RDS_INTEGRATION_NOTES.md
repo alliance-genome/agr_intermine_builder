@@ -1,5 +1,7 @@
 # RDS Integration Notes
 
+> Historical orchestration reference: the Compose launcher supersedes the host-side Python build API and registry described below. Use [the current build system](BUILD_SYSTEM.md) for commands and migration notes.
+
 ## Current Status
 
 The RDS instance has been successfully created with the following details:

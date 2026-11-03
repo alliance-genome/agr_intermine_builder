@@ -1,5 +1,7 @@
 # docker-intermine-gradle
 
+> For current build commands, start with the [repository README](../README.md) and [Compose build system](BUILD_SYSTEM.md). The older deployment examples below are retained for reference.
+
 You can use these docker images to create your own InterMine instance. You can launch our test InterMine (BioTestMine) or you can use your own data to build a custom mine.
 
 ## Requirements

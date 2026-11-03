@@ -10,6 +10,7 @@
 *.tgz
 *.tar.gz
 docker/*/data/
+docker/*/logs/
 docker/wormmine/WS*/
 
 # Python
