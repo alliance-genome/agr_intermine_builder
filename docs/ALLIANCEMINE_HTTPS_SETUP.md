@@ -137,6 +137,11 @@ curl -s --max-time 20 http://localhost:8888/js/intermine/im-tables/2.0.0-beta/im
 curl -s -o /dev/null -D - https://alliancemine.alliancegenome.org/alliancemine/service/model | grep -i -e '^x-cache' -e '^age'
 ```
 After a release that changes the model or keeps a CSS/JS file name, ask the infrastructure team to invalidate those paths.
+
+The model cache uses the cache policy `mousemine-model-1h` (TTL fixed at 3600 s, which overrides the mine's `max-age=0`) on distribution `E225Q02QD2JV8Z`, which serves all five `*.alliancegenome.org` mine hosts. Its cache key holds all query strings and the `Accept`, `Host` and `Origin` headers. The mines copy the request `Origin` into `Access-Control-Allow-Origin`, so `Origin` must stay in the key. Without it, a model fetched from one site is served to every site with that site's CORS header. On 2026-11-11 a local BlueGenes run cached `http://localhost:5001`, which blocked www.alliancegenome.org BlueGenes until `Origin` was added on 2026-11-16 (invalidation `I5K03YIREH6F1NK8IIFSQWR0T6`). Check the header per origin:
+```bash
+curl -s -o /dev/null -D - -H 'Origin: https://www.alliancegenome.org' https://alliancemine.alliancegenome.org/alliancemine/service/model?format=json | grep -i -e '^access-control-allow-origin' -e '^x-cache'
+```
 ```
 
 ### Check Base Tag (for HTTPS)
