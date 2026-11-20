@@ -678,6 +678,20 @@ BlueGenes config is read from `config/defaults/config.edn` which gets bundled in
 
 **Always update `config/defaults/config.edn`** when changing mine configurations.
 
+### Visualisation Tools (`/tools`)
+
+Since agr_bluegenes PR #90 (`dev` 9b07f293), the Dockerfile bakes the report-page tools into the image:
+
+- A `python:3.12-slim` stage runs `scripts/build-tools-dir.sh /tools`. It installs the pinned `@intermine` npm tools from `docker/intermine-tools.txt` plus the bundled `alliance-tools/`.
+- The runtime image sets `ENV BLUEGENES_TOOL_PATH=/tools`. Do not mount a volume over `/tools`; it hides the baked tools.
+- The Docker build needs `config/prod/config.edn`, which is gitignored. Copy it from the running container first: `docker cp bluegenes:/app/config/prod/config.edn config/prod/`.
+- `npm ci` fails on `dev` because `package-lock.json` is out of sync with `package.json`. Run `npm install` before `lein uberjar`.
+- Production on multi-tenant bind-mounts `/home/ec2-user/bluegenes-config/bluegenes.jar:/bluegenes.jar`. That host jar overrides the jar in a new image. A rollout must replace the host jar too, or drop the mount.
+
+Check after deploy: `curl -s http://localhost:5000/bluegenes/api/tools/all` lists 45 tools (`len(.tools)`).
+
+A test container `bluegenes-tools-test` (image `agr_bluegenes:tools-test`, loaded with `docker save | ssh AllianceMineDev docker load`, no ECR push) ran on AllianceMineDev port 5001 on 2026-11-20 and returned 45 tools. Port 5001 there is internal only: no ALB target, and the security group opens 80 and 443.
+
 ### Running Services on Multi-Tenant
 
 ```
