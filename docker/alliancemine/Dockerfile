@@ -16,6 +16,7 @@ RUN apk add --no-cache \
     git \
     bash \
     postgresql-client \
+    openssh-client \
     wget \
     curl \
     ca-certificates \
@@ -66,8 +67,12 @@ RUN mkdir -p .intermine
 # Repos are cloned at build time but compiled at runtime (first run)
 # to keep image build lightweight.
 # ============================================
-ARG ALLIANCEMINE_BRANCH=master
-RUN git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
+# The *_SHA args carry the expected branch head. A new head changes the RUN line's
+# cache key, so a push to the branch re-clones instead of reusing the cached layer.
+ARG ALLIANCEMINE_BRANCH=im2-model-links
+ARG ALLIANCEMINE_SHA=
+RUN echo "alliancemine ${ALLIANCEMINE_BRANCH} expected ${ALLIANCEMINE_SHA}" && \
+    git clone --depth 1 --branch ${ALLIANCEMINE_BRANCH} \
     https://github.com/alliance-genome/alliancemine.git
 
 # Symlink the in-project alliancemine.properties to the InterMine-convention
@@ -83,9 +88,15 @@ RUN rm -f /root/alliancemine/alliancemine.properties && \
 COPY scripts/checkpoint_ssh.sh /usr/local/bin/ssh
 RUN chmod +x /usr/local/bin/ssh
 
-ARG BIO_SOURCES_BRANCH=master
-RUN git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
+ARG BIO_SOURCES_BRANCH=im2-model-links
+ARG BIO_SOURCES_SHA=
+RUN echo "alliancemine-bio-sources ${BIO_SOURCES_BRANCH} expected ${BIO_SOURCES_SHA}" && \
+    git clone --depth 1 --branch ${BIO_SOURCES_BRANCH} \
     https://github.com/alliance-genome/alliancemine-bio-sources.git
+
+RUN { echo "alliancemine ${ALLIANCEMINE_BRANCH} $(git -C /root/alliancemine rev-parse HEAD)"; \
+      echo "alliancemine-bio-sources ${BIO_SOURCES_BRANCH} $(git -C /root/alliancemine-bio-sources rev-parse HEAD)"; \
+    } > /root/clone-shas.txt
 
 # ============================================
 # Install project_build from intermine-scripts
@@ -103,9 +114,6 @@ COPY properties/alliancemine.properties.template /root/.intermine/alliancemine.p
 
 COPY scripts/ /root/scripts/
 RUN chmod +x /root/scripts/*.py
-
-# Override project.xml with dump checkpoints for restartable builds
-COPY project.xml /root/alliancemine/project.xml
 
 # Patch alliancemine gradle.properties: hardcoded -Xmx48g overrides GRADLE_OPTS
 # Without this patch, the JVM starts with whatever the file says regardless of compose env.
@@ -137,8 +145,11 @@ new = '''            <fieldconfig fieldExpr="function" label="Complex Function" 
 
             <fieldconfig fieldExpr="systematicName" label="Complex Systematic Name" />
             <fieldconfig fieldExpr="properties" label="Complex Properties" />'''
-assert old in s, 'webconfig Complex block not found - upstream may have changed'
-open(p, 'w').write(s.replace(old, new))
+if new in s:
+    print('webconfig Complex block already in the target order; no patch needed')
+else:
+    assert old in s, 'webconfig Complex block not found - upstream may have changed'
+    open(p, 'w').write(s.replace(old, new))
 PYEOF
 
 # Patch class_keys.properties: add Complex key + fix taxonif typo. Without a

@@ -4,6 +4,10 @@ set -e
 echo "============================================"
 echo "AllianceMine Build Container"
 echo "============================================"
+if [ -f /root/clone-shas.txt ]; then
+    echo "Cloned repositories:"
+    sed 's/^/  /' /root/clone-shas.txt
+fi
 
 # ============================================
 # Compile bio-sources and alliancemine (first run only)
@@ -83,6 +87,15 @@ resolve_rc_number() {
         return
     fi
 
+    # A resume continues an existing database; auto-incrementing would start an empty rc instead.
+    local arg
+    for arg in "$@"; do
+        if [ "${arg}" = "--resume" ]; then
+            echo "ERROR: --resume needs RC_NUMBER (the rc to continue); auto-detection would create a new rc."
+            exit 1
+        fi
+    done
+
     local ver_sanitized
     ver_sanitized=$(echo "${ALLIANCE_RELEASE}" | tr '.' '_')
     local pattern="alliancemine_${ver_sanitized}_rc"
@@ -97,13 +110,31 @@ resolve_rc_number() {
             substring(datname from '${pattern}([0-9]+)$')::int
         ), 0)
         FROM pg_database
-        WHERE datname ~ '^${pattern}[0-9]+$'" 2>/dev/null) || max_rc=0
+        WHERE datname ~ '^${pattern}[0-9]+$'") || {
+        echo "ERROR: could not list RC databases on ${RDS_HOST}; set RC_NUMBER or fix the connection."
+        exit 1
+    }
 
     export RC_NUMBER=$(( ${max_rc:-0} + 1 ))
     echo "RC Number: ${RC_NUMBER} (auto-incremented, found rc${max_rc:-0} on RDS)"
 }
 
 resolve_release
+
+# Download-only modes: no RDS connection, database creation or properties needed.
+case "$1" in
+    extract)
+        echo "Mode: EXTRACT DATA (no database setup)"
+        shift
+        exec python3 /root/scripts/extract_data.py --release "${ALLIANCE_RELEASE}" "$@"
+        ;;
+    check-downloads)
+        echo "Mode: CHECK DOWNLOADS"
+        shift
+        exec python3 /root/scripts/check_downloads.py \
+            --project-xml /root/alliancemine/project.xml "$@"
+        ;;
+esac
 
 echo "Build Type:       ${BUILD_TYPE:-test}"
 echo "RDS:              ${RDS_HOST}:${RDS_PORT}"
@@ -177,6 +208,12 @@ configure_properties() {
     export DEPLOY_PASSWORD="${DEPLOY_PASSWORD:-manager}"
     export SUPERUSER_ACCOUNT="${SUPERUSER_ACCOUNT:-superuser@mail_account}"
     export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-secret}"
+    if [ "${BUILD_TYPE}" = "production" ]; then
+        if [ "${DEPLOY_PASSWORD}" = "manager" ] || [ "${SUPERUSER_PASSWORD}" = "secret" ]; then
+            echo "ERROR: production build with a default DEPLOY_PASSWORD or SUPERUSER_PASSWORD; set both in .env."
+            exit 1
+        fi
+    fi
     # Derive Solr URLs from release/RC so they line up with the cores the
     # build_full.py preflight will create (alliancemine-search-{release}[-rc{N}]).
     # Honor explicit overrides from .env if the operator wants to point at
@@ -228,7 +265,7 @@ setup_databases() {
 
     # Helper: check if a database exists
     db_exists() {
-        ${PSQL} -d postgres -lqt | cut -d \| -f 1 | grep -qw "$1"
+        [ "$(${PSQL} -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$1'")" = 1 ]
     }
 
     # Create main DB and items DB if they don't exist
@@ -260,7 +297,7 @@ setup_databases() {
 # ============================================
 
 wait_for_postgres
-resolve_rc_number
+resolve_rc_number "$@"
 construct_db_names
 configure_properties
 # After configure_properties: webapp/build.gradle reads alliancemine.properties, and before
@@ -308,15 +345,6 @@ case "$1" in
         echo "Mode: DEPLOY"
         shift
         exec python3 /root/scripts/deploy_war.py "$@"
-        ;;
-
-    extract)
-        echo ""
-        echo "Mode: EXTRACT DATA"
-        shift
-        exec python3 /root/scripts/extract_data.py \
-            --release "${ALLIANCE_RELEASE}" \
-            "$@"
         ;;
 
     release)

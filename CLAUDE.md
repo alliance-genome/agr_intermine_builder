@@ -10,6 +10,17 @@ The system has two layers:
 - **Docker build container** (`docker/alliancemine/`): Runs the InterMine build pipeline inside a container. This is the primary build system, proven with 9.0.0.
 - **Host-side orchestration** (`src/`): Python CLI tools for RDS management, release versioning, and multi-mine orchestration via Docker SDK.
 
+## Build Host Layout (AllianceMineDev, 172.31.60.197)
+
+- `~/agr_intermine_builder`: this repo; the only builder checkout used for AllianceMine builds.
+  Build data lives in `docker/alliancemine/data/` (gitignored), run logs in `runs/` (gitignored).
+- `~/intermine/alliancemine` and `~/intermine/alliancemine-bio-sources`: the InterMine repos,
+  separate git checkouts. The Dockerfile clones them from GitHub by branch, so push before building.
+- `tools/api_fetch/run.sh`: Alliance API prefetch outside the container into `data/api` + `data/api-cache`.
+- `tools/model_audit/model_links.py`: one-way references, unreferenced classes and ID-string
+  attributes in the merged model.
+- `~/yeastmine-build` and `~/flymine-deploy` stay separate: the weekly YeastMine and FlyMine jobs use them.
+
 ## Quick Start — Docker Build (Primary)
 
 ```bash
@@ -117,7 +128,7 @@ Solr runs directly on the Multitenant host (172.31.59.87), port 8983. Cores:
 - `alliancemine-search` / `alliancemine-autocomplete` — production
 - `alliancemine-search-{version}` / `alliancemine-autocomplete-{version}` — per-release
 
-InterMine does NOT auto-create Solr cores. The build container does, via a preflight step in `build_full.py` that calls `create_solr_cores.py` over SSH (target naming mirrors DBs: `alliancemine-search-{release}[-rc{N}]` / `alliancemine-autocomplete-{release}[-rc{N}]`). `entrypoint.sh` derives `SOLR_INDEX_URL` and `SOLR_AUTOCOMPLETE_URL` from `SOLR_HOST` + release + RC so the URLs and the cores stay in sync. SSH uses the host's default keys when run from inside AWS; from a laptop, set `SOLR_SSH_KEY` to the PEM. Preflight failure is non-fatal — postprocess will surface a clearer "core not found" later, and you can recreate cores manually with `create_solr_cores.py` and resume with `--start-from postprocess`. The Solr URLs are also hardcoded in two files in the alliancemine repo (`keyword_search.properties` and `objectstoresummary.config.properties`) and must be patched at runtime. The production WAR also references the old Docker hostname `agr.stage.alliancemine.solr.server` which must be mapped to `172.17.0.1` (Docker host gateway) via `/etc/hosts` or `--add-host`.
+InterMine does NOT auto-create Solr cores. The build container does, via a preflight step in `build_full.py` that calls `create_solr_cores.py` over SSH (copies `conf/` from the live core, then CoreAdmin CREATE; Solr is never restarted) (target naming mirrors DBs: `alliancemine-search-{release}[-rc{N}]` / `alliancemine-autocomplete-{release}[-rc{N}]`). `entrypoint.sh` derives `SOLR_INDEX_URL` and `SOLR_AUTOCOMPLETE_URL` from `SOLR_HOST` + release + RC so the URLs and the cores stay in sync. SSH uses the host's default keys when run from inside AWS; from a laptop, set `SOLR_SSH_KEY` to the PEM. Preflight failure is non-fatal — postprocess will surface a clearer "core not found" later, and you can recreate cores manually with `create_solr_cores.py` and resume with `--start-from postprocess`. The Solr URLs are also hardcoded in two files in the alliancemine repo (`keyword_search.properties` and `objectstoresummary.config.properties`) and must be patched at runtime. The production WAR also references the old Docker hostname `agr.stage.alliancemine.solr.server` which must be mapped to `172.17.0.1` (Docker host gateway) via `/etc/hosts` or `--add-host`.
 
 ## Key Patterns
 
