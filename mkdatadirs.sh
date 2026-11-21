@@ -8,7 +8,7 @@
 ## logged in user so that you can share files between the user and the docker
 ## container without running into permission problems.
 
-if [ -z $1 ]; then
+if [ -z "${1:-}" ]; then
   echo "Usage: ${0} docker-compose.yml"
   echo "This script creates the directories listed as volumes in the docker-compose config file passed as argument."
   exit 1;

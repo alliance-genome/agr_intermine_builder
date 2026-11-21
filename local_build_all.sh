@@ -5,7 +5,7 @@
 docker network ls | grep -w intermine || docker network create intermine
 
 # Check if a container named "agr.local.intermine_builder" already exists
-if [ $(docker ps -aq -f name=^/agr.local.intermine_builder$) ]; then
+if [ -n "$(docker ps -aq -f "name=^/agr.local.intermine_builder$")" ]; then
     # Stop the container if it is running
     docker stop agr.local.intermine_builder
     # Remove the container after stopping

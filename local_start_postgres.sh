@@ -16,7 +16,7 @@ if [ ! -d "$PG_DATA_DIR" ]; then
 fi
 
 # Check if a container named "agr.local.alliancemine.postgres.server" already exists
-if [ $(docker ps -aq -f name=^/agr.local.alliancemine.postgres.server$) ]; then
+if [ -n "$(docker ps -aq -f "name=^/agr.local.alliancemine.postgres.server$")" ]; then
     echo "Stopping existing PostgreSQL container..."
     docker stop agr.local.alliancemine.postgres.server || echo "Failed to stop container"
     docker rm agr.local.alliancemine.postgres.server || echo "Failed to remove container"
@@ -24,6 +24,7 @@ if [ $(docker ps -aq -f name=^/agr.local.alliancemine.postgres.server$) ]; then
 fi
 
 # Run the Docker container with the volume mounted for persistence in detached mode
+# shellcheck disable=SC2086 # left unquoted, matching the original line
 docker run \
   -d \
   --name agr.local.alliancemine.postgres.server \

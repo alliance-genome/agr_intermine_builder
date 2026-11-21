@@ -13,7 +13,7 @@ if [ ! -d "$PG_DATA_DIR" ]; then
 fi
 
 # Check if a container named "local.postgres.server" already exists
-if [ $(docker ps -aq -f name=^/local.postgres.server$) ]; then
+if [ -n "$(docker ps -aq -f "name=^/local.postgres.server$")" ]; then
     # Stop the container if it is running
     docker stop local.postgres.server
     # Remove the container after stopping

@@ -1,0 +1,4 @@
+# ShellCheck configuration (https://github.com/koalaman/shellcheck)
+# The Solr entrypoint scripts source files that only exist inside the
+# container image (/opt/docker-solr/scripts/*), so they cannot be followed.
+disable=SC1090,SC1091

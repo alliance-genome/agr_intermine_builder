@@ -28,7 +28,7 @@ setup_environment() {
 build_intermine() {
     if [[ -z "${IM_REPO_URL-}" && -z "${IM_REPO_BRANCH-}" ]]; then
         return
-    }
+    fi
 
     log_message "Start InterMine build"
     log_message "Cloning ${IM_REPO_URL:-https://github.com/intermine/intermine} branch ${IM_REPO_BRANCH:-master}"
@@ -89,7 +89,7 @@ setup_mine() {
 setup_bio_sources() {
     if [[ -z "${BIOSOURCES_REPO_URL-}" ]]; then
         return
-    }
+    fi
 
     log_message "Clone ${BIOSOURCES_REPO_URL}"
     git clone "$BIOSOURCES_REPO_URL" "$MINE_NAME-bio-sources"
@@ -110,7 +110,7 @@ setup_project_build() {
         git clone "$INTERMINE_SCRIPTS_REPO"
         cp "/root/intermine-scripts/project_build" "/root/$mine_name/project_build"
         chmod +x "/root/$mine_name/project_build"
-    }
+    fi
 }
 
 # Configure mine properties

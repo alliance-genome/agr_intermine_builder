@@ -1,0 +1,22 @@
+name: shellcheck
+
+on:
+  push:
+    branches: [stage, production]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint shell scripts
+        run: |
+          # Lint every tracked file whose shebang is a shell (covers .sh and
+          # extensionless scripts such as docker_auth and solr/scripts/*).
+          git ls-files -z | while IFS= read -r -d '' f; do
+            head -n1 "$f" 2>/dev/null | grep -qE '^#!.*\b(ba|da|k)?sh\b' && printf '%s\0' "$f"
+          done | xargs -0 --no-run-if-empty shellcheck

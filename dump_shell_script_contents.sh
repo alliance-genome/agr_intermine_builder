@@ -32,10 +32,12 @@ find "$SEARCH_DIR" -maxdepth 1 -type f -name "*.sh" | while read -r filename; do
     echo "Processing: $(basename "$filename")"
     
     # Write the file name to the output file
-    echo "File Name: $filename" >> "$OUTPUT_FILE"
-    echo "----------------------------" >> "$OUTPUT_FILE"
-    cat "$filename" >> "$OUTPUT_FILE"
-    echo -e "\n----------------------------\n" >> "$OUTPUT_FILE"
+    {
+        echo "File Name: $filename"
+        echo "----------------------------"
+        cat "$filename"
+        echo -e "\n----------------------------\n"
+    } >> "$OUTPUT_FILE"
 done
 
 echo "All .sh files have been processed and their contents saved to $OUTPUT_FILE."
