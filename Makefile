@@ -1,4 +1,4 @@
-.PHONY: all help stage pushstage production pushproduction
+.PHONY: all help stage pushstage production pushproduction scan
 
 # Default target shows error message
 all:
@@ -11,6 +11,7 @@ help:
 	@echo "  make pushstage      - Push staging Docker image to ECR"
 	@echo "  make production     - Build production environment Docker image"
 	@echo "  make pushproduction - Push production Docker image to ECR"
+	@echo "  make scan IMAGE=... - Scan an image with grype (CVEs) and dive (layer waste)"
 
 # Build staging environment image
 stage:
@@ -35,3 +36,11 @@ production:
 # Push production image to ECR
 pushproduction: production
 	docker push 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:production
+
+# Scan an image for CVEs (grype) and wasted layer space (dive, thresholds in .dive-ci).
+# grype findings do not stop the dive check; dive exits non-zero if .dive-ci fails.
+# Example: make scan IMAGE=100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage
+IMAGE ?= 100225593120.dkr.ecr.us-east-1.amazonaws.com/agr_intermine_builder_env:stage
+scan:
+	-grype $(IMAGE) --severity-cutoff high --only-fixed
+	CI=true dive $(IMAGE) --ci-config .dive-ci
